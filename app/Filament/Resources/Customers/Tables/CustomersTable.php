@@ -40,8 +40,14 @@ class CustomersTable
 
                 TextColumn::make('rep.my_id')
                     ->label('Rep Internal ID')
+                    ->formatStateUsing(fn ($state): string => 'rep-' . $state)
                     ->sortable()
-                    ->searchable(),
+                    ->searchable(query: function ($query, $search) {
+                        $search = preg_replace('/^rep-/', '', $search);
+                        return $query->whereHas('rep', function ($q) use ($search) {
+                            $q->where('my_id', 'like', "%{$search}%");
+                        });
+                    }),
 
                 TextColumn::make('customer_name')
                     ->searchable(),
