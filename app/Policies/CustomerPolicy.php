@@ -38,7 +38,15 @@ class CustomerPolicy
     public function update(User $user, Customer $customer): bool
     {
         if ($user->role === 'admin') return true;
-        return $customer->lead_id === $user->id || $customer->rep_id === $user->id;
+        // Check many-to-many pivots if present, fall back to scalar columns
+        if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
+            if ($customer->leads->contains($user->id)) return true;
+        }
+        if (method_exists($customer, 'reps') && $customer->reps()->exists()) {
+            if ($customer->reps->contains($user->id)) return true;
+        }
+
+        return ($customer->lead_id ?? null) === $user->id || ($customer->rep_id ?? null) === $user->id;
     }
     /**
      * Determine whether the user can delete the model.
@@ -47,7 +55,11 @@ class CustomerPolicy
     {
         if ($user->role === 'rep') return false; // Reps can't delete!
         if ($user->role === 'admin') return true;
-        return $customer->lead_id === $user->id; // Leads can delete their own
+        if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
+            return $customer->leads->contains($user->id);
+        }
+
+        return ($customer->lead_id ?? null) === $user->id; // Leads can delete their own
     }
 
     /**

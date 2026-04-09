@@ -62,4 +62,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(Customer::class, 'rep_id');
     }
+
+    /**
+     * Customers where this user is one of the leads (many-to-many).
+     */
+    public function customersLed()
+    {
+        return $this->belongsToMany(Customer::class, 'customer_lead', 'user_id', 'customer_id')->withTimestamps();
+    }
+
+    /**
+     * Customers where this user is one of the reps (many-to-many).
+     */
+    public function customersRepped()
+    {
+        return $this->belongsToMany(Customer::class, 'customer_rep', 'user_id', 'customer_id')->withTimestamps();
+    }
 }

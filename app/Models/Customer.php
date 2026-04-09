@@ -23,4 +23,20 @@ class Customer extends Model
     {
         return $this->belongsTo(User::class, 'rep_id');
     }
+
+    /**
+     * Get the leads assigned to this customer (many-to-many).
+     */
+    public function leads()
+    {
+        return $this->belongsToMany(User::class, 'customer_lead', 'customer_id', 'user_id')->withTimestamps();
+    }
+
+    /**
+     * Get the reps assigned to this customer (many-to-many).
+     */
+    public function reps()
+    {
+        return $this->belongsToMany(User::class, 'customer_rep', 'customer_id', 'user_id')->withTimestamps();
+    }
 }

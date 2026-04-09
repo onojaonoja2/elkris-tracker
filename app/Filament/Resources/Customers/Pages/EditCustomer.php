@@ -16,4 +16,36 @@ class EditCustomer extends EditRecord
             DeleteAction::make(),
         ];
     }
+
+    protected function handleRecordUpdate(\Illuminate\Database\Eloquent\Model $record, array $data): \Illuminate\Database\Eloquent\Model
+    {
+        // Ensure scalar fallbacks for legacy non-nullable columns when updating
+        $payload = $data;
+        $user = auth()->user();
+        if ($user && $user->role === 'rep') {
+            $payload['rep_id'] = $user->id;
+            if (empty($payload['lead_id'])) {
+                $payload['lead_id'] = $user->lead_id ?? null;
+            }
+        }
+
+        if (empty($payload['lead_id']) && array_key_exists('leads', $data) && ! empty($data['leads'])) {
+            $payload['lead_id'] = is_array($data['leads']) ? reset($data['leads']) : $data['leads'];
+        }
+        if (empty($payload['rep_id']) && array_key_exists('reps', $data) && ! empty($data['reps'])) {
+            $payload['rep_id'] = is_array($data['reps']) ? reset($data['reps']) : $data['reps'];
+        }
+
+        $record->update(collect($payload)->except(['leads', 'reps'])->toArray());
+
+        if (array_key_exists('leads', $data)) {
+            $record->leads()->sync($data['leads'] ?? []);
+        }
+
+        if (array_key_exists('reps', $data)) {
+            $record->reps()->sync($data['reps'] ?? []);
+        }
+
+        return $record;
+    }
 }

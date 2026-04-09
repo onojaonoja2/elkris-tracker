@@ -16,16 +16,13 @@ class CustomerForm
         return $schema
             ->components([
                 // 1. LEAD SELECTION: Open for Admin/Lead, Locked for Rep
-                Select::make('lead_id')
-                    ->relationship('lead', 'name', fn($query) => $query->where('role', 'lead'))
-                    ->label('Assigned Lead')
+                // Allow selecting multiple leads per customer
+                \Filament\Forms\Components\MultiSelect::make('leads')
+                    ->label('Assigned Leads')
+                    ->relationship('leads', 'name', fn($query) => $query->where('role', 'lead'))
                     ->searchable()
-                    ->preload()
                     ->required()
-                    // ->default(fn () => auth()->user()->role === 'rep' ? auth()->user()->lead_id : null)
-                    // Logic: Disable ONLY if the user is a Rep
-                    // ->disabled(fn () => auth()->user()->role === 'rep')
-                    ->dehydrated(), // Ensures the ID is sent even if the field is disabled
+                    ,
 
                 // Select::make('lead_id')
                 //     ->label('Assigned Lead')
@@ -52,15 +49,13 @@ class CustomerForm
                 //     ->dehydrated(),
 
                 // 2. REP SELECTION: Open for Admin/Lead, Hidden for Rep (Auto-fills current ID)
-                Select::make('rep_id')
-                    ->relationship('rep', 'name', fn($query) => $query->where('role', 'rep'))
-                    ->label('Assigned Rep')
+                // Allow selecting multiple reps per customer
+                \Filament\Forms\Components\MultiSelect::make('reps')
+                    ->label('Assigned Reps')
+                    ->relationship('reps', 'name', fn($query) => $query->where('role', 'rep'))
                     ->searchable()
-                    ->preload()
                     ->required()
-                    ->default(fn() => auth()->user()->role === 'rep' ? auth()->id() : null)
-                    // Logic: Only hide if the user is a Rep (Admin and Leads see the dropdown)
-                    ->hidden(fn() => auth()->user()->role === 'rep'),
+                    ,
 
                 TextInput::make('customer_name')
                     ->required()

@@ -56,8 +56,11 @@ class CustomerResource extends Resource implements CopilotResource
         if ($user->role === 'admin') return parent::getEloquentQuery();
         
         // Leads only see their customers, Reps only see theirs
-        $column = ($user->role === 'lead') ? 'lead_id' : 'rep_id';
-        return parent::getEloquentQuery()->where($column, $user->id);
+        if ($user->role === 'lead') {
+            return parent::getEloquentQuery()->whereHas('leads', fn($q) => $q->where('users.id', $user->id));
+        }
+
+        return parent::getEloquentQuery()->whereHas('reps', fn($q) => $q->where('users.id', $user->id));
     }
 
     public static function copilotResourceDescription(): ?string
