@@ -47,4 +47,12 @@ class Customer extends Model
     {
         return $this->hasMany(Product::class);
     }
+
+    /**
+     * Get the field agent who submitted this customer.
+     */
+    public function agent()
+    {
+        return $this->belongsTo(User::class, 'agent_id');
+    }
 }

@@ -53,14 +53,27 @@ class CustomerResource extends Resource implements CopilotResource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if ($user->role === 'admin') return parent::getEloquentQuery();
+        if (in_array($user->role, ['admin', 'manager'])) return parent::getEloquentQuery();
         
-        // Leads only see their customers, Reps only see theirs
+        // Leads see their customers AND all field agent submissions
         if ($user->role === 'lead') {
-            return parent::getEloquentQuery()->whereHas('leads', fn($q) => $q->where('users.id', $user->id));
+            return parent::getEloquentQuery()->where(function (Builder $query) use ($user) {
+                $query->whereHas('leads', fn($q) => $q->where('users.id', $user->id))
+                      ->orWhere('lead_id', $user->id)
+                      ->orWhereNotNull('agent_id');
+            });
+        }
+        
+        // Field agents see only theirs
+        if ($user->role === 'field_agent') {
+            return parent::getEloquentQuery()->where('agent_id', $user->id);
         }
 
-        return parent::getEloquentQuery()->whereHas('reps', fn($q) => $q->where('users.id', $user->id));
+        // Reps see only theirs
+        return parent::getEloquentQuery()->where(function (Builder $query) use ($user) {
+            $query->whereHas('reps', fn($q) => $q->where('users.id', $user->id))
+                  ->orWhere('rep_id', $user->id);
+        });
     }
 
     public static function copilotResourceDescription(): ?string

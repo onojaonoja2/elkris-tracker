@@ -93,6 +93,7 @@ class CustomerForm
 
                 // ── Products Section ──
                 Section::make('Products')
+                    ->visible(fn() => auth()->user()->role !== 'field_agent')
                     ->schema([
                         Repeater::make('products')
                             ->relationship()
@@ -140,6 +141,7 @@ class CustomerForm
 
                 Select::make('preferred_payment_option')
                     ->label('Preferred Payment Option')
+                    ->visible(fn() => auth()->user()->role !== 'field_agent')
                     ->options([
                         'bank_transfer' => 'Bank Transfer',
                         'cash_on_delivery' => 'Cash on Delivery',
@@ -153,18 +155,21 @@ class CustomerForm
                     ->numeric()
                     ->prefix('₦')
                     ->readOnly()
+                    ->visible(fn() => auth()->user()->role !== 'field_agent')
                     ->default(0),
 
                 TextInput::make('order_quantity')
-                    ->required()
                     ->numeric()
                     ->default(0)
-                    ->prefix('Qty:'),
+                    ->prefix('Qty:')
+                    ->visible(fn() => auth()->user()->role !== 'field_agent'),
 
                 Textarea::make('delivery_details')
+                    ->visible(fn() => auth()->user()->role !== 'field_agent')
                     ->columnSpanFull(),
 
                 Select::make('delivery_status')
+                    ->visible(fn() => auth()->user()->role !== 'field_agent')
                     ->options([
                         'pending' => 'Pending',
                         'dispatched' => 'Dispatched',
@@ -207,7 +212,7 @@ class CustomerForm
      *
      * @return array<string, string>
      */
-    private static function nigerianCities(): array
+    public static function nigerianCities(): array
     {
         return [
             // FCT

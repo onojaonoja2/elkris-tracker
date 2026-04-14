@@ -99,6 +99,42 @@ class CustomersTable
                     )
             ])
             ->recordActions([
+                \Filament\Actions\Action::make('assignToRep')
+                    ->label('Assign')
+                    ->icon('heroicon-o-user-plus')
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager', 'lead']) && $record->agent_id !== null)
+                    ->form([
+                        \Filament\Forms\Components\Select::make('rep_id')
+                            ->label('Select Rep')
+                            ->options(\App\Models\User::where('role', 'rep')->pluck('name', 'id'))
+                            ->required(),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'rep_id' => $data['rep_id'],
+                            'rep_acceptance_status' => 'pending',
+                        ]);
+                        $record->reps()->syncWithoutDetaching([$data['rep_id']]);
+                    }),
+
+                \Filament\Actions\Action::make('acceptLead')
+                    ->label('Accept')
+                    ->color('success')
+                    ->icon('heroicon-o-check')
+                    ->visible(fn ($record) => auth()->user()->role === 'rep' && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
+                    ->action(function ($record) {
+                        $record->update(['rep_acceptance_status' => 'accepted']);
+                    }),
+
+                \Filament\Actions\Action::make('rejectLead')
+                    ->label('Reject')
+                    ->color('danger')
+                    ->icon('heroicon-o-x-mark')
+                    ->visible(fn ($record) => auth()->user()->role === 'rep' && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
+                    ->action(function ($record) {
+                        $record->update(['rep_acceptance_status' => 'rejected']);
+                    }),
+
                 EditAction::make(),
             ])
             ->toolbarActions([

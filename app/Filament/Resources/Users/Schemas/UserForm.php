@@ -35,14 +35,24 @@ class UserForm
                     ->label('User Role')
                     ->options([
                         'admin' => 'Administrator',
+                        'manager' => 'Manager',
                         'lead' => 'Team Lead',
                         'rep' => 'Representative',
+                        'field_agent' => 'Field Agent',
                         'sales' => 'Sales',
                     ])
                     ->required()
                     ->default('rep')
                     ->selectablePlaceholder(false) // Prevents picking a blank option
                     ->live(), // This tells Filament to refresh the form instantly when changed
+
+                Select::make('assigned_cities')
+                    ->label('Assigned Cities')
+                    ->multiple()
+                    ->options(\App\Filament\Resources\Customers\Schemas\CustomerForm::nigerianCities())
+                    ->searchable()
+                    ->visible(fn(callable $get) => $get('role') === 'field_agent')
+                    ->required(fn(callable $get) => $get('role') === 'field_agent'),
 
                 Select::make('lead_id')
                     ->label('Reports To')

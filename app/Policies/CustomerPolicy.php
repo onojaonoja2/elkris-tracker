@@ -37,7 +37,16 @@ class CustomerPolicy
      */
     public function update(User $user, Customer $customer): bool
     {
-        if ($user->role === 'admin') return true;
+        if (in_array($user->role, ['admin', 'manager'])) return true;
+        
+        // Field agents can update their own
+        if ($user->role === 'field_agent') return $customer->agent_id === $user->id;
+
+        // Reps cannot update until they accept the assignment
+        if ($user->role === 'rep' && $customer->rep_acceptance_status === 'pending') {
+            return false;
+        }
+
         // Check many-to-many pivots if present, fall back to scalar columns
         if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
             if ($customer->leads->contains($user->id)) return true;
@@ -53,8 +62,9 @@ class CustomerPolicy
      */
     public function delete(User $user, Customer $customer): bool
     {
-        if ($user->role === 'rep') return false; // Reps can't delete!
-        if ($user->role === 'admin') return true;
+        if (in_array($user->role, ['rep', 'field_agent'])) return false; // Reps and Field Agents can't delete
+        if (in_array($user->role, ['admin', 'manager'])) return true;
+        
         if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
             return $customer->leads->contains($user->id);
         }
