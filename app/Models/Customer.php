@@ -39,4 +39,12 @@ class Customer extends Model
     {
         return $this->belongsToMany(User::class, 'customer_rep', 'customer_id', 'user_id')->withTimestamps();
     }
+
+    /**
+     * Get the products for this customer.
+     */
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
 }
