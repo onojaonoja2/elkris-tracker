@@ -4,9 +4,10 @@ namespace App\Filament\Resources\Customers\Schemas;
 
 // use App\Models\User;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
 class CustomerForm
@@ -15,14 +16,13 @@ class CustomerForm
     {
         return $schema
             ->components([
-                // 1. LEAD SELECTION: Open for Admin/Lead, Locked for Rep
-                // Allow selecting multiple leads per customer
-                \Filament\Forms\Components\MultiSelect::make('leads')
+                // 1. LEAD SELECTION: Visible only to Admin
+                MultiSelect::make('leads')
                     ->label('Assigned Leads')
-                    ->relationship('leads', 'name', fn($query) => $query->where('role', 'lead'))
+                    ->relationship('leads', 'name', fn ($query) => $query->where('role', 'lead'))
                     ->searchable()
-                    ->required()
-                    ,
+                    ->required(fn (): bool => auth()->user()->role === 'admin')
+                    ->visible(fn (): bool => auth()->user()->role === 'admin'),
 
                 // Select::make('lead_id')
                 //     ->label('Assigned Lead')
@@ -48,14 +48,13 @@ class CustomerForm
                 //     // ->disabled(fn () => auth()->user()->role === 'rep')
                 //     ->dehydrated(),
 
-                // 2. REP SELECTION: Open for Admin/Lead, Hidden for Rep (Auto-fills current ID)
-                // Allow selecting multiple reps per customer
-                \Filament\Forms\Components\MultiSelect::make('reps')
+                // 2. REP SELECTION: Visible only to Admin
+                MultiSelect::make('reps')
                     ->label('Assigned Reps')
-                    ->relationship('reps', 'name', fn($query) => $query->where('role', 'rep'))
+                    ->relationship('reps', 'name', fn ($query) => $query->where('role', 'rep'))
                     ->searchable()
-                    ->required()
-                    ,
+                    ->required(fn (): bool => auth()->user()->role === 'admin')
+                    ->visible(fn (): bool => auth()->user()->role === 'admin'),
 
                 TextInput::make('customer_name')
                     ->required()
@@ -71,7 +70,7 @@ class CustomerForm
                 Select::make('gender')
                     ->options([
                         'male' => 'Male',
-                        'female' => 'Female'
+                        'female' => 'Female',
                     ]),
 
                 // TextInput::make('city'),
@@ -147,7 +146,7 @@ class CustomerForm
                 // TextInput::make('sort')
                 //     ->numeric()
                 //     ->default(0)
-                //     ->hidden(), 
+                //     ->hidden(),
             ]);
     }
 }
