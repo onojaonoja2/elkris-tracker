@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class UpcomingFollowUps extends TableWidget
 {
+    public static function canView(): bool
+    {
+        return auth()->user()->role !== 'field_agent';
+    }
     protected static ?string $heading = 'Upcoming Follow Ups 7 Days';
 
     protected int | string | array $columnSpan = 'full'; // Make it wide
