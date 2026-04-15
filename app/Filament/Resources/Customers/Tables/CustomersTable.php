@@ -135,7 +135,18 @@ class CustomersTable
                         $record->update(['rep_acceptance_status' => 'rejected']);
                     }),
 
-                EditAction::make(),
+                \Filament\Actions\Action::make('markDelivered')
+                    ->label('Mark Delivered')
+                    ->color('success')
+                    ->icon('heroicon-o-truck')
+                    ->visible(fn ($record) => auth()->user()->role === 'sales' && in_array($record->delivery_status, ['pending', 'dispatched']))
+                    ->action(function ($record) {
+                        $record->update(['delivery_status' => 'delivered']);
+                    }),
+
+                \Filament\Actions\ViewAction::make(),
+                \Filament\Actions\EditAction::make()
+                    ->visible(fn() => auth()->user()->role !== 'sales'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

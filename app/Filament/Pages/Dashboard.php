@@ -9,12 +9,12 @@ class Dashboard extends BaseDashboard
 {
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role !== 'field_agent';
+        return !in_array(auth()->user()->role, ['field_agent', 'sales']);
     }
 
     public function mount()
     {
-        if (auth()->user()->role === 'field_agent') {
+        if (in_array(auth()->user()->role, ['field_agent', 'sales'])) {
             return redirect()->to(CustomerResource::getUrl('index'));
         }
     }
