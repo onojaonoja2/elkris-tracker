@@ -54,17 +54,27 @@ class CustomerForm
                 Select::make('city')
                     ->options(self::nigerianCities())
                     ->searchable()
-                    ->required(),
+                    ->required()
+                    ->live(debounce: 500)
+                    ->afterStateUpdated(function (Set $set, $state) {
+                        $map = self::getCityMapping();
+                        if (isset($map[$state])) {
+                            $set('state', $map[$state]['state']);
+                            $set('region', $map[$state]['region']);
+                        } else {
+                            $set('state', null);
+                            $set('region', null);
+                        }
+                    }),
+
+                \Filament\Forms\Components\Hidden::make('state'),
+                \Filament\Forms\Components\Hidden::make('region'),
 
                 Textarea::make('address')
                     ->columnSpanFull(),
 
-                Select::make('customer_status')
-                    ->options([
-                        'prospect' => 'Prospect',
-                        'customer' => 'Customer',
-                    ])
-                    ->required(),
+                \Filament\Forms\Components\Hidden::make('customer_status')
+                    ->default('customer'),
 
                 Select::make('diabetic_awareness')
                     ->options([
@@ -97,6 +107,7 @@ class CustomerForm
                         'yes' => 'Yes',
                         'no' => 'No',
                     ])
+                    ->required()
                     ->live()
                     ->visible(fn() => auth()->user()->role === 'field_agent'),
 
@@ -223,134 +234,106 @@ class CustomerForm
      */
     public static function nigerianCities(): array
     {
+        $options = [];
+        foreach (self::getCityMapping() as $key => $data) {
+            $options[$data['state']][$key] = $data['city'];
+        }
+        return $options;
+    }
+
+    public static function getCityMapping(): array
+    {
         return [
-            // FCT
-            'abuja' => 'Abuja',
-            'gwagwalada' => 'Gwagwalada',
-            'kuje' => 'Kuje',
-            // Lagos
-            'lagos' => 'Lagos (Mainland)',
-            'ikeja' => 'Ikeja',
-            'lekki' => 'Lekki',
-            'ajah' => 'Ajah',
-            'ikorodu' => 'Ikorodu',
-            'badagry' => 'Badagry',
-            'epe' => 'Epe',
-            'vi' => 'Victoria Island',
-            'ikoyi' => 'Ikoyi',
-            'surulere' => 'Surulere',
-            'agege' => 'Agege',
-            'oshodi' => 'Oshodi',
-            'yaba' => 'Yaba',
-            // Oyo
-            'ibadan' => 'Ibadan',
-            'oyo' => 'Oyo',
-            'ogbomoso' => 'Ogbomoso',
-            // Rivers
-            'port_harcourt' => 'Port Harcourt',
-            // Kano
-            'kano' => 'Kano',
-            // Kaduna
-            'kaduna' => 'Kaduna',
-            'zaria' => 'Zaria',
-            // Enugu
-            'enugu' => 'Enugu',
-            // Anambra
-            'onitsha' => 'Onitsha',
-            'awka' => 'Awka',
-            'nnewi' => 'Nnewi',
-            // Delta
-            'warri' => 'Warri',
-            'asaba' => 'Asaba',
-            'sapele' => 'Sapele',
-            // Edo
-            'benin' => 'Benin City',
-            // Ogun
-            'abeokuta' => 'Abeokuta',
-            'sagamu' => 'Sagamu',
-            'ota' => 'Ota',
-            'ijebu_ode' => 'Ijebu Ode',
-            // Osun
-            'osogbo' => 'Osogbo',
-            'ife' => 'Ile-Ife',
-            // Ondo
-            'akure' => 'Akure',
-            'ondo' => 'Ondo',
-            // Ekiti
-            'ado_ekiti' => 'Ado-Ekiti',
-            // Kwara
-            'ilorin' => 'Ilorin',
-            // Plateau
-            'jos' => 'Jos',
-            // Benue
-            'makurdi' => 'Makurdi',
-            // Cross River
-            'calabar' => 'Calabar',
-            // Akwa Ibom
-            'uyo' => 'Uyo',
-            // Imo
-            'owerri' => 'Owerri',
-            // Abia
-            'umuahia' => 'Umuahia',
-            'aba' => 'Aba',
-            // Borno
-            'maiduguri' => 'Maiduguri',
-            // Sokoto
-            'sokoto' => 'Sokoto',
-            // Katsina
-            'katsina' => 'Katsina',
-            // Bauchi
-            'bauchi' => 'Bauchi',
-            // Adamawa
-            'yola' => 'Yola',
-            'jimeta' => 'Jimeta',
-            // Niger
-            'minna' => 'Minna',
-            'suleja' => 'Suleja',
-            // Taraba
-            'jalingo' => 'Jalingo',
-            // Nasarawa
-            'lafia' => 'Lafia',
-            // Kogi
-            'lokoja' => 'Lokoja',
-            'okene' => 'Okene',
-            // Gombe
-            'gombe' => 'Gombe',
-            // Yobe
-            'damaturu' => 'Damaturu',
-            // Ebonyi
-            'abakaliki' => 'Abakaliki',
-            // Bayelsa
-            'yenagoa' => 'Yenagoa',
-            // Jigawa
-            'dutse' => 'Dutse',
-            'hadejia' => 'Hadejia',
-            // Kebbi
-            'birnin_kebbi' => 'Birnin Kebbi',
-            // Zamfara
-            'gusau' => 'Gusau',
-            // Kebbi
-            'argungu' => 'Argungu',
-            // Osun
-            'ilesa' => 'Ilesa',
-            // Oyo
-            'oyo_town' => 'Oyo Town',
-            // Lagos
-            'alimosho' => 'Alimosho',
-            'ifako_ijaiye' => 'Ifako-Ijaiye',
-            'mushin' => 'Mushin',
-            'oshodi_isolo' => 'Oshodi-Isolo',
-            'amukpe' => 'Amukpe',
-            // Rivers
-            'bonny' => 'Bonny',
-            'eleme' => 'Eleme',
-            // Delta
-            'ughelli' => 'Ughelli',
-            // Anambra
-            'agulu' => 'Agulu',
-            // Imo
-            'orlu' => 'Orlu',
-            'okigwe' => 'Okigwe',
+            // South West
+            'lagos_island' => ['city' => 'Lagos Island', 'state' => 'Lagos', 'region' => 'South West'],
+            'ikorodu' => ['city' => 'Ikorodu', 'state' => 'Lagos', 'region' => 'South West'],
+            'epe' => ['city' => 'Epe', 'state' => 'Lagos', 'region' => 'South West'],
+            'ibadan' => ['city' => 'Ibadan', 'state' => 'Oyo', 'region' => 'South West'],
+            'ogbomosho' => ['city' => 'Ogbomosho', 'state' => 'Oyo', 'region' => 'South West'],
+            'oyo' => ['city' => 'Oyo', 'state' => 'Oyo', 'region' => 'South West'],
+            'iseyin' => ['city' => 'Iseyin', 'state' => 'Oyo', 'region' => 'South West'],
+            'shaki' => ['city' => 'Shaki', 'state' => 'Oyo', 'region' => 'South West'],
+            'kisi' => ['city' => 'Kisi', 'state' => 'Oyo', 'region' => 'South West'],
+            'igboho' => ['city' => 'Igboho', 'state' => 'Oyo', 'region' => 'South West'],
+            'ife' => ['city' => 'Ife', 'state' => 'Osun', 'region' => 'South West'],
+            'ilesa' => ['city' => 'Ilesa', 'state' => 'Osun', 'region' => 'South West'],
+            'iwo' => ['city' => 'Iwo', 'state' => 'Osun', 'region' => 'South West'],
+            'osogbo' => ['city' => 'Osogbo', 'state' => 'Osun', 'region' => 'South West'],
+            'ila' => ['city' => 'Ila', 'state' => 'Osun', 'region' => 'South West'],
+            'gbongan' => ['city' => 'Gbongan', 'state' => 'Osun', 'region' => 'South West'],
+            'ilawe_ekiti' => ['city' => 'Ilawe Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'ise_ekiti' => ['city' => 'Ise Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'ijero_ekiti' => ['city' => 'Ijero Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'ado_ekiti' => ['city' => 'Ado Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'akure' => ['city' => 'Akure', 'state' => 'Ondo', 'region' => 'South West'],
+            'ondo_city' => ['city' => 'Ondo', 'state' => 'Ondo', 'region' => 'South West'],
+            'owo' => ['city' => 'Owo', 'state' => 'Ondo', 'region' => 'South West'],
+            'ikare' => ['city' => 'Ikare', 'state' => 'Ondo', 'region' => 'South West'],
+            'abeokuta' => ['city' => 'Abeokuta', 'state' => 'Ogun', 'region' => 'South West'],
+            'sagamu' => ['city' => 'Sagamu', 'state' => 'Ogun', 'region' => 'South West'],
+            'obafemi_owode' => ['city' => 'Obafemi Owode', 'state' => 'Ogun', 'region' => 'South West'],
+            'ijebu_ode' => ['city' => 'Ijebu Ode', 'state' => 'Ogun', 'region' => 'South West'],
+
+            // South South
+            'benin_city' => ['city' => 'Benin City', 'state' => 'Edo', 'region' => 'South South'],
+            'auchi' => ['city' => 'Auchi', 'state' => 'Edo', 'region' => 'South South'],
+            'uromi' => ['city' => 'Uromi', 'state' => 'Edo', 'region' => 'South South'],
+            'ekpoma' => ['city' => 'Ekpoma', 'state' => 'Edo', 'region' => 'South South'],
+            'warri' => ['city' => 'Warri', 'state' => 'Delta', 'region' => 'South South'],
+            'sapele' => ['city' => 'Sapele', 'state' => 'Delta', 'region' => 'South South'],
+            'asaba' => ['city' => 'Asaba', 'state' => 'Delta', 'region' => 'South South'],
+            'uyo' => ['city' => 'Uyo', 'state' => 'Akwa Ibom', 'region' => 'South South'],
+            'ikot_ekpeme' => ['city' => 'Ikot Ekpeme', 'state' => 'Akwa Ibom', 'region' => 'South South'],
+            'port_harcourt' => ['city' => 'Port Harcourt', 'state' => 'Rivers', 'region' => 'South South'],
+            'buguma' => ['city' => 'Buguma', 'state' => 'Rivers', 'region' => 'South South'],
+            'calabar' => ['city' => 'Calabar', 'state' => 'Cross River', 'region' => 'South South'],
+            'ugeb' => ['city' => 'Ugeb', 'state' => 'Cross River', 'region' => 'South South'],
+
+            // South East Zone
+            'aba' => ['city' => 'Aba', 'state' => 'Abia', 'region' => 'South East Zone'],
+            'umuahia' => ['city' => 'Umuahia', 'state' => 'Abia', 'region' => 'South East Zone'],
+            'enugu' => ['city' => 'Enugu', 'state' => 'Enugu', 'region' => 'South East Zone'],
+            'nsukka' => ['city' => 'Nsukka', 'state' => 'Enugu', 'region' => 'South East Zone'],
+            'awka' => ['city' => 'Awka', 'state' => 'Anambra', 'region' => 'South East Zone'],
+            'okpoko' => ['city' => 'Okpoko', 'state' => 'Anambra', 'region' => 'South East Zone'],
+            'owerri' => ['city' => 'Owerri', 'state' => 'Imo', 'region' => 'South East Zone'],
+            'okigwe' => ['city' => 'Okigwe', 'state' => 'Imo', 'region' => 'South East Zone'],
+            'abakaliki' => ['city' => 'Abakaliki', 'state' => 'Ebonyi', 'region' => 'South East Zone'],
+
+            // North Central Zone
+            'minna' => ['city' => 'Minna', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'mokwa' => ['city' => 'Mokwa', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'lavun' => ['city' => 'Lavun', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'bida' => ['city' => 'Bida', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'suleja' => ['city' => 'Suleja', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'ilorin' => ['city' => 'Ilorin', 'state' => 'Kwara', 'region' => 'North Central Zone'],
+            'abuja' => ['city' => 'Abuja', 'state' => 'FCT', 'region' => 'North Central Zone'],
+            'lafia' => ['city' => 'Lafia', 'state' => 'Nasarawa', 'region' => 'North Central Zone'],
+            'makurdi' => ['city' => 'Makurdi', 'state' => 'Benue', 'region' => 'North Central Zone'],
+            'gboko' => ['city' => 'Gboko', 'state' => 'Benue', 'region' => 'North Central Zone'],
+            'otukpo' => ['city' => 'Otukpo', 'state' => 'Benue', 'region' => 'North Central Zone'],
+            'okene' => ['city' => 'Okene', 'state' => 'Kogi', 'region' => 'North Central Zone'],
+
+            // North West Zone
+            'kano' => ['city' => 'Kano', 'state' => 'Kano', 'region' => 'North West Zone'],
+            'zaria' => ['city' => 'Zaria', 'state' => 'Kaduna', 'region' => 'North West Zone'],
+            'kaduna_city' => ['city' => 'Kaduna', 'state' => 'Kaduna', 'region' => 'North West Zone'],
+            'sokoto' => ['city' => 'Sokoto', 'state' => 'Sokoto', 'region' => 'North West Zone'],
+            'katsina_city' => ['city' => 'Katsina', 'state' => 'Katsina', 'region' => 'North West Zone'],
+            'funtua' => ['city' => 'Funtua', 'state' => 'Katsina', 'region' => 'North West Zone'],
+            'gusau' => ['city' => 'Gusau', 'state' => 'Zamfara', 'region' => 'North West Zone'],
+            'garki' => ['city' => 'Garki', 'state' => 'Jigawa', 'region' => 'North West Zone'],
+
+            // North East Zone
+            'bauchi_city' => ['city' => 'Bauchi', 'state' => 'Bauchi', 'region' => 'North East Zone'],
+            'maiduguri' => ['city' => 'Maiduguri', 'state' => 'Borno', 'region' => 'North East Zone'],
+            'bama' => ['city' => 'Bama', 'state' => 'Borno', 'region' => 'North East Zone'],
+            'yola' => ['city' => 'Yola', 'state' => 'Adamawa', 'region' => 'North East Zone'],
+            'mubi' => ['city' => 'Mubi', 'state' => 'Adamawa', 'region' => 'North East Zone'],
+            'gombe_city' => ['city' => 'Gombe', 'state' => 'Gombe', 'region' => 'North East Zone'],
+            'jalingo' => ['city' => 'Jalingo', 'state' => 'Taraba', 'region' => 'North East Zone'],
+            'potiskum' => ['city' => 'Potiskum', 'state' => 'Yobe', 'region' => 'North East Zone'],
+            'gashua' => ['city' => 'Gashua', 'state' => 'Yobe', 'region' => 'North East Zone'],
         ];
     }
 }

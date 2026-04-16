@@ -40,6 +40,12 @@ class CustomersTable
                     })
                     ->toggleable(),
 
+                TextColumn::make('agent.name')
+                    ->label('Agent Name')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
+
                 TextColumn::make('customer_name')
                     ->searchable()
                     ->toggleable(),
@@ -52,6 +58,14 @@ class CustomersTable
                 TextColumn::make('gender')
                     ->toggleable(),
                 TextColumn::make('city')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
+                TextColumn::make('state')
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
+                TextColumn::make('region')
                     ->sortable()
                     ->searchable()
                     ->toggleable(),

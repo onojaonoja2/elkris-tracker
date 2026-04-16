@@ -52,4 +52,9 @@ class CreateCustomer extends CreateRecord
 
         return $customer;
     }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('create');
+    }
 }
