@@ -91,9 +91,18 @@ class CustomerForm
                     ->native(false)
                     ->displayFormat('d/m/Y'),
 
+                Select::make('trial_order_purchase')
+                    ->label('Trail Order Purchase?')
+                    ->options([
+                        'yes' => 'Yes',
+                        'no' => 'No',
+                    ])
+                    ->live()
+                    ->visible(fn() => auth()->user()->role === 'field_agent'),
+
                 // ── Products Section ──
                 Section::make('Products')
-                    ->visible(fn() => auth()->user()->role !== 'field_agent')
+                    ->visible(fn(Get $get) => auth()->user()->role !== 'field_agent' || (auth()->user()->role === 'field_agent' && $get('trial_order_purchase') === 'yes'))
                     ->schema([
                         Repeater::make('products')
                             ->relationship()

@@ -38,57 +38,10 @@ class UpcomingFollowUps extends TableWidget
                     ->limit(20)
             )
             ->columns([
-                TextColumn::make('customer_name')->searchable(),
-                TextColumn::make('call_date')->date()->sortable(),
-                TextColumn::make('follow_up_date')->date()->sortable(),
-                TextColumn::make('phone_number'),
-                // TextColumn::make('lead_id')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('rep_id')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('customer_name')
-                //     ->searchable(),
-                // TextColumn::make('phone_number')
-                //     ->searchable(),
-                // TextColumn::make('age')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('gender')
-                //     ->searchable(),
-                // TextColumn::make('city')
-                //     ->searchable(),
-                // TextColumn::make('status')
-                //     ->searchable(),
-                // TextColumn::make('customer_status')
-                //     ->searchable(),
-                // TextColumn::make('diabetic_awareness')
-                //     ->searchable(),
-                // TextColumn::make('call_date')
-                //     ->date()
-                //     ->sortable(),
-                // TextColumn::make('preffered_call_time')
-                //     ->searchable(),
-                // TextColumn::make('follow_up_date')
-                //     ->date()
-                //     ->sortable(),
-                // TextColumn::make('order_quantity')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('delivery_status')
-                //     ->searchable(),
-                // TextColumn::make('sort')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('created_at')
-                //     ->dateTime()
-                //     ->sortable()
-                //     ->toggleable(isToggledHiddenByDefault: true),
-                // TextColumn::make('updated_at')
-                //     ->dateTime()
-                //     ->sortable()
-                //     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('customer_name')->searchable()->toggleable(),
+                TextColumn::make('call_date')->date()->sortable()->toggleable(),
+                TextColumn::make('follow_up_date')->date()->sortable()->toggleable(),
+                TextColumn::make('phone_number')->toggleable(),
             ])
             ->filters([
                 //

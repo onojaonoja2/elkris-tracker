@@ -16,27 +16,17 @@ class CustomersTable
     {
         return $table
             ->columns([
-                // 1. LEAD INFORMATION
-                // TextColumn::make('lead_id')
-                //     ->numeric()
-                //     ->sortable(),
                 TextColumn::make('lead.name')
                     ->label('Lead Name')
-                    // ->description(fn($record): string => "ID: " . ($record->lead->my_id ?? 'N/A')) // Shows internal ID underneath
                     ->sortable()
-                    ->searchable(),
-
-                // 2. REP INFORMATION
-                // TextColumn::make('rep_id')
-                //     ->numeric()
-                //     ->sortable()
-                //     ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('rep.name')
                     ->label('Rep Name')
-                    // ->description(fn($record): string => "ID: " . ($record->rep->my_id ?? 'N/A')) // Shows internal ID underneath
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
 
                 TextColumn::make('rep.my_id')
                     ->label('Rep Internal ID')
@@ -47,36 +37,43 @@ class CustomersTable
                         return $query->whereHas('rep', function ($q) use ($search) {
                             $q->where('my_id', 'like', "%{$search}%");
                         });
-                    }),
+                    })
+                    ->toggleable(),
 
                 TextColumn::make('customer_name')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('phone_number')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('age')
-                    // ->sortable()
-                    ->numeric(),
-                TextColumn::make('gender'),
-                // ->searchable(),
+                    ->numeric()
+                    ->toggleable(),
+                TextColumn::make('gender')
+                    ->toggleable(),
                 TextColumn::make('city')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('customer_status')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('diabetic_awareness')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('call_date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('preffered_call_time')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('follow_up_date')
-                    ->searchable(),
-                // TextColumn::make('order_quantity')
-                //     ->numeric()
-                //     ->sortable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('delivery_status')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

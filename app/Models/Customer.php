@@ -8,6 +8,18 @@ use Illuminate\Database\Eloquent\Model;
 #[Unguarded]
 class Customer extends Model
 {
+    protected $fillable = [
+        'follow_up_date',
+        'preferred_payment_option',
+        'total_price',
+        'order_quantity',
+        'delivery_details',
+        'delivery_status',
+        'agent_id',
+        'rep_acceptance_status',
+        'trial_order_purchase',
+    ];
+
     /**
      * Get the lead assigned to this customer.
      */
