@@ -15,6 +15,7 @@ class CustomersTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('lead.name')
                     ->label('Lead Name')
@@ -69,6 +70,20 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable(),
+                TextColumn::make('rep_acceptance_status')
+                    ->label('Assignment Status')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => $state ? ucfirst($state) : 'Unassigned')
+                    ->color(fn (?string $state): string => match ($state) {
+                        'pending' => 'warning',
+                        'accepted' => 'success',
+                        'rejected' => 'danger',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
+
                 TextColumn::make('customer_status')
                     ->searchable()
                     ->toggleable(),
@@ -111,19 +126,30 @@ class CustomersTable
             ])
             ->recordActions([
                 \Filament\Actions\Action::make('assignToRep')
-                    ->label('Assign')
+                    ->label(fn ($record) => $record->rep_id ? 'Assigned (Reassign)' : 'Assign')
+                    ->color(fn ($record) => $record->rep_id ? 'success' : 'primary')
                     ->icon('heroicon-o-user-plus')
                     ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager', 'lead']) && $record->agent_id !== null)
                     ->form([
                         \Filament\Forms\Components\Select::make('rep_id')
-                            ->label('Select Rep')
-                            ->options(\App\Models\User::where('role', 'rep')->pluck('name', 'id'))
+                            ->label('Select Rep / Lead')
+                            ->options(function () {
+                                return \App\Models\User::where(function($query) {
+                                    $query->where('role', 'rep');
+                                    if (auth()->user()->role === 'lead') {
+                                        $query->orWhere('id', auth()->id());
+                                    }
+                                })->pluck('name', 'id');
+                            })
                             ->required(),
                     ])
                     ->action(function ($record, array $data) {
+                        // If lead assigns to self, they bypass pending/accept loop automatically.
+                        $acceptanceStatus = $data['rep_id'] == auth()->id() ? 'accepted' : 'pending';
+
                         $record->update([
                             'rep_id' => $data['rep_id'],
-                            'rep_acceptance_status' => 'pending',
+                            'rep_acceptance_status' => $acceptanceStatus,
                         ]);
                         $record->reps()->syncWithoutDetaching([$data['rep_id']]);
                     }),

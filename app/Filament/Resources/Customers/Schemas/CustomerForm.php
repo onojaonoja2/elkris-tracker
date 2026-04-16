@@ -132,7 +132,7 @@ class CustomerForm
                                     ->required()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->live(debounce: 300)
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
                                 TextInput::make('price')
                                     ->label('Unit Price (₦)')
@@ -140,7 +140,7 @@ class CustomerForm
                                     ->prefix('₦')
                                     ->required()
                                     ->default(0)
-                                    ->live(debounce: 300)
+                                    ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
                                 TextInput::make('line_total')
                                     ->label('Line Total (₦)')
@@ -177,12 +177,6 @@ class CustomerForm
                     ->readOnly()
                     ->visible(fn() => auth()->user()->role !== 'field_agent')
                     ->default(0),
-
-                TextInput::make('order_quantity')
-                    ->numeric()
-                    ->default(0)
-                    ->prefix('Qty:')
-                    ->visible(fn() => auth()->user()->role !== 'field_agent'),
 
                 Textarea::make('delivery_details')
                     ->visible(fn() => auth()->user()->role !== 'field_agent')
