@@ -19,6 +19,23 @@ class User extends Authenticatable
     use HasFactory, Notifiable, HasCopilotChat;
 
     /**
+     * Boot up the model to hook into lifecycle events natively.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            // Automatically assign a random unique 6-digit numerical ID to the user if none exists
+            if (empty($user->my_id)) {
+                do {
+                    $id = random_int(100000, 999999);
+                } while (self::where('my_id', $id)->exists());
+
+                $user->my_id = (string) $id;
+            }
+        });
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

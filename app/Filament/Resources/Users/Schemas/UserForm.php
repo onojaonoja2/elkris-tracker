@@ -28,9 +28,10 @@ class UserForm
                 //     ->default('rep'),
                 TextInput::make('my_id')
                     ->label('Internal ID')
-                    ->numeric() // Ensures only numbers can be typed
-                    ->unique(ignoreRecord: true) // Prevents duplicate IDs
-                    ->required(),
+                    ->numeric()
+                    ->disabled() 
+                    ->dehydrated(false) 
+                    ->visible(fn(string $operation): bool => $operation === 'edit'),
                 Select::make('role')
                     ->label('User Role')
                     ->options([
