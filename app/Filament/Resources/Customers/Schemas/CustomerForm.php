@@ -40,7 +40,13 @@ class CustomerForm
 
                 TextInput::make('phone_number')
                     ->tel()
-                    ->required(),
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->maxLength(11)
+                    ->regex('/^[0-9]{11}$/')
+                    ->validationMessages([
+                        'regex' => 'The phone number must be exactly 11 numeric digits without spaces or dashes.',
+                    ]),
 
                 TextInput::make('age')
                     ->numeric(),
@@ -55,6 +61,7 @@ class CustomerForm
                     ->options(self::nigerianCities())
                     ->searchable()
                     ->required()
+                    ->default(fn () => self::getDefaultCity())
                     ->live(debounce: 500)
                     ->afterStateUpdated(function (Set $set, $state) {
                         $map = self::getCityMapping();
@@ -67,8 +74,17 @@ class CustomerForm
                         }
                     }),
 
-                \Filament\Forms\Components\Hidden::make('state'),
-                \Filament\Forms\Components\Hidden::make('region'),
+                \Filament\Forms\Components\Hidden::make('state')
+                    ->default(function () {
+                        $city = self::getDefaultCity();
+                        return $city ? (self::getCityMapping()[$city]['state'] ?? null) : null;
+                    }),
+                    
+                \Filament\Forms\Components\Hidden::make('region')
+                    ->default(function () {
+                        $city = self::getDefaultCity();
+                        return $city ? (self::getCityMapping()[$city]['region'] ?? null) : null;
+                    }),
 
                 Textarea::make('address')
                     ->columnSpanFull(),
@@ -191,6 +207,18 @@ class CustomerForm
                         'cancelled' => 'Cancelled',
                     ]),
             ]);
+    }
+
+    /**
+     * Extracts the fallback default city for field agents.
+     */
+    public static function getDefaultCity(): ?string
+    {
+        $user = auth()->user();
+        if ($user && $user->role === 'field_agent' && !empty($user->assigned_cities)) {
+            return is_array($user->assigned_cities) ? $user->assigned_cities[0] : null;
+        }
+        return null;
     }
 
     /**
