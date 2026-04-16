@@ -27,6 +27,11 @@ class PortfolioResource extends Resource
     // Sort slightly below the Customer resource (alphabetically standard is default but explicit is safer)
     protected static ?int $navigationSort = 2;
 
+    public static function canViewAny(): bool
+    {
+        return in_array(auth()->user()->role, ['rep', 'lead']);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return CustomerForm::configure($schema);

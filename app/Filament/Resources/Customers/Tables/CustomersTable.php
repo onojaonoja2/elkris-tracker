@@ -125,11 +125,28 @@ class CustomersTable
                     )
             ])
             ->recordActions([
+                \Filament\Actions\Action::make('assignToLead')
+                    ->label(fn ($record) => $record->lead_id ? 'Reassign Lead' : 'Assign to Lead')
+                    ->color(fn ($record) => $record->lead_id ? 'success' : 'primary')
+                    ->icon('heroicon-o-users')
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager', 'supervisor']) && $record->agent_id !== null)
+                    ->form([
+                        \Filament\Forms\Components\Select::make('lead_id')
+                            ->label('Select Team Lead')
+                            ->options(\App\Models\User::where('role', 'lead')->pluck('name', 'id'))
+                            ->searchable()
+                            ->required(),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update(['lead_id' => $data['lead_id']]);
+                        $record->leads()->syncWithoutDetaching([$data['lead_id']]);
+                    }),
+
                 \Filament\Actions\Action::make('assignToRep')
                     ->label(fn ($record) => $record->rep_id ? 'Assigned (Reassign)' : 'Assign')
                     ->color(fn ($record) => $record->rep_id ? 'success' : 'primary')
                     ->icon('heroicon-o-user-plus')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager', 'lead']) && $record->agent_id !== null)
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->lead_id == auth()->id()))
                     ->form([
                         \Filament\Forms\Components\Select::make('rep_id')
                             ->label('Select Rep / Lead')

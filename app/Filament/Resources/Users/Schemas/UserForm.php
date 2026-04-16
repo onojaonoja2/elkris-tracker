@@ -36,6 +36,7 @@ class UserForm
                     ->options([
                         'admin' => 'Administrator',
                         'manager' => 'Manager',
+                        'supervisor' => 'Supervisor',
                         'lead' => 'Team Lead',
                         'rep' => 'Representative',
                         'field_agent' => 'Field Agent',

@@ -29,7 +29,8 @@ class CustomerPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        // Supervisors and Sales explicitly cannot create new customers organically.
+        return !in_array($user->role, ['sales', 'supervisor']);
     }
 
     /**

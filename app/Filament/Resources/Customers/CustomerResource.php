@@ -24,6 +24,11 @@ class CustomerResource extends Resource implements CopilotResource
 
     protected static ?string $recordTitleAttribute = 'Customers';
 
+    public static function canCreate(): bool
+    {
+        return !in_array(auth()->user()->role, ['sales', 'supervisor']);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return CustomerForm::configure($schema);
@@ -55,12 +60,16 @@ class CustomerResource extends Resource implements CopilotResource
         $user = auth()->user();
         if (in_array($user->role, ['admin', 'manager'])) return parent::getEloquentQuery();
         
-        // Leads see their customers AND all field agent submissions
+        // Supervisors see customers submitted by field agents globally
+        if ($user->role === 'supervisor') {
+            return parent::getEloquentQuery()->whereNotNull('agent_id');
+        }
+
+        // Leads see their customers exclusively
         if ($user->role === 'lead') {
             return parent::getEloquentQuery()->where(function (Builder $query) use ($user) {
                 $query->whereHas('leads', fn($q) => $q->where('users.id', $user->id))
-                      ->orWhere('lead_id', $user->id)
-                      ->orWhereNotNull('agent_id');
+                      ->orWhere('lead_id', $user->id);
             });
         }
         
