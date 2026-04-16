@@ -19,8 +19,14 @@ class CreatedPerRepChart extends ChartWidget
 
     protected function getData(): array
     {
-        $results = User::query()
-            ->where('role', 'rep')
+        $query = User::query()->where('role', 'rep');
+
+        // Team Leads organically only see the performance tracking points for their specific sub-reps natively
+        if (auth()->user()->role === 'lead') {
+            $query->where('lead_id', auth()->id());
+        }
+
+        $results = $query
             ->withCount([
                 'repCustomers as created_count' => fn ($query) => $query->where('created_at', '>=', now()->subDays(7)),
                 'repCustomers as updated_count' => fn ($query) => $query->where('updated_at', '>=', now()->subDays(7))

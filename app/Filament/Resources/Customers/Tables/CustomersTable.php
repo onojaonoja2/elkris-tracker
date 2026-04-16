@@ -125,6 +125,26 @@ class CustomersTable
                     )
             ])
             ->recordActions([
+                \Filament\Actions\Action::make('verifyPayment')
+                    ->label('Verify & Deduct Stock')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['supervisor', 'sales', 'admin']) 
+                        && $record->agent_id !== null 
+                        && $record->is_payment_verified == false
+                        && $record->total_price > 0)
+                    ->action(function ($record) {
+                        $record->update(['is_payment_verified' => true]);
+
+                        $agent = \App\Models\User::find($record->agent_id);
+                        if ($agent && $record->total_price > 0) {
+                            $agent->decrement('stock_balance', $record->total_price);
+                        }
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Verify Field Agent Payment Collection')
+                    ->modalDescription('Confirming payment will accurately deduct the exact order value natively off the field agent\'s active stock liability balance. Are you sure?'),
+
                 \Filament\Actions\Action::make('assignToLead')
                     ->label(fn ($record) => $record->lead_id ? 'Reassign Lead' : 'Assign to Lead')
                     ->color(fn ($record) => $record->lead_id ? 'success' : 'primary')

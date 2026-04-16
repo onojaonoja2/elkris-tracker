@@ -27,6 +27,19 @@ class UserResource extends Resource
         return auth()->user()->role === 'admin';
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        // Team leads definitively only see users explicitly mapped under them
+        if ($user->role === 'lead') {
+            $query->where('lead_id', $user->id);
+        }
+
+        return $query;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);
