@@ -17,4 +17,11 @@ class ListTrialOrders extends ListRecords
                 ->visible(fn () => auth()->user()->role === 'field_agent'),
         ];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Resources\TrialOrders\Widgets\StockMetricsWidget::class,
+        ];
+    }
 }
