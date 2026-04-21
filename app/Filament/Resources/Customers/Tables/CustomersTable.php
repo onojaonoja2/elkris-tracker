@@ -2,10 +2,14 @@
 
 namespace App\Filament\Resources\Customers\Tables;
 
+use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -21,31 +25,36 @@ class CustomersTable
                     ->label('Lead Name')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 TextColumn::make('rep.name')
                     ->label('Rep Name')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 TextColumn::make('rep.my_id')
                     ->label('Rep Internal ID')
-                    ->formatStateUsing(fn ($state): string => 'rep-' . $state)
+                    ->formatStateUsing(fn ($state): string => 'rep-'.$state)
                     ->sortable()
                     ->searchable(query: function ($query, $search) {
                         $search = preg_replace('/^rep-/', '', $search);
+
                         return $query->whereHas('rep', function ($q) use ($search) {
                             $q->where('my_id', 'like', "%{$search}%");
                         });
                     })
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 TextColumn::make('agent.name')
                     ->label('Agent Name')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 TextColumn::make('customer_name')
                     ->searchable()
@@ -53,23 +62,31 @@ class CustomersTable
                 TextColumn::make('phone_number')
                     ->searchable()
                     ->toggleable(),
+                TextColumn::make('address')
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('age')
                     ->numeric()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('gender')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('city')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('state')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('region')
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('rep_acceptance_status')
                     ->label('Assignment Status')
                     ->badge()
@@ -82,35 +99,44 @@ class CustomersTable
                     })
                     ->sortable()
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 TextColumn::make('customer_status')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('diabetic_awareness')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('call_date')
                     ->date()
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('preffered_call_time')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('follow_up_date')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('delivery_status')
                     ->searchable()
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
             ])
             ->filters([
                 Filter::make('call_date')
@@ -119,24 +145,24 @@ class CustomersTable
                         DatePicker::make('until'),
                     ])
                     ->query(
-                        fn($query, array $data) => $query
-                            ->when($data['from'], fn($q, $date) => $q->whereDate('call_date', '>=', $date))
-                            ->when($data['until'], fn($q, $date) => $q->whereDate('call_date', '<=', $date))
-                    )
+                        fn ($query, array $data) => $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('call_date', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('call_date', '<=', $date))
+                    ),
             ])
             ->recordActions([
-                \Filament\Actions\Action::make('verifyPayment')
+                Action::make('verifyPayment')
                     ->label('Verify & Deduct Stock')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['supervisor', 'sales', 'admin']) 
-                        && $record->agent_id !== null 
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['supervisor', 'sales', 'admin'])
+                        && $record->agent_id !== null
                         && $record->is_payment_verified == false
                         && $record->total_price > 0)
                     ->action(function ($record) {
                         $record->update(['is_payment_verified' => true]);
 
-                        $agent = \App\Models\User::find($record->agent_id);
+                        $agent = User::find($record->agent_id);
                         if ($agent && $record->total_price > 0) {
                             $agent->decrement('stock_balance', $record->total_price);
                         }
@@ -145,15 +171,15 @@ class CustomersTable
                     ->modalHeading('Verify Field Agent Payment Collection')
                     ->modalDescription('Confirming payment will accurately deduct the exact order value natively off the field agent\'s active stock liability balance. Are you sure?'),
 
-                \Filament\Actions\Action::make('assignToLead')
+                Action::make('assignToLead')
                     ->label(fn ($record) => $record->lead_id ? 'Reassign Lead' : 'Assign to Lead')
                     ->color(fn ($record) => $record->lead_id ? 'success' : 'primary')
                     ->icon('heroicon-o-users')
                     ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager', 'supervisor']) && $record->agent_id !== null)
                     ->form([
-                        \Filament\Forms\Components\Select::make('lead_id')
+                        Select::make('lead_id')
                             ->label('Select Team Lead')
-                            ->options(\App\Models\User::where('role', 'lead')->pluck('name', 'id'))
+                            ->options(User::where('role', 'lead')->pluck('name', 'id'))
                             ->searchable()
                             ->required(),
                     ])
@@ -162,16 +188,16 @@ class CustomersTable
                         $record->leads()->syncWithoutDetaching([$data['lead_id']]);
                     }),
 
-                \Filament\Actions\Action::make('assignToRep')
+                Action::make('assignToRep')
                     ->label(fn ($record) => $record->rep_id ? 'Assigned (Reassign)' : 'Assign')
                     ->color(fn ($record) => $record->rep_id ? 'success' : 'primary')
                     ->icon('heroicon-o-user-plus')
                     ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->lead_id == auth()->id()))
                     ->form([
-                        \Filament\Forms\Components\Select::make('rep_id')
+                        Select::make('rep_id')
                             ->label('Select Rep / Lead')
                             ->options(function () {
-                                return \App\Models\User::where(function($query) {
+                                return User::where(function ($query) {
                                     $query->where('role', 'rep');
                                     if (auth()->user()->role === 'lead') {
                                         $query->orWhere('id', auth()->id());
@@ -191,7 +217,7 @@ class CustomersTable
                         $record->reps()->syncWithoutDetaching([$data['rep_id']]);
                     }),
 
-                \Filament\Actions\Action::make('acceptLead')
+                Action::make('acceptLead')
                     ->label('Accept')
                     ->color('success')
                     ->icon('heroicon-o-check')
@@ -200,7 +226,7 @@ class CustomersTable
                         $record->update(['rep_acceptance_status' => 'accepted']);
                     }),
 
-                \Filament\Actions\Action::make('rejectLead')
+                Action::make('rejectLead')
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-mark')
@@ -209,7 +235,7 @@ class CustomersTable
                         $record->update(['rep_acceptance_status' => 'rejected']);
                     }),
 
-                \Filament\Actions\Action::make('markDelivered')
+                Action::make('markDelivered')
                     ->label('Mark Delivered')
                     ->color('success')
                     ->icon('heroicon-o-truck')
@@ -218,9 +244,9 @@ class CustomersTable
                         $record->update(['delivery_status' => 'delivered']);
                     }),
 
-                \Filament\Actions\ViewAction::make(),
-                \Filament\Actions\EditAction::make()
-                    ->visible(fn() => auth()->user()->role !== 'sales'),
+                ViewAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->role !== 'sales'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
