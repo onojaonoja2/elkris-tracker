@@ -3,15 +3,17 @@
 namespace App\Filament\Resources\Customers\Schemas;
 
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Repeater;
-use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+
 class CustomerForm
 {
     public static function configure(Schema $schema): Schema
@@ -49,13 +51,15 @@ class CustomerForm
                     ]),
 
                 TextInput::make('age')
-                    ->numeric(),
+                    ->numeric()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 Select::make('gender')
                     ->options([
                         'male' => 'Male',
                         'female' => 'Female',
-                    ]),
+                    ])
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 Select::make('city')
                     ->options(self::nigerianCities())
@@ -63,6 +67,7 @@ class CustomerForm
                     ->required()
                     ->default(fn () => self::getDefaultCity())
                     ->live(debounce: 500)
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
                     ->afterStateUpdated(function (Set $set, $state) {
                         $map = self::getCityMapping();
                         if (isset($map[$state])) {
@@ -74,22 +79,25 @@ class CustomerForm
                         }
                     }),
 
-                \Filament\Forms\Components\Hidden::make('state')
+                Hidden::make('state')
                     ->default(function () {
                         $city = self::getDefaultCity();
+
                         return $city ? (self::getCityMapping()[$city]['state'] ?? null) : null;
                     }),
-                    
-                \Filament\Forms\Components\Hidden::make('region')
+
+                Hidden::make('region')
                     ->default(function () {
                         $city = self::getDefaultCity();
+
                         return $city ? (self::getCityMapping()[$city]['region'] ?? null) : null;
                     }),
 
                 Textarea::make('address')
+                    ->required(fn () => auth()->user()->role === 'field_agent')
                     ->columnSpanFull(),
 
-                \Filament\Forms\Components\Hidden::make('customer_status')
+                Hidden::make('customer_status')
                     ->default('customer'),
 
                 Select::make('diabetic_awareness')
@@ -97,39 +105,35 @@ class CustomerForm
                         'yes' => 'Yes',
                         'no' => 'No',
                         'unknown' => 'Unknown',
-                    ]),
+                    ])
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 DatePicker::make('call_date')
                     ->native(false)
-                    ->displayFormat('d/m/Y'),
+                    ->displayFormat('d/m/Y')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                TextInput::make('preffered_call_time'),
+                TextInput::make('preffered_call_time')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 Textarea::make('feedback')
                     ->rows(3)
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 Textarea::make('remarks')
                     ->rows(3)
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 DatePicker::make('follow_up_date')
                     ->native(false)
-                    ->displayFormat('d/m/Y'),
-
-                Select::make('trial_order_purchase')
-                    ->label('Trail Order Purchase?')
-                    ->options([
-                        'yes' => 'Yes',
-                        'no' => 'No',
-                    ])
-                    ->required()
-                    ->live()
-                    ->visible(fn() => auth()->user()->role === 'field_agent'),
+                    ->displayFormat('d/m/Y')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 // ── Products Section ──
                 Section::make('Products')
-                    ->visible(fn(Get $get) => auth()->user()->role !== 'field_agent' || (auth()->user()->role === 'field_agent' && $get('trial_order_purchase') === 'yes'))
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
                     ->schema([
                         Repeater::make('products')
                             ->relationship()
@@ -177,7 +181,7 @@ class CustomerForm
 
                 Select::make('preferred_payment_option')
                     ->label('Preferred Payment Option')
-                    ->visible(fn() => auth()->user()->role !== 'field_agent')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
                     ->options([
                         'bank_transfer' => 'Bank Transfer',
                         'cash_on_delivery' => 'Cash on Delivery',
@@ -191,15 +195,15 @@ class CustomerForm
                     ->numeric()
                     ->prefix('₦')
                     ->readOnly()
-                    ->visible(fn() => auth()->user()->role !== 'field_agent')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
                     ->default(0),
 
                 Textarea::make('delivery_details')
-                    ->visible(fn() => auth()->user()->role !== 'field_agent')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
                     ->columnSpanFull(),
 
                 Select::make('delivery_status')
-                    ->visible(fn() => auth()->user()->role !== 'field_agent')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
                     ->options([
                         'pending' => 'Pending',
                         'dispatched' => 'Dispatched',
@@ -215,9 +219,10 @@ class CustomerForm
     public static function getDefaultCity(): ?string
     {
         $user = auth()->user();
-        if ($user && $user->role === 'field_agent' && !empty($user->assigned_cities)) {
+        if ($user && $user->role === 'field_agent' && ! empty($user->assigned_cities)) {
             return is_array($user->assigned_cities) ? $user->assigned_cities[0] : null;
         }
+
         return null;
     }
 
@@ -260,6 +265,7 @@ class CustomerForm
         foreach (self::getCityMapping() as $key => $data) {
             $options[$data['state']][$key] = $data['city'];
         }
+
         return $options;
     }
 

@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class TrialOrderResource extends Resource
 {
@@ -39,7 +40,7 @@ class TrialOrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['field_agent', 'supervisor', 'sales', 'admin']);
+        return in_array(auth()->user()->role, ['supervisor', 'sales', 'admin']);
     }
 
     public static function canCreate(): bool
@@ -47,7 +48,7 @@ class TrialOrderResource extends Resource
         return auth()->user()->role === 'field_agent';
     }
 
-    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
         $user = auth()->user();
