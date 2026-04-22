@@ -25,6 +25,11 @@ class StockTransactionResource extends Resource
         return false;
     }
 
+    public static function canViewAny(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'sales']);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([]);

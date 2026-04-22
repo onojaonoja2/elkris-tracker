@@ -134,7 +134,8 @@ class CustomerForm
                     ->keyLabel('Product & Grammage')
                     ->valueLabel('Total Quantity')
                     ->disabled() // Read-only tally
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 // Products and order details are now handled via the OrdersRelationManager
             ]);

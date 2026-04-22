@@ -50,6 +50,13 @@ class PortfolioResource extends Resource
             ->where('rep_id', auth()->id());
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            \App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
