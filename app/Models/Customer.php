@@ -9,6 +9,17 @@ use Illuminate\Database\Eloquent\Model;
 class Customer extends Model
 {
     /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'lifetime_purchases' => 'array',
+        ];
+    }
+    /**
      * Get the lead assigned to this customer.
      */
     public function lead()

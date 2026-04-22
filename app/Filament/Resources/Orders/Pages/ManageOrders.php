@@ -6,6 +6,7 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\Orders\Widgets\StockBalanceWidget;
 use App\Models\StockTransaction;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -55,6 +56,12 @@ class ManageOrders extends ManageRecords
                         ->numeric()
                         ->required()
                         ->minValue(1),
+                    DatePicker::make('transaction_date')
+                        ->label('Transaction Date')
+                        ->native(false)
+                        ->displayFormat('d/m/Y')
+                        ->required()
+                        ->default(now()),
                 ])
                 ->action(function (array $data): void {
                     StockTransaction::create([
@@ -62,6 +69,7 @@ class ManageOrders extends ManageRecords
                         'product_name' => $data['product_name'],
                         'grammage' => $data['grammage'],
                         'quantity' => $data['quantity'],
+                        'transaction_date' => $data['transaction_date'],
                         'user_id' => auth()->id(),
                     ]);
                     Notification::make()->title('Stock Received successfully!')->success()->send();
@@ -95,6 +103,15 @@ class ManageOrders extends ManageRecords
                         ->numeric()
                         ->required()
                         ->minValue(1),
+                    TextInput::make('disbursed_to')
+                        ->label('Disbursed To')
+                        ->required(),
+                    DatePicker::make('transaction_date')
+                        ->label('Transaction Date')
+                        ->native(false)
+                        ->displayFormat('d/m/Y')
+                        ->required()
+                        ->default(now()),
                 ])
                 ->action(function (array $data): void {
                     StockTransaction::create([
@@ -102,6 +119,8 @@ class ManageOrders extends ManageRecords
                         'product_name' => $data['product_name'],
                         'grammage' => $data['grammage'],
                         'quantity' => $data['quantity'],
+                        'transaction_date' => $data['transaction_date'],
+                        'disbursed_to' => $data['disbursed_to'],
                         'user_id' => auth()->id(),
                     ]);
                     Notification::make()->title('Stock Disbursed successfully!')->success()->send();
