@@ -93,6 +93,23 @@ class OrderResource extends Resource
                     }),
             ])
             ->recordActions([
+                \Filament\Actions\Action::make('view_customer')
+                    ->label('View Customer')
+                    ->icon('heroicon-o-user')
+                    ->color('info')
+                    ->modalHeading('Customer Information')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->infolist(function (\App\Models\Order $record) {
+                        return [
+                            \Filament\Infolists\Components\TextEntry::make('customer.customer_name')->label('Name'),
+                            \Filament\Infolists\Components\TextEntry::make('customer.phone_number')->label('Phone'),
+                            \Filament\Infolists\Components\TextEntry::make('customer.address')->label('Address'),
+                            \Filament\Infolists\Components\TextEntry::make('customer.city')->label('City'),
+                            \Filament\Infolists\Components\TextEntry::make('customer.state')->label('State'),
+                            \Filament\Infolists\Components\TextEntry::make('customer.diabetic_awareness')->label('Diabetic Awareness'),
+                        ];
+                    }),
                 \Filament\Actions\EditAction::make()->visible(fn () => in_array(auth()->user()->role, ['admin', 'sales'])),
             ])
             ->toolbarActions([

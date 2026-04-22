@@ -49,7 +49,13 @@ class StockBalanceWidget extends BaseWidget
             $balance = $received - $disbursed - $delivered;
 
             $stats[] = Stat::make("{$p['name']} ({$p['grammage']}g)", $balance)
-                ->description("Rec: $received | Disb: $disbursed | Del: $delivered");
+                ->description("Rec: $received | Disb: $disbursed | Del: $delivered")
+                ->url(\App\Filament\Resources\StockTransactions\StockTransactionResource::getUrl('index', [
+                    'tableFilters' => [
+                        'product_name' => ['value' => $p['name']],
+                        'grammage' => ['value' => $p['grammage']],
+                    ]
+                ]));
         }
 
         return $stats;

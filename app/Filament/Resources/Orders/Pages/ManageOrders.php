@@ -125,6 +125,59 @@ class ManageOrders extends ManageRecords
                     ]);
                     Notification::make()->title('Stock Disbursed successfully!')->success()->send();
                 }),
+
+            Action::make('export_stock_report')
+                ->label('Export Stock Report')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('secondary')
+                ->visible(fn () => in_array(auth()->user()->role, ['admin', 'sales']))
+                ->action(function () {
+                    $transactions = \App\Models\StockTransaction::all();
+                    $deliveredProducts = \App\Models\Product::whereHas('order', function ($q) {
+                        $q->where('status', 'delivered');
+                    })->with('order')->get();
+
+                    $data = [];
+                    foreach ($transactions as $t) {
+                        $date = $t->transaction_date ? \Carbon\Carbon::parse($t->transaction_date)->format('Y-m-d') : 'N/A';
+                        $key = $date . '|' . $t->product_name . '|' . $t->grammage;
+                        if (!isset($data[$key])) {
+                            $data[$key] = ['Date' => $date, 'Product' => $t->product_name, 'Grammage' => $t->grammage, 'Received' => 0, 'Disbursed' => 0, 'Delivered' => 0];
+                        }
+                        if ($t->type === 'received') $data[$key]['Received'] += $t->quantity;
+                        if ($t->type === 'disbursed') $data[$key]['Disbursed'] += $t->quantity;
+                    }
+
+                    foreach ($deliveredProducts as $p) {
+                        $date = $p->order->updated_at ? $p->order->updated_at->format('Y-m-d') : 'N/A';
+                        $key = $date . '|' . $p->product_name . '|' . $p->grammage;
+                        if (!isset($data[$key])) {
+                            $data[$key] = ['Date' => $date, 'Product' => $p->product_name, 'Grammage' => $p->grammage, 'Received' => 0, 'Disbursed' => 0, 'Delivered' => 0];
+                        }
+                        $data[$key]['Delivered'] += $p->quantity;
+                    }
+
+                    usort($data, fn($a, $b) => strcmp($a['Date'], $b['Date']));
+
+                    $headers = [
+                        "Content-type"        => "text/csv",
+                        "Content-Disposition" => "attachment; filename=stock_report_" . date('Y_m_d_H_i_s') . ".csv",
+                        "Pragma"              => "no-cache",
+                        "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+                        "Expires"             => "0"
+                    ];
+
+                    return response()->streamDownload(function() use($data) {
+                        $file = fopen('php://output', 'w');
+                        fputcsv($file, ['Date', 'Product Name', 'Grammage (g)', 'Received', 'Disbursed', 'Delivered', 'Net Change']);
+
+                        foreach ($data as $row) {
+                            $net = $row['Received'] - $row['Disbursed'] - $row['Delivered'];
+                            fputcsv($file, [$row['Date'], $row['Product'], $row['Grammage'], $row['Received'], $row['Disbursed'], $row['Delivered'], $net]);
+                        }
+                        fclose($file);
+                    }, 'stock_report_' . date('Y_m_d_H_i_s') . '.csv', $headers);
+                }),
         ];
     }
 }
