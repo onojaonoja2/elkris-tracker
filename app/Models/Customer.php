@@ -55,4 +55,12 @@ class Customer extends Model
     {
         return $this->belongsTo(User::class, 'agent_id');
     }
+
+    /**
+     * Get the orders for this customer.
+     */
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
 }

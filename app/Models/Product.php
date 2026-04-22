@@ -9,10 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 class Product extends Model
 {
     /**
-     * Get the customer that owns this product entry.
+     * Get the order that owns this product entry.
      */
-    public function customer()
+    public function order()
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Order::class);
     }
 }
