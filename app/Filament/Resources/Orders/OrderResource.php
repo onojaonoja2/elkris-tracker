@@ -41,6 +41,10 @@ class OrderResource extends Resource
                         'cancelled' => 'Cancelled',
                     ])
                     ->required(),
+                DatePicker::make('expected_delivery_date')
+                    ->label('Expected Delivery Date')
+                    ->native(false)
+                    ->displayFormat('d/m/Y'),
             ]);
     }
 
@@ -65,6 +69,10 @@ class OrderResource extends Resource
                 TextColumn::make('created_at')
                     ->label('Submitted Date')
                     ->dateTime()
+                    ->sortable(),
+                TextColumn::make('expected_delivery_date')
+                    ->label('Expected Delivery')
+                    ->date('d/m/Y')
                     ->sortable(),
             ])
             ->filters([

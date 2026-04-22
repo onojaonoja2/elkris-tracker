@@ -42,7 +42,8 @@ class OrdersRelationManager extends RelationManager
                     ->readOnly()
                     ->default(0),
 
-                DatePicker::make('preferred_delivery_date')
+                DatePicker::make('expected_delivery_date')
+                    ->label('Expected Delivery Date')
                     ->native(false)
                     ->displayFormat('d/m/Y'),
 
