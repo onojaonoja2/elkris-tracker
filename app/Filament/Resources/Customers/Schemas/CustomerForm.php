@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Models\Customer;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\MultiSelect;
@@ -242,16 +243,23 @@ class CustomerForm
     /**
      * Recalculate the grand total price across all product rows.
      */
-    private static function recalculateTotalPrice(Set $set, Get $get): void
+    private static function recalculateTotalPrice(Set $set, Get $get, ?Customer $record = null): void
     {
         $products = $get('../../products') ?? [];
-        $total = 0;
+        $newTotal = 0;
         foreach ($products as $product) {
             $qty = (float) ($product['quantity'] ?? 1);
             $price = (float) ($product['price'] ?? 0);
-            $total += $qty * $price;
+            $newTotal += $qty * $price;
         }
-        $set('../../total_price', $total);
+
+        // Accumulate with existing total if updating
+        if ($record) {
+            $existingTotal = (float) $record->total_price;
+            $set('../../total_price', $existingTotal + $newTotal);
+        } else {
+            $set('../../total_price', $newTotal);
+        }
     }
 
     /**

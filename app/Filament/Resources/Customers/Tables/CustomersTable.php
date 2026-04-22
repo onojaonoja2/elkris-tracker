@@ -10,6 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -152,30 +153,25 @@ class CustomersTable
             ])
             ->recordActions([
                 Action::make('verifyPayment')
-                    ->label('Verify & Deduct Stock')
+                    ->label('Confirm Payment')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['supervisor', 'sales', 'admin'])
-                        && $record->agent_id !== null
+                    ->visible(fn ($record) => auth()->user()->role === 'sales'
+                        && $record->delivery_status === 'delivered'
                         && $record->is_payment_verified == false
                         && $record->total_price > 0)
                     ->action(function ($record) {
                         $record->update(['is_payment_verified' => true]);
-
-                        $agent = User::find($record->agent_id);
-                        if ($agent && $record->total_price > 0) {
-                            $agent->decrement('stock_balance', $record->total_price);
-                        }
                     })
                     ->requiresConfirmation()
-                    ->modalHeading('Verify Field Agent Payment Collection')
-                    ->modalDescription('Confirming payment will accurately deduct the exact order value natively off the field agent\'s active stock liability balance. Are you sure?'),
+                    ->modalHeading('Confirm Customer Payment')
+                    ->modalDescription('Confirm that payment has been received from this customer. This will mark the order as paid.'),
 
                 Action::make('assignToLead')
                     ->label(fn ($record) => $record->lead_id ? 'Reassign Lead' : 'Assign to Lead')
                     ->color(fn ($record) => $record->lead_id ? 'success' : 'primary')
                     ->icon('heroicon-o-users')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager', 'supervisor']) && $record->agent_id !== null)
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->agent_id !== null))
                     ->form([
                         Select::make('lead_id')
                             ->label('Select Team Lead')
@@ -189,50 +185,59 @@ class CustomersTable
                     }),
 
                 Action::make('assignToRep')
-                    ->label(fn ($record) => $record->rep_id ? 'Assigned (Reassign)' : 'Assign')
+                    ->label(fn ($record) => $record->rep_id ? 'Reassign' : 'Assign to Rep')
                     ->color(fn ($record) => $record->rep_id ? 'success' : 'primary')
                     ->icon('heroicon-o-user-plus')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->lead_id == auth()->id()))
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->lead_id == auth()->id() && $record->agent_id !== null))
                     ->form([
                         Select::make('rep_id')
-                            ->label('Select Rep / Lead')
+                            ->label('Select Rep')
                             ->options(function () {
-                                return User::where(function ($query) {
-                                    $query->where('role', 'rep');
-                                    if (auth()->user()->role === 'lead') {
-                                        $query->orWhere('id', auth()->id());
-                                    }
-                                })->pluck('name', 'id');
+                                return User::where('role', 'rep')->pluck('name', 'id');
                             })
                             ->required(),
                     ])
                     ->action(function ($record, array $data) {
-                        // If lead assigns to self, they bypass pending/accept loop automatically.
-                        $acceptanceStatus = $data['rep_id'] == auth()->id() ? 'accepted' : 'pending';
-
                         $record->update([
                             'rep_id' => $data['rep_id'],
-                            'rep_acceptance_status' => $acceptanceStatus,
+                            'rep_acceptance_status' => 'pending',
+                            'lead_id' => auth()->id(),
                         ]);
                         $record->reps()->syncWithoutDetaching([$data['rep_id']]);
                     }),
 
-                Action::make('acceptLead')
+                Action::make('acceptAssignment')
                     ->label('Accept')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn ($record) => auth()->user()->role === 'rep' && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
                     ->action(function ($record) {
-                        $record->update(['rep_acceptance_status' => 'accepted']);
+                        $record->update([
+                            'rep_acceptance_status' => 'accepted',
+                            'rejection_note' => null,
+                        ]);
                     }),
 
-                Action::make('rejectLead')
+                Action::make('rejectAssignment')
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-mark')
-                    ->visible(fn ($record) => auth()->user()->role === 'rep' && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
-                    ->action(function ($record) {
-                        $record->update(['rep_acceptance_status' => 'rejected']);
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
+                    ->form([
+                        Textarea::make('rejection_note')
+                            ->label('Reason for Rejection')
+                            ->required()
+                            ->rows(3),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'rep_id' => null,
+                            'rep_acceptance_status' => 'pending',
+                            'lead_id' => null,
+                            'rejection_note' => $data['rejection_note'],
+                        ]);
+                        $record->leads()->detach();
+                        $record->reps()->detach();
                     }),
 
                 Action::make('markDelivered')

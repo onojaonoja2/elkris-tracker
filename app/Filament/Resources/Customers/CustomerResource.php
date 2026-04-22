@@ -9,12 +9,12 @@ use App\Filament\Resources\Customers\Schemas\CustomerForm;
 use App\Filament\Resources\Customers\Tables\CustomersTable;
 use App\Models\Customer;
 use BackedEnum;
+use EslamRedaDiv\FilamentCopilot\Contracts\CopilotResource;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use EslamRedaDiv\FilamentCopilot\Contracts\CopilotResource;
 
 class CustomerResource extends Resource implements CopilotResource
 {
@@ -26,7 +26,7 @@ class CustomerResource extends Resource implements CopilotResource
 
     public static function canCreate(): bool
     {
-        return !in_array(auth()->user()->role, ['sales', 'supervisor']);
+        return ! in_array(auth()->user()->role, ['sales', 'supervisor']);
     }
 
     public static function form(Schema $schema): Schema
@@ -58,21 +58,20 @@ class CustomerResource extends Resource implements CopilotResource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (in_array($user->role, ['admin', 'manager'])) return parent::getEloquentQuery();
-        
+        if (in_array($user->role, ['admin', 'manager'])) {
+            return parent::getEloquentQuery();
+        }
+
         // Supervisors see customers submitted by field agents globally
         if ($user->role === 'supervisor') {
             return parent::getEloquentQuery()->whereNotNull('agent_id');
         }
 
-        // Leads see their customers exclusively
+        // Leads see customers they assigned (for tracking rep acceptance)
         if ($user->role === 'lead') {
-            return parent::getEloquentQuery()->where(function (Builder $query) use ($user) {
-                $query->whereHas('leads', fn($q) => $q->where('users.id', $user->id))
-                      ->orWhere('lead_id', $user->id);
-            });
+            return parent::getEloquentQuery()->where('lead_id', $user->id);
         }
-        
+
         // Field agents see only theirs
         if ($user->role === 'field_agent') {
             return parent::getEloquentQuery()->where('agent_id', $user->id);
@@ -86,8 +85,8 @@ class CustomerResource extends Resource implements CopilotResource
 
         // Reps see only theirs
         return parent::getEloquentQuery()->where(function (Builder $query) use ($user) {
-            $query->whereHas('reps', fn($q) => $q->where('users.id', $user->id))
-                  ->orWhere('rep_id', $user->id);
+            $query->whereHas('reps', fn ($q) => $q->where('users.id', $user->id))
+                ->orWhere('rep_id', $user->id);
         });
     }
 
