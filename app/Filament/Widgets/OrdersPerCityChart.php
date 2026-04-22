@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 class OrdersPerCityChart extends ChartWidget
 {
     protected ?string $heading = 'Total Orders Per City';
-    
+
     public static function canView(): bool
     {
         return auth()->user()->role === 'manager';

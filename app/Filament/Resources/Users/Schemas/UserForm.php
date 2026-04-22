@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Filament\Resources\Customers\Schemas\CustomerForm;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -29,9 +30,9 @@ class UserForm
                 TextInput::make('my_id')
                     ->label('Internal ID')
                     ->numeric()
-                    ->disabled() 
-                    ->dehydrated(false) 
-                    ->visible(fn(string $operation): bool => $operation === 'edit'),
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->visible(fn (string $operation): bool => $operation === 'edit'),
                 Select::make('role')
                     ->label('User Role')
                     ->options([
@@ -51,16 +52,16 @@ class UserForm
                 Select::make('assigned_cities')
                     ->label('Assigned Cities')
                     ->multiple()
-                    ->options(\App\Filament\Resources\Customers\Schemas\CustomerForm::nigerianCities())
+                    ->options(CustomerForm::nigerianCities())
                     ->searchable()
-                    ->visible(fn(callable $get) => $get('role') === 'field_agent')
-                    ->required(fn(callable $get) => $get('role') === 'field_agent'),
+                    ->visible(fn (callable $get) => $get('role') === 'field_agent')
+                    ->required(fn (callable $get) => $get('role') === 'field_agent'),
 
                 Select::make('lead_id')
                     ->label('Reports To')
                     ->relationship('lead', 'name', fn ($query) => $query->where('role', 'lead'))
-                    ->visible(fn(callable $get) => $get('role') === 'rep') // Only shows if 'rep' is selected
-                    ->required(fn(callable $get) => $get('role') === 'rep')
+                    ->visible(fn (callable $get) => $get('role') === 'rep') // Only shows if 'rep' is selected
+                    ->required(fn (callable $get) => $get('role') === 'rep')
                     ->live(),
             ]);
     }

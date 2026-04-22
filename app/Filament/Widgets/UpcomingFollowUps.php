@@ -16,23 +16,24 @@ class UpcomingFollowUps extends TableWidget
     {
         return auth()->user()->role !== 'field_agent';
     }
+
     protected static ?string $heading = 'Upcoming Follow Ups 7 Days';
 
-    protected int | string | array $columnSpan = 'full'; // Make it wide
+    protected int|string|array $columnSpan = 'full'; // Make it wide
 
     public function table(Table $table): Table
     {
         return $table
             ->query(
-                fn(): Builder => Customer::query()
+                fn (): Builder => Customer::query()
                     ->whereBetween('follow_up_date', [
                         now()->startOfDay(),
-                        now()->addDays(7)->endOfDay()
+                        now()->addDays(7)->endOfDay(),
                     ])
                     // Logic: If NOT Admin/Lead, filter by current User ID
                     ->when(
-                        !in_array(auth()->user()->role, ['admin', 'lead']),
-                        fn($query) => $query->where('rep_id', auth()->id())
+                        ! in_array(auth()->user()->role, ['admin', 'lead']),
+                        fn ($query) => $query->where('rep_id', auth()->id())
                     )
                     ->orderBy('follow_up_date', 'asc')
                     ->limit(20)
@@ -50,7 +51,7 @@ class UpcomingFollowUps extends TableWidget
                 // The "Link to another table"
                 Action::make('view_all')
                     ->label('View All Follow-ups')
-                    ->url(fn(): string => route('filament.admin.resources.customers.index', [
+                    ->url(fn (): string => route('filament.admin.resources.customers.index', [
                         'tableFilters[call_date][from]' => now()->format('Y-m-d'),
                     ]))
                     ->button(),

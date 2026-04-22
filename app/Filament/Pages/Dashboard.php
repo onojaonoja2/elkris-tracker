@@ -9,7 +9,7 @@ class Dashboard extends BaseDashboard
 {
     public static function shouldRegisterNavigation(): bool
     {
-        return !in_array(auth()->user()->role, ['field_agent', 'sales']);
+        return ! in_array(auth()->user()->role, ['field_agent', 'sales']);
     }
 
     public function mount()

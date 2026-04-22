@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('agent_id')->constrained('users')->cascadeOnDelete();
             $table->json('products');
             $table->decimal('total_value', 12, 2)->default(0);
-            $table->string('status')->default('pending'); 
+            $table->string('status')->default('pending');
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });

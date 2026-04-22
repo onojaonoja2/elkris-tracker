@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TrialOrders\Tables;
 
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -37,7 +38,7 @@ class TrialOrdersTable
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
-                \Filament\Actions\Action::make('approveStock')
+                Action::make('approveStock')
                     ->label('Approve Stock')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')

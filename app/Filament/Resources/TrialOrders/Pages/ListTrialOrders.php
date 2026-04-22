@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TrialOrders\Pages;
 
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
+use App\Filament\Resources\TrialOrders\Widgets\StockMetricsWidget;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
@@ -21,7 +22,7 @@ class ListTrialOrders extends ListRecords
     protected function getHeaderWidgets(): array
     {
         return [
-            \App\Filament\Resources\TrialOrders\Widgets\StockMetricsWidget::class,
+            StockMetricsWidget::class,
         ];
     }
 }

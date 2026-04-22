@@ -13,6 +13,7 @@ class CreateTrialOrder extends CreateRecord
     {
         // Inherently attach the creating user's agent ID natively to the database push
         $data['agent_id'] = auth()->id();
+
         return $data;
     }
 }

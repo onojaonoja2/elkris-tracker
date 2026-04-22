@@ -21,8 +21,8 @@ class ManagerStatsWidget extends BaseWidget
         $agentSubmissions = Customer::whereNotNull('agent_id')->count();
         $agentConversions = Customer::whereNotNull('agent_id')->where('total_price', '>', 0)->count();
 
-        $conversionRate = $agentSubmissions > 0 
-            ? round(($agentConversions / $agentSubmissions) * 100, 2) 
+        $conversionRate = $agentSubmissions > 0
+            ? round(($agentConversions / $agentSubmissions) * 100, 2)
             : 0;
 
         return [
@@ -31,8 +31,8 @@ class ManagerStatsWidget extends BaseWidget
                 ->descriptionIcon('heroicon-m-shopping-cart'),
             Stat::make('Gross Quantity Ordered', $totalQuantitySum)
                 ->description('Total units across all orders'),
-            Stat::make('Field Agent Conversion', $conversionRate . '%')
-                ->description($agentConversions . ' ordered out of ' . $agentSubmissions . ' submitted')
+            Stat::make('Field Agent Conversion', $conversionRate.'%')
+                ->description($agentConversions.' ordered out of '.$agentSubmissions.' submitted')
                 ->descriptionIcon('heroicon-m-arrow-trending-up')
                 ->color('success'),
         ];

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Customers\Pages;
 use App\Filament\Resources\Customers\CustomerResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Database\Eloquent\Model;
 
 class EditCustomer extends EditRecord
 {
@@ -17,7 +18,7 @@ class EditCustomer extends EditRecord
         ];
     }
 
-    protected function handleRecordUpdate(\Illuminate\Database\Eloquent\Model $record, array $data): \Illuminate\Database\Eloquent\Model
+    protected function handleRecordUpdate(Model $record, array $data): Model
     {
         // Ensure scalar fallbacks for legacy non-nullable columns when updating
         $payload = $data;

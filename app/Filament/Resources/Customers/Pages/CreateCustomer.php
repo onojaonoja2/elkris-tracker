@@ -4,24 +4,25 @@ namespace App\Filament\Resources\Customers\Pages;
 
 use App\Filament\Resources\Customers\CustomerResource;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Database\Eloquent\Model;
 
 class CreateCustomer extends CreateRecord
 {
     protected static string $resource = CustomerResource::class;
 
-    protected function handleRecordCreation(array $data): \Illuminate\Database\Eloquent\Model
+    protected function handleRecordCreation(array $data): Model
     {
         // Ensure scalar fallbacks for legacy non-nullable columns
         $payload = $data;
         $user = auth()->user();
-        
+
         if ($user && $user->role === 'rep') {
             $payload['rep_id'] = $user->id;
             $payload['lead_id'] = $payload['lead_id'] ?? $user->lead_id ?? null;
-            
+
             // Ensure pivot syncing for the rep and their lead
             $data['reps'] = array_unique(array_merge($data['reps'] ?? [], [$user->id]));
-            if (!empty($payload['lead_id'])) {
+            if (! empty($payload['lead_id'])) {
                 $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$payload['lead_id']]));
             }
         } elseif ($user && $user->role === 'lead') {

@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Customer;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class CustomerPolicy
 {
@@ -30,7 +29,7 @@ class CustomerPolicy
     public function create(User $user): bool
     {
         // Supervisors and Sales explicitly cannot create new customers organically.
-        return !in_array($user->role, ['sales', 'supervisor']);
+        return ! in_array($user->role, ['sales', 'supervisor']);
     }
 
     /**
@@ -38,10 +37,14 @@ class CustomerPolicy
      */
     public function update(User $user, Customer $customer): bool
     {
-        if (in_array($user->role, ['admin', 'manager'])) return true;
-        
+        if (in_array($user->role, ['admin', 'manager'])) {
+            return true;
+        }
+
         // Field agents can update their own
-        if ($user->role === 'field_agent') return $customer->agent_id === $user->id;
+        if ($user->role === 'field_agent') {
+            return $customer->agent_id === $user->id;
+        }
 
         // Reps cannot update until they accept the assignment
         if ($user->role === 'rep' && $customer->rep_acceptance_status === 'pending') {
@@ -50,22 +53,31 @@ class CustomerPolicy
 
         // Check many-to-many pivots if present, fall back to scalar columns
         if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
-            if ($customer->leads->contains($user->id)) return true;
+            if ($customer->leads->contains($user->id)) {
+                return true;
+            }
         }
         if (method_exists($customer, 'reps') && $customer->reps()->exists()) {
-            if ($customer->reps->contains($user->id)) return true;
+            if ($customer->reps->contains($user->id)) {
+                return true;
+            }
         }
 
         return ($customer->lead_id ?? null) === $user->id || ($customer->rep_id ?? null) === $user->id;
     }
+
     /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Customer $customer): bool
     {
-        if (in_array($user->role, ['rep', 'field_agent'])) return false; // Reps and Field Agents can't delete
-        if (in_array($user->role, ['admin', 'manager'])) return true;
-        
+        if (in_array($user->role, ['rep', 'field_agent'])) {
+            return false;
+        } // Reps and Field Agents can't delete
+        if (in_array($user->role, ['admin', 'manager'])) {
+            return true;
+        }
+
         if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
             return $customer->leads->contains($user->id);
         }

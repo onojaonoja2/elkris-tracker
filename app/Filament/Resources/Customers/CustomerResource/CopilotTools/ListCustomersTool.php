@@ -38,14 +38,14 @@ class ListCustomersTool extends BaseTool
         }
 
         $lines = [
-            'Customers — Page ' . $records->currentPage() . ' of ' . $records->lastPage() . ' (' . $records->total() . ' total)',
+            'Customers — Page '.$records->currentPage().' of '.$records->lastPage().' ('.$records->total().' total)',
             '',
         ];
 
         foreach ($records as $record) {
             $attrs = collect($record->toArray())
                 ->reject(fn ($v) => is_array($v) || is_null($v))
-                ->map(fn ($v, $k) => "{$k}: " . (is_string($v) ? mb_substr($v, 0, 80) : $v))
+                ->map(fn ($v, $k) => "{$k}: ".(is_string($v) ? mb_substr($v, 0, 80) : $v))
                 ->implode(', ');
             $lines[] = "- #{$record->getKey()}: {$attrs}";
         }

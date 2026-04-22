@@ -16,7 +16,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasCopilotChat;
+    use HasCopilotChat, HasFactory, Notifiable;
 
     /**
      * Boot up the model to hook into lifecycle events natively.

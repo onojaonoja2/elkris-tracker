@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TrialOrders\Schemas;
 
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -20,15 +21,24 @@ class TrialOrderForm
                     ->schema([
                         Repeater::make('products')
                             ->schema([
-                                TextInput::make('product_name')
+                                Select::make('product_name')
+                                    ->options([
+                                        'Elkris Oat Flour' => 'Elkris Oat Flour',
+                                        'Elkris Plantain' => 'Elkris Plantain',
+                                        'Elkris Poundo Yam' => 'Elkris Poundo Yam',
+                                    ])
                                     ->required()
-                                    ->maxLength(255),
-                                TextInput::make('grammage')
+                                    ->live()
+                                    ->afterStateUpdated(fn (Set $set) => $set('grammage', null)),
+                                Select::make('grammage')
                                     ->label('Grammage (g)')
-                                    ->numeric()
-                                    ->suffix('g')
-                                    ->required()
-                                    ->default(0),
+                                    ->options(fn (Get $get): array => match ($get('product_name')) {
+                                        'Elkris Oat Flour' => ['5000' => '5000g', '1300' => '1300g', '650' => '650g'],
+                                        'Elkris Plantain' => ['1800' => '1800g', '900' => '900g'],
+                                        'Elkris Poundo Yam' => ['1800' => '1800g'],
+                                        default => [],
+                                    })
+                                    ->required(),
                                 TextInput::make('quantity')
                                     ->numeric()
                                     ->required()
