@@ -81,7 +81,7 @@ class CustomerResource extends Resource implements CopilotResource
         // Sales personnel see customers whose orders are pending or dispatched delivery
         if ($user->role === 'sales') {
             return parent::getEloquentQuery()
-                ->whereIn('delivery_status', ['pending', 'dispatched']);
+                ->whereHas('orders', fn ($q) => $q->whereIn('status', ['pending', 'dispatched']));
         }
 
         // Reps see only theirs

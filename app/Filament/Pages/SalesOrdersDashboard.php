@@ -7,4 +7,6 @@ use Filament\Pages\Page;
 class SalesOrdersDashboard extends Page
 {
     protected string $view = 'filament.pages.sales-orders-dashboard';
+
+    protected static bool $shouldRegisterNavigation = false;
 }

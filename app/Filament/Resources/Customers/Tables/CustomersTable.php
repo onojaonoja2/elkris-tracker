@@ -124,10 +124,7 @@ class CustomersTable
                     ->searchable()
                     ->toggleable()
                     ->visible(fn () => auth()->user()->role !== 'field_agent'),
-                TextColumn::make('delivery_status')
-                    ->searchable()
-                    ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -152,21 +149,6 @@ class CustomersTable
                     ),
             ])
             ->recordActions([
-                Action::make('verifyPayment')
-                    ->label('Confirm Payment')
-                    ->icon('heroicon-o-banknotes')
-                    ->color('success')
-                    ->visible(fn ($record) => auth()->user()->role === 'sales'
-                        && $record->delivery_status === 'delivered'
-                        && $record->is_payment_verified == false
-                        && $record->total_price > 0)
-                    ->action(function ($record) {
-                        $record->update(['is_payment_verified' => true]);
-                    })
-                    ->requiresConfirmation()
-                    ->modalHeading('Confirm Customer Payment')
-                    ->modalDescription('Confirm that payment has been received from this customer. This will mark the order as paid.'),
-
                 Action::make('assignToLead')
                     ->label(fn ($record) => $record->lead_id ? 'Reassign Lead' : 'Assign to Lead')
                     ->color(fn ($record) => $record->lead_id ? 'success' : 'primary')
@@ -238,15 +220,6 @@ class CustomersTable
                         ]);
                         $record->leads()->detach();
                         $record->reps()->detach();
-                    }),
-
-                Action::make('markDelivered')
-                    ->label('Mark Delivered')
-                    ->color('success')
-                    ->icon('heroicon-o-truck')
-                    ->visible(fn ($record) => auth()->user()->role === 'sales' && in_array($record->delivery_status, ['pending', 'dispatched']))
-                    ->action(function ($record) {
-                        $record->update(['delivery_status' => 'delivered']);
                     }),
 
                 ViewAction::make(),
