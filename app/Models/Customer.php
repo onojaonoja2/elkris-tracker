@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Model;
 
@@ -19,6 +20,7 @@ class Customer extends Model
             'lifetime_purchases' => 'array',
         ];
     }
+
     /**
      * Get the lead assigned to this customer.
      */
@@ -73,5 +75,89 @@ class Customer extends Model
     public function orders()
     {
         return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the call logs for this customer.
+     */
+    public function callLogs()
+    {
+        return $this->hasMany(CallLog::class);
+    }
+
+    /**
+     * Get the 3-day follow-up date (from when customer was added to portfolio).
+     */
+    public function getFollowUp3DaysAttribute(): ?Carbon
+    {
+        if ($this->rep_acceptance_status !== 'accepted') {
+            return null;
+        }
+
+        $pivot = \DB::table('customer_rep')
+            ->where('customer_id', $this->id)
+            ->where('user_id', $this->rep_id)
+            ->first();
+
+        if (! $pivot) {
+            return null;
+        }
+
+        return Carbon::parse($pivot->created_at)->addDays(3);
+    }
+
+    /**
+     * Get the 7-day follow-up date (from when customer was added to portfolio).
+     */
+    public function getFollowUp7DaysAttribute(): ?Carbon
+    {
+        if ($this->rep_acceptance_status !== 'accepted') {
+            return null;
+        }
+
+        $pivot = \DB::table('customer_rep')
+            ->where('customer_id', $this->id)
+            ->where('user_id', $this->rep_id)
+            ->first();
+
+        if (! $pivot) {
+            return null;
+        }
+
+        return Carbon::parse($pivot->created_at)->addDays(7);
+    }
+
+    /**
+     * Get all follow-up dates (manual + auto-generated).
+     */
+    public function getAllFollowUpDatesAttribute(): array
+    {
+        $dates = [];
+
+        if ($this->follow_up_date) {
+            $dates[] = [
+                'date' => $this->follow_up_date,
+                'type' => 'manual',
+                'label' => 'Manual Follow-up',
+            ];
+        }
+
+        if ($this->follow_up_3_days) {
+            $dates[] = [
+                'date' => $this->follow_up_3_days,
+                'type' => 'day_3',
+                'label' => 'Day 3 Follow-up',
+            ];
+        }
+
+        if ($this->follow_up_7_days) {
+            $dates[] = [
+                'date' => $this->follow_up_7_days,
+                'type' => 'day_7',
+                'label' => 'Day 7 Follow-up',
+            ];
+        }
+
+        return $dates;
     }
 }

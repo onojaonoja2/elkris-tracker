@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Customer;
+use App\Models\Order;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
 
@@ -17,7 +17,7 @@ class OrdersPerCityChart extends ChartWidget
 
     protected function getData(): array
     {
-        $data = Customer::where('total_price', '>', 0)
+        $data = Order::where('status', '!=', 'cancelled')
             ->select('city', DB::raw('count(*) as total_orders'))
             ->groupBy('city')
             ->pluck('total_orders', 'city')

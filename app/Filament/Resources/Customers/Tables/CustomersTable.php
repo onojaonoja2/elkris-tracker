@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers\Tables;
 
+use App\Models\CallLog;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -221,6 +222,44 @@ class CustomersTable
                         $record->leads()->detach();
                         $record->reps()->detach();
                     }),
+
+                Action::make('logCall')
+                    ->label('Log Call')
+                    ->color('info')
+                    ->icon('heroicon-o-phone')
+                    ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead', 'admin', 'manager']))
+                    ->form([
+                        DatePicker::make('called_at')
+                            ->native(false)
+                            ->displayFormat('d/m/Y H:i')
+                            ->default(now()),
+                        Select::make('outcome')
+                            ->options([
+                                'connected' => 'Connected',
+                                'voicemail' => 'Left Voicemail',
+                                'not_reachable' => 'Not Reachable',
+                                'wrong_number' => 'Wrong Number',
+                                'callback' => 'Will Call Back',
+                                'no_answer' => 'No Answer',
+                            ])
+                            ->required(),
+                        Textarea::make('notes')
+                            ->rows(3),
+                        Textarea::make('other_comment')
+                            ->label('Other Comment')
+                            ->rows(3),
+                    ])
+                    ->action(function ($record, array $data) {
+                        CallLog::create([
+                            'user_id' => auth()->id(),
+                            'customer_id' => $record->id,
+                            'called_at' => $data['called_at'] ?? now(),
+                            'outcome' => $data['outcome'],
+                            'notes' => $data['notes'],
+                            'other_comment' => $data['other_comment'],
+                        ]);
+                    })
+                    ->successNotificationTitle('Call logged successfully'),
 
                 ViewAction::make(),
                 EditAction::make()
