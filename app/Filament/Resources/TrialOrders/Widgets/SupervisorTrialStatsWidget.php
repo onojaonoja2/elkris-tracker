@@ -16,18 +16,44 @@ class SupervisorTrialStatsWidget extends BaseWidget
         $user = auth()->user();
         $stats = [];
 
-        $stockists = Stockist::where('supervisor_id', $user->id)->get();
+        $state = request()->get('state');
+
+        if ($state) {
+            $stockists = Stockist::where('supervisor_id', $user->id)
+                ->where('state', $state)
+                ->get();
+        } else {
+            $stockists = Stockist::where('supervisor_id', $user->id)->get();
+        }
+
         $stockistIds = $stockists->pluck('id');
+
+        if ($stockistIds->isEmpty()) {
+            return [
+                Stat::make('Total Stock Value', '₦0')
+                    ->description($state ? "Stockists in {$state}" : 'All stockists')
+                    ->icon('heroicon-o-currency-dollar')
+                    ->color('success'),
+                Stat::make('Total Units', '0')
+                    ->description($state ? "Products in {$state}" : 'All products')
+                    ->icon('heroicon-o-cube')
+                    ->color('info'),
+                Stat::make('Pending Orders', '0')
+                    ->description('Awaiting approval')
+                    ->icon('heroicon-o-clock')
+                    ->color('warning'),
+            ];
+        }
 
         $totalValue = $stockists->sum('stock_balance');
         $stats[] = Stat::make('Total Stock Value', '₦'.number_format($totalValue, 0))
-            ->description('All stockists combined')
+            ->description($state ? "Stockists in {$state}" : 'All stockists')
             ->icon('heroicon-o-currency-dollar')
             ->color('success');
 
         $totalUnits = StockistStock::whereIn('stockist_id', $stockistIds)->sum('quantity');
         $stats[] = Stat::make('Total Units', number_format($totalUnits))
-            ->description('All products combined')
+            ->description($state ? "Products in {$state}" : 'All products')
             ->icon('heroicon-o-cube')
             ->color('info');
 

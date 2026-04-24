@@ -11,6 +11,7 @@ use App\Models\TrialOrder;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -135,6 +136,24 @@ class ListTrialOrders extends ListRecords
                 })
                 ->modalHeading('Create Stockist Trial Order')
                 ->modalButton('Create');
+
+            $actions[] = Action::make('exportReport')
+                ->label('Export Report')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->button()
+                ->form([
+                    DatePicker::make('start_date')
+                        ->label('Start Date')
+                        ->required(),
+                    DatePicker::make('end_date')
+                        ->label('End Date')
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    return $this->exportReport($data['start_date'], $data['end_date']);
+                })
+                ->modalHeading('Export Activity Report')
+                ->modalButton('Export');
         }
 
         return $actions;
@@ -223,7 +242,7 @@ class ListTrialOrders extends ListRecords
 
         $stockistCities = is_array($agent->assigned_cities) ? $agent->assigned_cities : [];
         $firstCity = $stockistCities[0] ?? null;
-        $stockist = Stockist::where('city', $firstCity)->first();
+        $stockist = Stockist::where('city', $firstCity)->where('supervisor_id', auth()->id())->first();
 
         if ($stockist) {
             $totalDeducted = 0;
@@ -376,5 +395,33 @@ class ListTrialOrders extends ListRecords
                     });
                 }),
         ];
+    }
+
+    protected function exportReport(string $startDate, string $endDate)
+    {
+        $transactions = StockistTransaction::whereHas('stockist', fn ($q) => $q->where('supervisor_id', auth()->id()))
+            ->whereBetween('transaction_date', [$startDate, $endDate])
+            ->orderBy('transaction_date', 'asc')
+            ->get();
+
+        $filename = 'supervisor_report_'.date('Y_m_d_H_i_s').'.csv';
+
+        return response()->streamDownload(function () use ($transactions) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($handle, ['Date', 'Stockist', 'Type', 'Amount', 'Field Agent', 'Description']);
+
+            foreach ($transactions as $t) {
+                fputcsv($handle, [
+                    $t->transaction_date->format('d/m/Y'),
+                    $t->stockist->name ?? 'N/A',
+                    $t->type,
+                    $t->amount,
+                    $t->fieldAgent->name ?? 'N/A',
+                    $t->description,
+                ]);
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }
