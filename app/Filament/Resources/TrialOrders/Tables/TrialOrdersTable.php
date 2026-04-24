@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\TrialOrders\Tables;
 
 use App\Models\Stockist;
+use App\Models\StockistStock;
 use App\Models\StockistTransaction;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -49,38 +51,135 @@ class TrialOrdersTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn ($record) => $record->status === 'pending' && in_array(auth()->user()->role, ['supervisor', 'sales', 'admin']))
-                    ->action(function ($record) {
-                        $record->update([
-                            'status' => 'approved',
-                            'approved_by' => auth()->id(),
-                        ]);
+                    ->form([
+                        Select::make('stockist_id')
+                            ->label('Deduct from Stockist')
+                            ->options(function ($record) {
+                                $agent = $record->agent;
+                                $agentCities = is_array($agent->assigned_cities) ? $agent->assigned_cities : [];
+                                $agentState = self::getCityStateMapping()[$agentCities[0] ?? ''] ?? null;
 
-                        $agent = $record->agent;
-                        $agentCity = is_array($agent->assigned_cities) ? ($agent->assigned_cities[0] ?? null) : null;
+                                if (! $agentState) {
+                                    return [];
+                                }
 
-                        if ($agent && $agentCity) {
-                            $agent->increment('stock_balance', $record->total_value);
-
-                            $stockist = Stockist::where('city', $agentCity)->first();
-                            if ($stockist) {
-                                $stockist->decrement('stock_balance', $record->total_value);
-
-                                StockistTransaction::create([
-                                    'stockist_id' => $stockist->id,
-                                    'user_id' => auth()->id(),
-                                    'field_agent_id' => $agent->id,
-                                    'trial_order_id' => $record->id,
-                                    'type' => 'deducted',
-                                    'amount' => $record->total_value,
-                                    'description' => 'Trial order stock deduction for field agent: '.$agent->name,
-                                    'transaction_date' => now()->toDateString(),
-                                ]);
-                            }
-                        }
+                                return Stockist::where('state', $agentState)
+                                    ->pluck('name', 'id')
+                                    ->toArray();
+                            })
+                            ->required(),
+                    ])
+                    ->action(function ($record, array $data) {
+                        self::approveTrialOrder($record, $data);
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Approve Stock Requisition')
-                    ->modalDescription('Are you absolutely sure? This will irrevocably bind this total financial liability directly onto the field agent\'s active stock balance.'),
+                    ->modalDescription('Deduct stock from selected stockist.')
+                    ->modalButton('Approve'),
             ]);
+    }
+
+    public static function getCityStateMapping(): array
+    {
+        return [
+            'lagos_island' => 'Lagos',
+            'ikorodu' => 'Lagos',
+            'epe' => 'Lagos',
+            'ibadan' => 'Oyo',
+            'ogbomosho' => 'Oyo',
+            'oyo' => 'Oyo',
+            'ife' => 'Osun',
+            'ilesa' => 'Osun',
+            'iwo' => 'Osun',
+            'osogbo' => 'Osun',
+            'abeokuta' => 'Ogun',
+            'sagamu' => 'Ogun',
+            'ijebu_ode' => 'Ogun',
+            'benin_city' => 'Edo',
+            'auchi' => 'Edo',
+            'uromi' => 'Edo',
+            'ekpoma' => 'Edo',
+            'warri' => 'Delta',
+            'sapele' => 'Delta',
+            'asaba' => 'Delta',
+            'uyo' => 'Akwa Ibom',
+            'ikot_ekpeme' => 'Akwa Ibom',
+            'port_harcourt' => 'Rivers',
+            'buguma' => 'Rivers',
+            'calabar' => 'Cross River',
+            'ugeb' => 'Cross River',
+            'aba' => 'Abia',
+            'umuahia' => 'Abia',
+            'enugu' => 'Enugu',
+            'nsukka' => 'Enugu',
+            'awka' => 'Anambra',
+            'okpoko' => 'Anambra',
+            'owerri' => 'Imo',
+            'okigwe' => 'Imo',
+            'abakaliki' => 'Ebonyi',
+            'minna' => 'Niger',
+            'mokwa' => 'Niger',
+            'bida' => 'Niger',
+            'suleja' => 'Niger',
+            'ilorin' => 'Kwara',
+            'abuja' => 'FCT',
+        ];
+    }
+
+    public static function approveTrialOrder($record, array $data): void
+    {
+        $record->update([
+            'status' => 'approved',
+            'approved_by' => auth()->id(),
+        ]);
+
+        $agent = $record->agent;
+        $products = $record->products ?? [];
+
+        if ($agent && ! empty($products)) {
+            $agent->increment('stock_balance', $record->total_value);
+
+            $stockistId = $data['stockist_id'] ?? null;
+            $stockist = $stockistId ? Stockist::find($stockistId) : null;
+
+            if ($stockist) {
+                $totalDeducted = 0;
+
+                foreach ($products as $product) {
+                    $productName = $product['product_name'] ?? null;
+                    $grammage = $product['grammage'] ?? null;
+                    $quantity = $product['quantity'] ?? 0;
+                    $price = $product['price'] ?? 0;
+                    $lineTotal = $quantity * $price;
+
+                    if ($productName && $grammage && $quantity > 0) {
+                        $stockistStock = StockistStock::where('stockist_id', $stockist->id)
+                            ->where('product_name', $productName)
+                            ->where('grammage', $grammage)
+                            ->first();
+
+                        if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                            $stockistStock->decrement('quantity', $quantity);
+                            $totalDeducted += $lineTotal;
+
+                            StockistTransaction::create([
+                                'stockist_id' => $stockist->id,
+                                'user_id' => auth()->id(),
+                                'field_agent_id' => $agent->id,
+                                'trial_order_id' => $record->id,
+                                'type' => 'deducted',
+                                'amount' => $lineTotal,
+                                'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for trial order",
+                                'transaction_date' => now()->toDateString(),
+                            ]);
+                        }
+                    }
+                }
+
+                if ($totalDeducted > 0) {
+                    $stockist->decrement('stock_balance', $totalDeducted);
+                }
+            }
+        }
     }
 }
