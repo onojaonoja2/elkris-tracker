@@ -146,7 +146,172 @@ class SupervisorDashboard extends BaseDashboard
                 })
                 ->modalHeading('Export Activity Report')
                 ->modalButton('Export'),
+
+            Action::make('createTrialOrder')
+                ->label('Create Trial Order')
+                ->icon('heroicon-o-clipboard-document')
+                ->button()
+                ->form([
+                    Select::make('field_agent_id')
+                        ->label('Select Field Agent')
+                        ->options(fn () => $this->getFieldAgentOptions())
+                        ->required()
+                        ->searchable(),
+                    Repeater::make('products')
+                        ->label('Products')
+                        ->schema([
+                            Select::make('product_name')
+                                ->label('Product')
+                                ->options(self::getProductOptions())
+                                ->required()
+                                ->live(),
+                            Select::make('grammage')
+                                ->label('Grammage')
+                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name') ?? $get('products.product_name')))
+                                ->required(),
+                            TextInput::make('quantity')
+                                ->label('Qty')
+                                ->numeric()
+                                ->minValue(1)
+                                ->required(),
+                            TextInput::make('price')
+                                ->label('Unit Price')
+                                ->numeric()
+                                ->prefix('₦')
+                                ->required(),
+                            TextInput::make('line_total')
+                                ->label('Line Total')
+                                ->numeric()
+                                ->prefix('₦')
+                                ->readOnly()
+                                ->dehydrated(false),
+                        ])
+                        ->columns(5)
+                        ->minItems(1)
+                        ->required(),
+                    TextInput::make('total_value')
+                        ->label('Total Value')
+                        ->numeric()
+                        ->prefix('₦')
+                        ->readOnly(),
+                ])
+                ->action(function (array $data) {
+                    $this->createTrialOrderForFieldAgent($data);
+                })
+                ->modalHeading('Create Trial Order for Field Agent')
+                ->modalButton('Create'),
         ];
+    }
+
+    protected function getFieldAgentOptions(): array
+    {
+        $user = auth()->user();
+        $stockists = Stockist::where('supervisor_id', $user->id)->get();
+        $stockistCities = $stockists->pluck('city')->toArray();
+
+        return User::where('role', 'field_agent')
+            ->where(function ($query) use ($stockistCities) {
+                foreach ($stockistCities as $city) {
+                    $query->orWhereJsonContains('assigned_cities', $city);
+                }
+            })
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    protected static function recalculateFormTotal(Set $set, Get $get): void
+    {
+        $products = $get('../../products') ?? [];
+        $total = 0;
+        foreach ($products as $product) {
+            $qty = (float) ($product['quantity'] ?? 1);
+            $price = (float) ($product['price'] ?? 0);
+            $total += $qty * $price;
+        }
+        $set('../../total_value', $total);
+    }
+
+    protected static function updateLineTotal(Set $set, Get $get): void
+    {
+        $quantity = (float) ($get('quantity') ?? 1);
+        $price = (float) ($get('price') ?? 0);
+        $set('line_total', $quantity * $price);
+    }
+
+    protected function createTrialOrderForFieldAgent(array $data): void
+    {
+        $agent = User::find($data['field_agent_id']);
+        if (! $agent) {
+            return;
+        }
+
+        $products = $data['products'] ?? [];
+        if (empty($products)) {
+            return;
+        }
+
+        $totalValue = 0;
+        foreach ($products as $product) {
+            $qty = (float) ($product['quantity'] ?? 1);
+            $price = (float) ($product['price'] ?? 0);
+            $totalValue += $qty * $price;
+        }
+
+        if ($totalValue <= 0) {
+            return;
+        }
+
+        $trialOrder = TrialOrder::create([
+            'agent_id' => $agent->id,
+            'products' => $products,
+            'total_value' => $totalValue,
+            'status' => 'approved',
+            'approved_by' => auth()->id(),
+        ]);
+
+        $agent->increment('stock_balance', $totalValue);
+
+        $stockistCities = is_array($agent->assigned_cities) ? $agent->assigned_cities : [];
+        $firstCity = $stockistCities[0] ?? null;
+        $stockist = Stockist::where('city', $firstCity)->first();
+
+        if ($stockist) {
+            $totalDeducted = 0;
+            foreach ($products as $product) {
+                $productName = $product['product_name'] ?? null;
+                $grammage = $product['grammage'] ?? null;
+                $quantity = $product['quantity'] ?? 0;
+                $price = $product['price'] ?? 0;
+                $lineTotal = $quantity * $price;
+
+                if ($productName && $grammage && $quantity > 0) {
+                    $stockistStock = StockistStock::where('stockist_id', $stockist->id)
+                        ->where('product_name', $productName)
+                        ->where('grammage', $grammage)
+                        ->first();
+
+                    if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                        $stockistStock->decrement('quantity', $quantity);
+                        $totalDeducted += $lineTotal;
+
+                        StockistTransaction::create([
+                            'stockist_id' => $stockist->id,
+                            'user_id' => auth()->id(),
+                            'field_agent_id' => $agent->id,
+                            'trial_order_id' => $trialOrder->id,
+                            'type' => 'deducted',
+                            'amount' => $lineTotal,
+                            'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for trial order",
+                            'transaction_date' => now()->toDateString(),
+                        ]);
+                    }
+                }
+            }
+
+            if ($totalDeducted > 0) {
+                $stockist->decrement('stock_balance', $totalDeducted);
+            }
+        }
     }
 
     protected function exportReport(string $startDate, string $endDate)

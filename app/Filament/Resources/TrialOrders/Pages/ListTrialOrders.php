@@ -10,7 +10,6 @@ use Filament\Actions\CreateAction;
 use Filament\Forms\Components\Select;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Tables\Filters\SelectFilter;
-use Illuminate\Support\Facades\DB;
 
 class ListTrialOrders extends ListRecords
 {
@@ -40,7 +39,9 @@ class ListTrialOrders extends ListRecords
                         ->placeholder('All States'),
                 ])
                 ->action(function (array $data) {
-                    return redirect()->to(route('filament.admin.resources.trial-orders.index', ['state' => $data['state_filter'] ?? null]));
+                    $state = $data['state_filter'] ?? null;
+
+                    return redirect()->to(route('filament.admin.resources.trial-orders.index', ['state' => $state]));
                 }),
         ];
     }
@@ -60,6 +61,14 @@ class ListTrialOrders extends ListRecords
     {
         $stateFilter = request()->get('state');
 
+        if (! $stateFilter) {
+            return [];
+        }
+
+        $stateCities = Stockist::where('state', $stateFilter)
+            ->pluck('city')
+            ->toArray();
+
         return [
             SelectFilter::make('state')
                 ->label('State')
@@ -70,17 +79,16 @@ class ListTrialOrders extends ListRecords
                         ->pluck('state', 'state')
                         ->toArray();
                 })
-                ->query(function ($query, $data) use ($stateFilter) {
-                    if ($stateFilter) {
-                        $query->whereHas('agent', function ($q) use ($stateFilter) {
-                            $q->whereJsonContains('assigned_cities', function ($cityQuery) use ($stateFilter) {
-                                $cityQuery->select('city')
-                                    ->from('stockists')
-                                    ->whereColumn('city', DB::raw('ANY(users.assigned_cities)'))
-                                    ->where('state', $stateFilter);
-                            });
-                        });
+                ->query(function ($query) use ($stateCities) {
+                    if (empty($stateCities)) {
+                        return;
                     }
+
+                    $query->whereHas('agent', function ($q) use ($stateCities) {
+                        foreach ($stateCities as $city) {
+                            $q->orWhereJsonContains('assigned_cities', $city);
+                        }
+                    });
                 }),
         ];
     }

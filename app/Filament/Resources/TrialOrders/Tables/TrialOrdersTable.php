@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TrialOrders\Tables;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
+use App\Models\TrialOrder;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
@@ -24,6 +25,10 @@ class TrialOrdersTable
                     ->label('Location')
                     ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state)
                     ->toggleable(),
+                TextColumn::make('state')
+                    ->label('State')
+                    ->state(fn (TrialOrder $record): ?string => self::getStateFromAgent($record))
+                    ->sortable(),
                 TextColumn::make('total_value')
                     ->label('Total Value (₦)')
                     ->money('NGN')
@@ -186,5 +191,23 @@ class TrialOrdersTable
                 }
             }
         }
+    }
+
+    public static function getStateFromAgent($record): ?string
+    {
+        $agent = $record->agent;
+        if (! $agent) {
+            return null;
+        }
+
+        $agentCities = is_array($agent->assigned_cities) ? $agent->assigned_cities : [];
+        if (empty($agentCities)) {
+            return null;
+        }
+
+        $firstCity = $agentCities[0];
+        $stockist = Stockist::where('city', $firstCity)->first();
+
+        return $stockist?->state;
     }
 }
