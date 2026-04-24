@@ -15,7 +15,9 @@ class UpcomingFollowUps extends TableWidget
 {
     public static function canView(): bool
     {
-        return auth()->user()->role !== 'field_agent';
+        $role = auth()->user()->role;
+
+        return $role !== 'field_agent' && $role !== 'supervisor';
     }
 
     protected static ?string $heading = 'Upcoming Follow Ups 7 Days';

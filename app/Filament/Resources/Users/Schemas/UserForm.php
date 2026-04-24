@@ -35,19 +35,11 @@ class UserForm
                     ->visible(fn (string $operation): bool => $operation === 'edit'),
                 Select::make('role')
                     ->label('User Role')
-                    ->options([
-                        'admin' => 'Administrator',
-                        'manager' => 'Manager',
-                        'supervisor' => 'Supervisor',
-                        'lead' => 'Team Lead',
-                        'rep' => 'Representative',
-                        'field_agent' => 'Field Agent',
-                        'sales' => 'Sales',
-                    ])
+                    ->options(self::getRoleOptions())
                     ->required()
-                    ->default('rep')
-                    ->selectablePlaceholder(false) // Prevents picking a blank option
-                    ->live(), // This tells Filament to refresh the form instantly when changed
+                    ->default('field_agent')
+                    ->selectablePlaceholder(false)
+                    ->live(),
 
                 Select::make('assigned_cities')
                     ->label('Assigned Cities')
@@ -64,5 +56,26 @@ class UserForm
                     ->required(fn (callable $get) => $get('role') === 'rep')
                     ->live(),
             ]);
+    }
+
+    public static function getRoleOptions(): array
+    {
+        $role = auth()->user()->role;
+
+        if ($role === 'supervisor') {
+            return [
+                'field_agent' => 'Field Agent',
+            ];
+        }
+
+        return [
+            'admin' => 'Administrator',
+            'manager' => 'Manager',
+            'supervisor' => 'Supervisor',
+            'lead' => 'Team Lead',
+            'rep' => 'Representative',
+            'field_agent' => 'Field Agent',
+            'sales' => 'Sales',
+        ];
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\TrialOrders\Tables;
 
+use App\Models\Stockist;
+use App\Models\StockistTransaction;
 use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -16,6 +18,10 @@ class TrialOrdersTable
                     ->label('Field Agent')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('agent.assigned_cities')
+                    ->label('City')
+                    ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state)
+                    ->toggleable(),
                 TextColumn::make('total_value')
                     ->label('Total Value (₦)')
                     ->money('NGN')
@@ -49,10 +55,27 @@ class TrialOrdersTable
                             'approved_by' => auth()->id(),
                         ]);
 
-                        // Add the approved total directly natively onto the reporting agent's active liability stock balance
                         $agent = $record->agent;
-                        if ($agent) {
+                        $agentCity = is_array($agent->assigned_cities) ? ($agent->assigned_cities[0] ?? null) : null;
+
+                        if ($agent && $agentCity) {
                             $agent->increment('stock_balance', $record->total_value);
+
+                            $stockist = Stockist::where('city', $agentCity)->first();
+                            if ($stockist) {
+                                $stockist->decrement('stock_balance', $record->total_value);
+
+                                StockistTransaction::create([
+                                    'stockist_id' => $stockist->id,
+                                    'user_id' => auth()->id(),
+                                    'field_agent_id' => $agent->id,
+                                    'trial_order_id' => $record->id,
+                                    'type' => 'deducted',
+                                    'amount' => $record->total_value,
+                                    'description' => 'Trial order stock deduction for field agent: '.$agent->name,
+                                    'transaction_date' => now()->toDateString(),
+                                ]);
+                            }
                         }
                     })
                     ->requiresConfirmation()

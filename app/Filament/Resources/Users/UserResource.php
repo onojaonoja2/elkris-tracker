@@ -25,7 +25,7 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return in_array(auth()->user()->role, ['admin', 'supervisor']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -33,12 +33,20 @@ class UserResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        // Team leads definitively only see users explicitly mapped under them
+        if ($user->role === 'supervisor') {
+            return $query->where('role', 'field_agent');
+        }
+
         if ($user->role === 'lead') {
             $query->where('lead_id', $user->id);
         }
 
         return $query;
+    }
+
+    public static function canCreate(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'supervisor']);
     }
 
     public static function form(Schema $schema): Schema
