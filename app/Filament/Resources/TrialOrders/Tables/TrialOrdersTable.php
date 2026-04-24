@@ -20,14 +20,20 @@ class TrialOrdersTable
                 TextColumn::make('agent.name')
                     ->label('Field Agent')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn ($record) => $record && $record->agent_id !== null),
+                TextColumn::make('stockist.name')
+                    ->label('Stockist')
+                    ->searchable()
+                    ->sortable()
+                    ->visible(fn ($record) => $record && $record->stockist_id !== null),
                 TextColumn::make('agent.assigned_cities')
                     ->label('Location')
                     ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state)
                     ->toggleable(),
                 TextColumn::make('state')
                     ->label('State')
-                    ->state(fn (TrialOrder $record): ?string => self::getStateFromAgent($record))
+                    ->state(fn (TrialOrder $record): ?string => self::getStateFromOrder($record))
                     ->sortable(),
                 TextColumn::make('total_value')
                     ->label('Total Value (₦)')
@@ -209,5 +215,18 @@ class TrialOrdersTable
         $stockist = Stockist::where('city', $firstCity)->first();
 
         return $stockist?->state;
+    }
+
+    public static function getStateFromOrder($record): ?string
+    {
+        if ($record->stockist_id !== null) {
+            return $record->stockist?->state;
+        }
+
+        if ($record->agent_id !== null) {
+            return self::getStateFromAgent($record);
+        }
+
+        return null;
     }
 }

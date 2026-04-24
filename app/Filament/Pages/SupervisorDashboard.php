@@ -200,6 +200,49 @@ class SupervisorDashboard extends BaseDashboard
                 })
                 ->modalHeading('Create Trial Order for Field Agent')
                 ->modalButton('Create'),
+
+            Action::make('createStockistTrialOrder')
+                ->label('Create Stockist Trial Order')
+                ->icon('heroicon-o-building-storefront')
+                ->button()
+                ->form([
+                    Select::make('stockist_id')
+                        ->label('Select Stockist')
+                        ->options(fn () => Stockist::where('supervisor_id', auth()->id())
+                            ->pluck('name', 'id'))
+                        ->required()
+                        ->searchable(),
+                    Repeater::make('stockist_products')
+                        ->label('Products')
+                        ->schema([
+                            Select::make('product_name')
+                                ->label('Product')
+                                ->options(self::getProductOptions())
+                                ->required(),
+                            Select::make('grammage')
+                                ->label('Grammage')
+                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name') ?? $get('stockist_products.product_name')))
+                                ->required(),
+                            TextInput::make('quantity')
+                                ->label('Qty')
+                                ->numeric()
+                                ->minValue(1)
+                                ->required(),
+                            TextInput::make('price')
+                                ->label('Unit Price')
+                                ->numeric()
+                                ->prefix('₦')
+                                ->required(),
+                        ])
+                        ->columns(4)
+                        ->minItems(1)
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $this->createTrialOrderForStockist($data);
+                })
+                ->modalHeading('Create Stockist Trial Order')
+                ->modalButton('Create'),
         ];
     }
 
@@ -311,6 +354,73 @@ class SupervisorDashboard extends BaseDashboard
             if ($totalDeducted > 0) {
                 $stockist->decrement('stock_balance', $totalDeducted);
             }
+        }
+    }
+
+    protected function createTrialOrderForStockist(array $data): void
+    {
+        $stockist = Stockist::find($data['stockist_id']);
+        if (! $stockist) {
+            return;
+        }
+
+        $products = $data['stockist_products'] ?? [];
+        if (empty($products)) {
+            return;
+        }
+
+        $totalValue = 0;
+        foreach ($products as $product) {
+            $qty = (float) ($product['quantity'] ?? 1);
+            $price = (float) ($product['price'] ?? 0);
+            $totalValue += $qty * $price;
+        }
+
+        if ($totalValue <= 0) {
+            return;
+        }
+
+        $trialOrder = TrialOrder::create([
+            'stockist_id' => $stockist->id,
+            'products' => $products,
+            'total_value' => $totalValue,
+            'status' => 'approved',
+            'approved_by' => auth()->id(),
+        ]);
+
+        $totalDeducted = 0;
+        foreach ($products as $product) {
+            $productName = $product['product_name'] ?? null;
+            $grammage = $product['grammage'] ?? null;
+            $quantity = $product['quantity'] ?? 0;
+            $price = $product['price'] ?? 0;
+            $lineTotal = $quantity * $price;
+
+            if ($productName && $grammage && $quantity > 0) {
+                $stockistStock = StockistStock::where('stockist_id', $stockist->id)
+                    ->where('product_name', $productName)
+                    ->where('grammage', $grammage)
+                    ->first();
+
+                if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                    $stockistStock->decrement('quantity', $quantity);
+                    $totalDeducted += $lineTotal;
+
+                    StockistTransaction::create([
+                        'stockist_id' => $stockist->id,
+                        'user_id' => auth()->id(),
+                        'trial_order_id' => $trialOrder->id,
+                        'type' => 'deducted',
+                        'amount' => $lineTotal,
+                        'description' => "Stockist trial: {$quantity}x {$productName} ({$grammage}g)",
+                        'transaction_date' => now()->toDateString(),
+                    ]);
+                }
+            }
+        }
+
+        if ($totalDeducted > 0) {
+            $stockist->decrement('stock_balance', $totalDeducted);
         }
     }
 

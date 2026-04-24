@@ -5,10 +5,17 @@ namespace App\Filament\Resources\TrialOrders\Pages;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Filament\Resources\TrialOrders\Widgets\SupervisorTrialStatsWidget;
 use App\Models\Stockist;
+use App\Models\StockistStock;
+use App\Models\StockistTransaction;
+use App\Models\TrialOrder;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Filters\SelectFilter;
 
 class ListTrialOrders extends ListRecords
@@ -17,7 +24,7 @@ class ListTrialOrders extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
+        $actions = [
             CreateAction::make()
                 ->visible(fn () => auth()->user()->role === 'field_agent'),
 
@@ -44,6 +51,284 @@ class ListTrialOrders extends ListRecords
                     return redirect()->to(route('filament.admin.resources.trial-orders.index', ['state' => $state]));
                 }),
         ];
+
+        if (auth()->user()->role === 'supervisor') {
+            $actions[] = Action::make('createForAgent')
+                ->label('Create for Agent')
+                ->icon('heroicon-o-user-plus')
+                ->form([
+                    Select::make('field_agent_id')
+                        ->label('Select Field Agent')
+                        ->options(fn () => $this->getFieldAgentOptions())
+                        ->required()
+                        ->searchable(),
+                    Repeater::make('products')
+                        ->label('Products')
+                        ->schema([
+                            Select::make('product_name')
+                                ->label('Product')
+                                ->options(self::getProductOptions())
+                                ->required(),
+                            Select::make('grammage')
+                                ->label('Grammage')
+                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name') ?? $get('products.product_name')))
+                                ->required(),
+                            TextInput::make('quantity')
+                                ->label('Qty')
+                                ->numeric()
+                                ->minValue(1)
+                                ->required(),
+                            TextInput::make('price')
+                                ->label('Unit Price')
+                                ->numeric()
+                                ->prefix('₦')
+                                ->required(),
+                        ])
+                        ->columns(4)
+                        ->minItems(1)
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $this->createTrialOrderForFieldAgent($data);
+                })
+                ->modalHeading('Create Trial Order for Field Agent')
+                ->modalButton('Create');
+
+            $actions[] = Action::make('createForStockist')
+                ->label('Create for Stockist')
+                ->icon('heroicon-o-building-storefront')
+                ->form([
+                    Select::make('stockist_id')
+                        ->label('Select Stockist')
+                        ->options(fn () => Stockist::where('supervisor_id', auth()->id())
+                            ->pluck('name', 'id'))
+                        ->required()
+                        ->searchable(),
+                    Repeater::make('stockist_products')
+                        ->label('Products')
+                        ->schema([
+                            Select::make('product_name')
+                                ->label('Product')
+                                ->options(self::getProductOptions())
+                                ->required(),
+                            Select::make('grammage')
+                                ->label('Grammage')
+                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name') ?? $get('stockist_products.product_name')))
+                                ->required(),
+                            TextInput::make('quantity')
+                                ->label('Qty')
+                                ->numeric()
+                                ->minValue(1)
+                                ->required(),
+                            TextInput::make('price')
+                                ->label('Unit Price')
+                                ->numeric()
+                                ->prefix('₦')
+                                ->required(),
+                        ])
+                        ->columns(4)
+                        ->minItems(1)
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $this->createTrialOrderForStockist($data);
+                })
+                ->modalHeading('Create Stockist Trial Order')
+                ->modalButton('Create');
+        }
+
+        return $actions;
+    }
+
+    protected function getFieldAgentOptions(): array
+    {
+        $user = auth()->user();
+        $stockists = Stockist::where('supervisor_id', $user->id)->get();
+        $stockistCities = $stockists->pluck('city')->toArray();
+
+        return User::where('role', 'field_agent')
+            ->where(function ($query) use ($stockistCities) {
+                foreach ($stockistCities as $city) {
+                    $query->orWhereJsonContains('assigned_cities', $city);
+                }
+            })
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    protected static function getProductOptions(): array
+    {
+        return [
+            'Elkris Oat Flour' => 'Elkris Oat Flour',
+            'Elkris Plantain' => 'Elkris Plantain',
+            'Elkris Poundo Yam' => 'Elkris Poundo Yam',
+        ];
+    }
+
+    protected static function getGrammageOptions(?string $product): array
+    {
+        if (! $product) {
+            return [];
+        }
+
+        return match ($product) {
+            'Elkris Oat Flour' => [
+                '5000' => '5000g',
+                '1300' => '1300g',
+                '650' => '650g',
+            ],
+            'Elkris Plantain' => [
+                '1800' => '1800g',
+                '900' => '900g',
+            ],
+            'Elkris Poundo Yam' => [
+                '1800' => '1800g',
+            ],
+            default => [],
+        };
+    }
+
+    protected function createTrialOrderForFieldAgent(array $data): void
+    {
+        $agent = User::find($data['field_agent_id']);
+        if (! $agent) {
+            return;
+        }
+
+        $products = $data['products'] ?? [];
+        if (empty($products)) {
+            return;
+        }
+
+        $totalValue = 0;
+        foreach ($products as $product) {
+            $qty = (float) ($product['quantity'] ?? 1);
+            $price = (float) ($product['price'] ?? 0);
+            $totalValue += $qty * $price;
+        }
+
+        if ($totalValue <= 0) {
+            return;
+        }
+
+        $trialOrder = TrialOrder::create([
+            'agent_id' => $agent->id,
+            'products' => $products,
+            'total_value' => $totalValue,
+            'status' => 'approved',
+            'approved_by' => auth()->id(),
+        ]);
+
+        $agent->increment('stock_balance', $totalValue);
+
+        $stockistCities = is_array($agent->assigned_cities) ? $agent->assigned_cities : [];
+        $firstCity = $stockistCities[0] ?? null;
+        $stockist = Stockist::where('city', $firstCity)->first();
+
+        if ($stockist) {
+            $totalDeducted = 0;
+            foreach ($products as $product) {
+                $productName = $product['product_name'] ?? null;
+                $grammage = $product['grammage'] ?? null;
+                $quantity = $product['quantity'] ?? 0;
+                $price = $product['price'] ?? 0;
+                $lineTotal = $quantity * $price;
+
+                if ($productName && $grammage && $quantity > 0) {
+                    $stockistStock = StockistStock::where('stockist_id', $stockist->id)
+                        ->where('product_name', $productName)
+                        ->where('grammage', $grammage)
+                        ->first();
+
+                    if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                        $stockistStock->decrement('quantity', $quantity);
+                        $totalDeducted += $lineTotal;
+
+                        StockistTransaction::create([
+                            'stockist_id' => $stockist->id,
+                            'user_id' => auth()->id(),
+                            'field_agent_id' => $agent->id,
+                            'trial_order_id' => $trialOrder->id,
+                            'type' => 'deducted',
+                            'amount' => $lineTotal,
+                            'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for trial order",
+                            'transaction_date' => now()->toDateString(),
+                        ]);
+                    }
+                }
+            }
+
+            if ($totalDeducted > 0) {
+                $stockist->decrement('stock_balance', $totalDeducted);
+            }
+        }
+    }
+
+    protected function createTrialOrderForStockist(array $data): void
+    {
+        $stockist = Stockist::find($data['stockist_id']);
+        if (! $stockist) {
+            return;
+        }
+
+        $products = $data['stockist_products'] ?? [];
+        if (empty($products)) {
+            return;
+        }
+
+        $totalValue = 0;
+        foreach ($products as $product) {
+            $qty = (float) ($product['quantity'] ?? 1);
+            $price = (float) ($product['price'] ?? 0);
+            $totalValue += $qty * $price;
+        }
+
+        if ($totalValue <= 0) {
+            return;
+        }
+
+        $trialOrder = TrialOrder::create([
+            'stockist_id' => $stockist->id,
+            'products' => $products,
+            'total_value' => $totalValue,
+            'status' => 'approved',
+            'approved_by' => auth()->id(),
+        ]);
+
+        $totalDeducted = 0;
+        foreach ($products as $product) {
+            $productName = $product['product_name'] ?? null;
+            $grammage = $product['grammage'] ?? null;
+            $quantity = $product['quantity'] ?? 0;
+            $price = $product['price'] ?? 0;
+            $lineTotal = $quantity * $price;
+
+            if ($productName && $grammage && $quantity > 0) {
+                $stockistStock = StockistStock::where('stockist_id', $stockist->id)
+                    ->where('product_name', $productName)
+                    ->where('grammage', $grammage)
+                    ->first();
+
+                if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                    $stockistStock->decrement('quantity', $quantity);
+                    $totalDeducted += $lineTotal;
+
+                    StockistTransaction::create([
+                        'stockist_id' => $stockist->id,
+                        'user_id' => auth()->id(),
+                        'trial_order_id' => $trialOrder->id,
+                        'type' => 'deducted',
+                        'amount' => $lineTotal,
+                        'description' => "Stockist trial: {$quantity}x {$productName} ({$grammage}g)",
+                        'transaction_date' => now()->toDateString(),
+                    ]);
+                }
+            }
+        }
+
+        if ($totalDeducted > 0) {
+            $stockist->decrement('stock_balance', $totalDeducted);
+        }
     }
 
     protected function getHeaderWidgets(): array
