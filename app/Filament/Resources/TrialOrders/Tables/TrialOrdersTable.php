@@ -21,13 +21,18 @@ class TrialOrdersTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('agent.assigned_cities')
-                    ->label('City')
+                    ->label('Location')
                     ->formatStateUsing(fn ($state) => is_array($state) ? implode(', ', $state) : $state)
                     ->toggleable(),
                 TextColumn::make('total_value')
                     ->label('Total Value (₦)')
                     ->money('NGN')
                     ->sortable(),
+                TextColumn::make('products')
+                    ->label('Products')
+                    ->formatStateUsing(fn ($products) => collect($products)->map(fn ($p) => "{$p['quantity']}x {$p['product_name']}")->implode(', '))
+                    ->limit(50)
+                    ->toggleable(),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -40,7 +45,7 @@ class TrialOrdersTable
                     ->placeholder('N/A')
                     ->toggleable(),
                 TextColumn::make('created_at')
-                    ->label('Date Requested')
+                    ->label('Date')
                     ->dateTime()
                     ->sortable(),
             ])

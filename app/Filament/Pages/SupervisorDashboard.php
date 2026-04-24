@@ -32,6 +32,7 @@ class SupervisorDashboard extends BaseDashboard
     {
         return [
             SupervisorStatsWidget::class,
+            SupervisorStockWidget::class,
         ];
     }
 
@@ -219,12 +220,27 @@ class SupervisorStatsWidget extends StatsOverviewWidget
 
         $totalStockValue = $stockists->sum('stock_balance');
         $stockistCount = $stockists->count();
+
+        $stockistCities = $stockists->pluck('city')->toArray();
         $fieldAgentCount = User::where('role', 'field_agent')
-            ->whereJsonContains('assigned_cities', fn ($query) => $query
-                ->select('city')
-                ->from('stockists')
-                ->whereColumn('stockists.city', DB::raw('ANY(assigned_cities)'))
-                ->where('supervisor_id', $user->id))
+            ->where(function ($query) use ($stockistCities) {
+                foreach ($stockistCities as $city) {
+                    $query->orWhereJsonContains('assigned_cities', $city);
+                }
+            })
+            ->count();
+
+        $faIds = User::where('role', 'field_agent')
+            ->where(function ($query) use ($stockistCities) {
+                foreach ($stockistCities as $city) {
+                    $query->orWhereJsonContains('assigned_cities', $city);
+                }
+            })
+            ->pluck('id')
+            ->toArray();
+
+        $pendingOrdersCount = TrialOrder::where('status', 'pending')
+            ->whereIn('agent_id', $faIds)
             ->count();
 
         return [
@@ -240,9 +256,7 @@ class SupervisorStatsWidget extends StatsOverviewWidget
                 ->description('Active field agents')
                 ->icon('heroicon-o-users')
                 ->color('warning'),
-            Stat::make('Pending Trial Orders', TrialOrder::where('status', 'pending')
-                ->whereHas('agent', fn ($query) => $query->whereRaw('0 = 1'))
-                ->count())
+            Stat::make('Pending Trial Orders', $pendingOrdersCount)
                 ->description('Awaiting approval')
                 ->icon('heroicon-o-clock')
                 ->color('danger'),
