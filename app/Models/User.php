@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-// use Database\Factories\UserFactory;
 use EslamRedaDiv\FilamentCopilot\Concerns\HasCopilotChat;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -11,7 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'my_id', 'lead_id', 'assigned_cities'])]
+#[Fillable(['name', 'email', 'password', 'role', 'my_id', 'lead_id', 'assigned_cities', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -24,13 +22,16 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::creating(function (User $user) {
-            // Automatically assign a random unique 6-digit numerical ID to the user if none exists
             if (empty($user->my_id)) {
                 do {
                     $id = random_int(100000, 999999);
                 } while (self::where('my_id', $id)->exists());
 
                 $user->my_id = (string) $id;
+            }
+
+            if (! isset($user->is_active)) {
+                $user->is_active = true;
             }
         });
     }
@@ -46,6 +47,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'assigned_cities' => 'array',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -95,5 +97,13 @@ class User extends Authenticatable
     public function customersRepped()
     {
         return $this->belongsToMany(Customer::class, 'customer_rep', 'user_id', 'customer_id')->withTimestamps();
+    }
+
+    /**
+     * Scope a query to only include active users.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
     }
 }
