@@ -49,7 +49,9 @@ class ListTrialOrders extends ListRecords
                 ->action(function (array $data) {
                     $state = $data['state_filter'] ?? null;
 
-                    return redirect()->to(route('filament.admin.resources.trial-orders.index', ['state' => $state]));
+                    $routeParams = $state ? ['state' => $state] : [];
+
+                    return redirect()->to(route('filament.admin.resources.trial-orders.index', $routeParams));
                 }),
         ];
 

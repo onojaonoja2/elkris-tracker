@@ -14,19 +14,19 @@ class SupervisorTrialStatsWidget extends BaseWidget
     protected function getStats(): array
     {
         $user = auth()->user();
-        $stats = [];
-
         $state = request()->get('state');
+        $stateFilter = $state ? strtolower(trim($state)) : null;
 
-        if ($state) {
+        if ($stateFilter) {
             $stockists = Stockist::where('supervisor_id', $user->id)
-                ->where('state', $state)
+                ->where(DB::raw('LOWER(state)'), '=', $stateFilter)
                 ->get();
         } else {
             $stockists = Stockist::where('supervisor_id', $user->id)->get();
         }
 
         $stockistIds = $stockists->pluck('id');
+        $stats = [];
 
         if ($stockistIds->isEmpty()) {
             return [
