@@ -8,7 +8,6 @@ use App\Filament\Resources\Users\UserResource;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
-use App\Models\TrialOrder;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -22,6 +21,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class SupervisorDashboard extends BaseDashboard
 {
+    // Use a unique route path so this page doesn't overwrite the main dashboard route ('/')
+    protected static string $routePath = '/supervisor-dashboard';
     public static function shouldRegisterNavigation(): bool
     {
         return auth()->user()->role === 'supervisor';
@@ -203,9 +204,7 @@ class SupervisorStatsWidget extends StatsOverviewWidget
     {
         $user = auth()->user();
         $stockists = Stockist::where('supervisor_id', $user->id)->get();
-        $stockistIds = $stockists->pluck('id');
 
-        $totalStockValue = $stockists->sum('stock_balance');
         $stockistCount = $stockists->count();
 
         $stockistCities = $stockists->pluck('city')->toArray();
@@ -217,32 +216,7 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             })
             ->count();
 
-        $faIds = User::where('role', 'field_agent')
-            ->where(function ($query) use ($stockistCities) {
-                foreach ($stockistCities as $city) {
-                    $query->orWhereJsonContains('assigned_cities', $city);
-                }
-            })
-            ->pluck('id')
-            ->toArray();
-
-        $pendingOrdersCount = TrialOrder::where('status', 'pending')
-            ->whereIn('agent_id', $faIds)
-            ->count();
-
-        $pendingPaymentCount = TrialOrder::where('payment_status', 'pending')
-            ->whereIn('agent_id', $faIds)
-            ->count();
-
-        $pendingPaymentValue = TrialOrder::where('payment_status', 'pending')
-            ->whereIn('agent_id', $faIds)
-            ->sum('total_value');
-
         return [
-            Stat::make('Total Stock Value', '₦'.number_format($totalStockValue, 0))
-                ->description('All stockists combined')
-                ->icon('heroicon-o-currency-dollar')
-                ->color('success'),
             Stat::make('Stockists', $stockistCount)
                 ->description('Registered stockists')
                 ->icon('heroicon-o-building-storefront')
@@ -250,10 +224,6 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             Stat::make('Field Agents', $fieldAgentCount)
                 ->description('Active field agents')
                 ->icon('heroicon-o-users')
-                ->color('warning'),
-            Stat::make('Pending Payment', '₦'.number_format($pendingPaymentValue, 0))
-                ->description("{$pendingPaymentCount} orders awaiting confirmation")
-                ->icon('heroicon-o-banknotes')
                 ->color('warning'),
         ];
     }

@@ -28,7 +28,6 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
-            ->spa()
             ->unsavedChangesAlerts()
             ->databaseTransactions()
             ->id('admin')
@@ -43,6 +42,9 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
                 SupervisorDashboard::class,
             ])
+            // Use the panel root as the home URL. Avoid calling Filament page
+            // helpers during provider registration to prevent early facade access.
+            ->homeUrl('/admin')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,

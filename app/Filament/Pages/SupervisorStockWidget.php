@@ -45,17 +45,6 @@ class SupervisorStockWidget extends TableWidget
                     ->label('Qty')
                     ->sortable()
                     ->color(fn ($state) => $state > 0 ? 'success' : 'danger'),
-
-                TextColumn::make('unit_price')
-                    ->label('Unit Price')
-                    ->money('NGN')
-                    ->sortable(),
-
-                TextColumn::make('total_value')
-                    ->label('Total Value')
-                    ->money('NGN')
-                    ->getStateUsing(fn ($record) => $record->quantity * $record->unit_price)
-                    ->sortable(),
             ])
             ->filters([
                 //

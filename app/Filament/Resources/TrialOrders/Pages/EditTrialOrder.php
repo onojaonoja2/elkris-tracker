@@ -13,7 +13,38 @@ class EditTrialOrder extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->visible(fn () => ! $this->getRecord()->isLocked()),
         ];
+    }
+
+    public function getFormActions(): array
+    {
+        // Hide save actions for locked records
+        if ($this->getRecord()->isLocked()) {
+            return [];
+        }
+
+        return parent::getFormActions();
+    }
+
+    public function save(bool $shouldRedirect = true, bool $shouldSendSavedNotification = true): void
+    {
+        // Prevent saving locked records
+        if ($this->getRecord()->isLocked()) {
+            throw new \Exception('Cannot modify a locked trial order.');
+        }
+
+        parent::save($shouldRedirect, $shouldSendSavedNotification);
+    }
+
+    protected function getRedirectUrl(): ?string
+    {
+        // Always stay on the edit page for locked records (view only)
+        if ($this->getRecord()->isLocked()) {
+            return $this->getResource()::getUrl('edit', ['record' => $this->getRecord()->getKey()]);
+        }
+
+        return parent::getRedirectUrl();
     }
 }

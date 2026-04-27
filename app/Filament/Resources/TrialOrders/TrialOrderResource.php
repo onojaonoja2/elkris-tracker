@@ -61,6 +61,23 @@ class TrialOrderResource extends Resource
         return ! $record->isLocked() && self::canEditAny();
     }
 
+    public static function canDeleteAny(): bool
+    {
+        return in_array(auth()->user()->role, ['supervisor', 'admin']);
+    }
+
+    public static function canDeleteRecord(TrialOrder $record): bool
+    {
+        // Prevent deletion of locked (completed) trial orders
+        return ! $record->isLocked() && self::canDeleteAny();
+    }
+
+    public static function canViewRecord(TrialOrder $record): bool
+    {
+        // Allow viewing all trial orders, but locked ones are read-only
+        return in_array(auth()->user()->role, ['supervisor', 'sales', 'admin', 'field_agent']);
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();
