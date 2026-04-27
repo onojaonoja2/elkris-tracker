@@ -28,23 +28,49 @@ class StockistForm
                         'regex' => 'The phone number must be exactly 11 numeric digits.',
                     ]),
 
-                Select::make('city')
-                    ->options(CustomerForm::nigerianCities())
+                Select::make('state')
+                    ->options(function () {
+                        $states = [];
+                        foreach (CustomerForm::getCityMapping() as $data) {
+                            $states[$data['state']] = $data['state'];
+                        }
+
+                        return array_unique($states);
+                    })
                     ->searchable()
                     ->required()
                     ->live(debounce: 500)
+                    ->afterStateUpdated(function (Set $set) {
+                        $set('city', null);
+                        $set('region', null);
+                    }),
+
+                Select::make('city')
+                    ->options(function (callable $get) {
+                        $state = $get('state');
+                        if (! $state) {
+                            return CustomerForm::nigerianCities();
+                        }
+
+                        $cities = [];
+                        foreach (CustomerForm::getCityMapping() as $key => $data) {
+                            if ($data['state'] === $state) {
+                                $cities[$key] = $data['city'];
+                            }
+                        }
+
+                        return $cities;
+                    })
+                    ->searchable()
+                    ->required()
+                    ->live()
                     ->afterStateUpdated(function (Set $set, $state) {
                         $map = CustomerForm::getCityMapping();
                         if (isset($map[$state])) {
                             $set('state', $map[$state]['state']);
                             $set('region', $map[$state]['region']);
-                        } else {
-                            $set('state', null);
-                            $set('region', null);
                         }
                     }),
-
-                Hidden::make('state'),
 
                 Hidden::make('region'),
 

@@ -75,11 +75,26 @@ class ListTrialOrders extends ListRecords
                             Select::make('product_name')
                                 ->label('Product')
                                 ->options(self::getProductOptions())
-                                ->required(),
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(fn (callable $set) => $set('grammage', null)),
                             Select::make('grammage')
                                 ->label('Grammage')
-                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name') ?? $get('products.product_name')))
-                                ->required(),
+                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name')))
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function (callable $set, callable $get, $state) {
+                                    $productName = $get('product_name');
+                                    if ($productName && $state) {
+                                        $stock = StockistStock::where('product_name', $productName)
+                                            ->where('grammage', $state)
+                                            ->orderBy('created_at', 'desc')
+                                            ->first();
+                                        if ($stock && $stock->unit_price > 0) {
+                                            $set('price', $stock->unit_price);
+                                        }
+                                    }
+                                }),
                             TextInput::make('quantity')
                                 ->label('Qty')
                                 ->numeric()
@@ -117,11 +132,29 @@ class ListTrialOrders extends ListRecords
                             Select::make('product_name')
                                 ->label('Product')
                                 ->options(self::getProductOptions())
-                                ->required(),
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(fn (callable $set) => $set('grammage', null)),
                             Select::make('grammage')
                                 ->label('Grammage')
-                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name') ?? $get('stockist_products.product_name')))
-                                ->required(),
+                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name')))
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function (callable $set, callable $get, $state) {
+                                    $productName = $get('product_name');
+                                    $stockistId = $get('../../stockist_id');
+                                    if ($productName && $state) {
+                                        $query = StockistStock::where('product_name', $productName)
+                                            ->where('grammage', $state);
+                                        if ($stockistId) {
+                                            $query->where('stockist_id', $stockistId);
+                                        }
+                                        $stock = $query->orderBy('created_at', 'desc')->first();
+                                        if ($stock && $stock->unit_price > 0) {
+                                            $set('price', $stock->unit_price);
+                                        }
+                                    }
+                                }),
                             TextInput::make('quantity')
                                 ->label('Qty')
                                 ->numeric()

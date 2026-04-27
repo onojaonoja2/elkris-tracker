@@ -74,12 +74,12 @@ class SupervisorTrialStatsWidget extends BaseWidget
             ->color('warning');
 
         $byProduct = StockistStock::whereIn('stockist_id', $stockistIds)
-            ->selectRaw('product_name, SUM(quantity) as total_qty, SUM(quantity * unit_price) as total_value')
-            ->groupBy('product_name')
+            ->selectRaw('product_name, grammage, SUM(quantity) as total_qty, SUM(quantity * unit_price) as total_value')
+            ->groupBy('product_name', 'grammage')
             ->get();
 
         foreach ($byProduct as $product) {
-            $stats[] = Stat::make($product->product_name, $product->total_qty.' units')
+            $stats[] = Stat::make("{$product->product_name} {$product->grammage}g", $product->total_qty.' units')
                 ->description('₦'.number_format($product->total_value, 0))
                 ->color('gray');
         }

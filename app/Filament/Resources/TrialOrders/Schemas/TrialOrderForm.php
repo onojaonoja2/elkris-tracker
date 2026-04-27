@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TrialOrders\Schemas;
 
+use App\Models\StockistStock;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -38,7 +39,21 @@ class TrialOrderForm
                                         'Elkris Poundo Yam' => ['1800' => '1800g'],
                                         default => [],
                                     })
-                                    ->required(),
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, Get $get, $state) {
+                                        $productName = $get('product_name');
+                                        if ($productName && $state) {
+                                            $stock = StockistStock::where('product_name', $productName)
+                                                ->where('grammage', $state)
+                                                ->orderBy('created_at', 'desc')
+                                                ->first();
+                                            if ($stock && $stock->unit_price > 0) {
+                                                $set('price', $stock->unit_price);
+                                                self::recalculateLineTotal($set, $get);
+                                            }
+                                        }
+                                    }),
                                 TextInput::make('quantity')
                                     ->numeric()
                                     ->required()
