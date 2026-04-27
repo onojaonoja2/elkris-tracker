@@ -19,7 +19,6 @@ use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Facades\DB;
 
 class SupervisorDashboard extends BaseDashboard
 {
@@ -85,45 +84,33 @@ class SupervisorDashboard extends BaseDashboard
                                 ->numeric()
                                 ->minValue(1)
                                 ->required(),
-                            TextInput::make('unit_price')
-                                ->label('Unit Price')
-                                ->numeric()
-                                ->prefix('₦')
-                                ->required(),
                         ])
-                        ->columns(4)
+                        ->columns(3)
                         ->minItems(1)
                         ->required(),
                 ])
                 ->action(function (array $data) {
                     $stockist = Stockist::find($data['stockist_id']);
                     if ($stockist) {
-                        $totalValue = 0;
-
                         foreach ($data['products'] as $product) {
-                            $lineTotal = $product['quantity'] * $product['unit_price'];
-                            $totalValue += $lineTotal;
-
-                            StockistStock::updateOrCreate([
+                            $stock = StockistStock::firstOrNew([
                                 'stockist_id' => $stockist->id,
                                 'product_name' => $product['product_name'],
                                 'grammage' => $product['grammage'],
-                            ], [
-                                'quantity' => DB::raw("quantity + {$product['quantity']}"),
-                                'unit_price' => $product['unit_price'],
                             ]);
+
+                            $stock->quantity = ($stock->quantity ?? 0) + $product['quantity'];
+                            $stock->save();
 
                             StockistTransaction::create([
                                 'stockist_id' => $stockist->id,
                                 'user_id' => auth()->id(),
                                 'type' => 'received',
-                                'amount' => $lineTotal,
+                                'amount' => 0,
                                 'description' => "Received {$product['quantity']}x {$product['product_name']} ({$product['grammage']}g)",
                                 'transaction_date' => now()->toDateString(),
                             ]);
                         }
-
-                        $stockist->increment('stock_balance', $totalValue);
                     }
                 })
                 ->modalHeading('Receive Stock')
@@ -243,6 +230,14 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             ->whereIn('agent_id', $faIds)
             ->count();
 
+        $pendingPaymentCount = TrialOrder::where('payment_status', 'pending')
+            ->whereIn('agent_id', $faIds)
+            ->count();
+
+        $pendingPaymentValue = TrialOrder::where('payment_status', 'pending')
+            ->whereIn('agent_id', $faIds)
+            ->sum('total_value');
+
         return [
             Stat::make('Total Stock Value', '₦'.number_format($totalStockValue, 0))
                 ->description('All stockists combined')
@@ -256,10 +251,10 @@ class SupervisorStatsWidget extends StatsOverviewWidget
                 ->description('Active field agents')
                 ->icon('heroicon-o-users')
                 ->color('warning'),
-            Stat::make('Pending Trial Orders', $pendingOrdersCount)
-                ->description('Awaiting approval')
-                ->icon('heroicon-o-clock')
-                ->color('danger'),
+            Stat::make('Pending Payment', '₦'.number_format($pendingPaymentValue, 0))
+                ->description("{$pendingPaymentCount} orders awaiting confirmation")
+                ->icon('heroicon-o-banknotes')
+                ->color('warning'),
         ];
     }
 }

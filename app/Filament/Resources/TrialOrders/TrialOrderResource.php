@@ -50,6 +50,17 @@ class TrialOrderResource extends Resource
         return auth()->user()->role === 'field_agent';
     }
 
+    public static function canEditAny(): bool
+    {
+        return in_array(auth()->user()->role, ['supervisor', 'admin']);
+    }
+
+    public static function canEditRecord(TrialOrder $record): bool
+    {
+        // Prevent editing locked (completed) trial orders
+        return ! $record->isLocked() && self::canEditAny();
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery();

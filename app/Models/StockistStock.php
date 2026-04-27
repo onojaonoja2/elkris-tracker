@@ -14,13 +14,11 @@ class StockistStock extends Model
         'product_name',
         'grammage',
         'quantity',
-        'unit_price',
     ];
 
     protected $casts = [
         'grammage' => 'integer',
         'quantity' => 'integer',
-        'unit_price' => 'decimal:2',
     ];
 
     public function stockist(): BelongsTo
