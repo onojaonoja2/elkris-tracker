@@ -18,9 +18,13 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Filters\SelectFilter;
+use Livewire\Attributes\Url;
 
 class ListTrialOrders extends ListRecords
 {
+    #[Url]
+    public ?string $state = null;
+
     protected static string $resource = TrialOrderResource::class;
 
     protected function getHeaderActions(): array
@@ -365,7 +369,7 @@ class ListTrialOrders extends ListRecords
 
     protected function getTableFilters(): array
     {
-        $stateFilter = request()->get('state');
+        $stateFilter = $this->state;
 
         if (! $stateFilter) {
             return [];

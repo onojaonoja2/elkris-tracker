@@ -8,13 +8,17 @@ use App\Models\TrialOrder;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Url;
 
 class SupervisorTrialStatsWidget extends BaseWidget
 {
+    #[Url]
+    public ?string $state = null;
+
     protected function getStats(): array
     {
         $user = auth()->user();
-        $state = request()->get('state');
+        $state = $this->state;
         $stateFilter = $state ? strtolower(trim($state)) : null;
 
         if ($stateFilter) {
