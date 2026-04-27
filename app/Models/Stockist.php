@@ -38,4 +38,9 @@ class Stockist extends Model
     {
         return $this->hasMany(StockistStock::class);
     }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(StockistTransaction::class);
+    }
 }

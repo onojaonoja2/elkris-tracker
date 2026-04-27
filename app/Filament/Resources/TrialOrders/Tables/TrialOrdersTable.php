@@ -2,14 +2,19 @@
 
 namespace App\Filament\Resources\TrialOrders\Tables;
 
+use App\Filament\Exports\TrialOrderExporter;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
 use App\Models\TrialOrder;
 use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class TrialOrdersTable
 {
@@ -61,6 +66,30 @@ class TrialOrdersTable
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->filters([
+                Filter::make('created_at')
+                    ->form([
+                        DatePicker::make('created_from')
+                            ->label('From Date'),
+                        DatePicker::make('created_until')
+                            ->label('To Date'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['created_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
+                            )
+                            ->when(
+                                $data['created_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
+                            );
+                    }),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(TrialOrderExporter::class),
+            ])
             ->recordActions([
                 Action::make('approveStock')
                     ->label('Approve Stock')
