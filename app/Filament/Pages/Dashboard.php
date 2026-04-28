@@ -7,7 +7,9 @@ use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
 use App\Filament\Widgets\SupervisorStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
+use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Illuminate\Support\Facades\Route;
 
 class Dashboard extends BaseDashboard
 {
@@ -46,6 +48,19 @@ class Dashboard extends BaseDashboard
             return redirect()->to(ListCustomers::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
+        if ($role === 'lead') {
+            // Ensure the Filament page route is registered before generating a URL via route helpers.
+            $panel = Filament::getPanel('admin');
+            $routeName = LeadDashboard::getRouteName($panel);
+
+            if (Route::has($routeName)) {
+                return redirect()->to(LeadDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+            }
+
+            // Fallback to known path if the route isn't registered (e.g., during route cache inconsistencies).
+            return redirect()->to(url($panel->getPath().'/lead-dashboard'));
+        }
+
         if ($role === 'sales') {
             return redirect()->to(SalesOrdersDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
@@ -57,6 +72,9 @@ class Dashboard extends BaseDashboard
 
         return match ($role) {
             'field_agent' => [
+                UpcomingFollowUps::class,
+            ],
+            'lead' => [
                 UpcomingFollowUps::class,
             ],
             'sales' => [

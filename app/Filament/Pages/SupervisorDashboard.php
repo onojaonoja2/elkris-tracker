@@ -23,6 +23,9 @@ class SupervisorDashboard extends BaseDashboard
 {
     // Use a unique route path so this page doesn't overwrite the main dashboard route ('/')
     protected static string $routePath = '/supervisor-dashboard';
+
+    protected static ?string $slug = 'supervisor-dashboard';
+
     public static function shouldRegisterNavigation(): bool
     {
         return auth()->user()->role === 'supervisor';

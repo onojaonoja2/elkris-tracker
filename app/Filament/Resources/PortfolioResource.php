@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
 use App\Filament\Resources\Customers\Tables\CustomersTable;
 use App\Filament\Resources\PortfolioResource\Pages;
 use App\Models\Customer;
+use App\Models\User;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Table;
@@ -45,15 +47,29 @@ class PortfolioResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->where('rep_acceptance_status', 'accepted')
-            ->where('rep_id', auth()->id());
+        $user = auth()->user();
+
+        if ($user->role === 'rep') {
+            // Reps see only their own accepted customers
+            return parent::getEloquentQuery()
+                ->where('rep_acceptance_status', 'accepted')
+                ->where('rep_id', $user->id);
+        } elseif ($user->role === 'lead') {
+            // Leads see all accepted customers assigned to their reps
+            $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
+
+            return parent::getEloquentQuery()
+                ->where('rep_acceptance_status', 'accepted')
+                ->whereIn('rep_id', $repIds);
+        }
+
+        return parent::getEloquentQuery();
     }
 
     public static function getRelations(): array
     {
         return [
-            \App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager::class,
+            OrdersRelationManager::class,
         ];
     }
 

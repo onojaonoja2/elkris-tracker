@@ -2,7 +2,11 @@
 
 namespace App\Filament\Resources\Customers\RelationManagers;
 
-use App\Models\Order;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -135,7 +139,7 @@ class OrdersRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                \Filament\Actions\CreateAction::make()
+                CreateAction::make()
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['user_id'] = auth()->id();
 
@@ -143,12 +147,12 @@ class OrdersRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
-                \Filament\Actions\EditAction::make(),
-                \Filament\Actions\DeleteAction::make(),
+                EditAction::make(),
+                DeleteAction::make(),
             ])
             ->toolbarActions([
-                \Filament\Actions\BulkActionGroup::make([
-                    \Filament\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -165,7 +169,7 @@ class OrdersRelationManager extends RelationManager
     {
         $products = $get('../../products');
         $isItemContext = is_array($products);
-        
+
         if (! $isItemContext) {
             $products = $get('products') ?? [];
         }

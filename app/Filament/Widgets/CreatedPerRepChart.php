@@ -14,7 +14,7 @@ class CreatedPerRepChart extends ChartWidget
     // Only allow Admin and Lead to see this widget
     public static function canView(): bool
     {
-        return false;
+        return in_array(auth()->user()->role, ['admin', 'lead']);
     }
 
     protected function getData(): array

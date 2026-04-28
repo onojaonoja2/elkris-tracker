@@ -5,12 +5,15 @@ namespace App\Filament\Resources\StockTransactions;
 use App\Filament\Resources\StockTransactions\Pages\ManageStockTransactions;
 use App\Models\StockTransaction;
 use BackedEnum;
+use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class StockTransactionResource extends Resource
 {
@@ -63,7 +66,7 @@ class StockTransactionResource extends Resource
                     ->sortable()
                     ->label('Product'),
                 TextColumn::make('grammage')
-                    ->formatStateUsing(fn ($state) => $state . 'g')
+                    ->formatStateUsing(fn ($state) => $state.'g')
                     ->sortable()
                     ->label('Size'),
                 TextColumn::make('quantity')
@@ -90,20 +93,20 @@ class StockTransactionResource extends Resource
                         '900' => '900g',
                         '650' => '650g',
                     ]),
-                \Filament\Tables\Filters\Filter::make('transaction_date')
+                Filter::make('transaction_date')
                     ->form([
-                        \Filament\Forms\Components\DatePicker::make('created_from')->label('From Date'),
-                        \Filament\Forms\Components\DatePicker::make('created_until')->label('To Date'),
+                        DatePicker::make('created_from')->label('From Date'),
+                        DatePicker::make('created_until')->label('To Date'),
                     ])
-                    ->query(function (\Illuminate\Database\Eloquent\Builder $query, array $data): \Illuminate\Database\Eloquent\Builder {
+                    ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
                                 $data['created_from'],
-                                fn (\Illuminate\Database\Eloquent\Builder $query, $date): \Illuminate\Database\Eloquent\Builder => $query->whereDate('transaction_date', '>=', $date),
+                                fn (Builder $query, $date): Builder => $query->whereDate('transaction_date', '>=', $date),
                             )
                             ->when(
                                 $data['created_until'],
-                                fn (\Illuminate\Database\Eloquent\Builder $query, $date): \Illuminate\Database\Eloquent\Builder => $query->whereDate('transaction_date', '<=', $date),
+                                fn (Builder $query, $date): Builder => $query->whereDate('transaction_date', '<=', $date),
                             );
                     }),
             ])

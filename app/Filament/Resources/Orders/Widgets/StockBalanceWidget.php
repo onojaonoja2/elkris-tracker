@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Widgets;
 
+use App\Filament\Resources\StockTransactions\StockTransactionResource;
 use App\Models\Product;
 use App\Models\StockTransaction;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -50,11 +51,11 @@ class StockBalanceWidget extends BaseWidget
 
             $stats[] = Stat::make("{$p['name']} ({$p['grammage']}g)", $balance)
                 ->description("Rec: $received | Disb: $disbursed | Del: $delivered")
-                ->url(\App\Filament\Resources\StockTransactions\StockTransactionResource::getUrl('index', [
+                ->url(StockTransactionResource::getUrl('index', [
                     'tableFilters' => [
                         'product_name' => ['value' => $p['name']],
                         'grammage' => ['value' => $p['grammage']],
-                    ]
+                    ],
                 ]));
         }
 

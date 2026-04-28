@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\SupervisorDashboard;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -41,6 +42,7 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 SupervisorDashboard::class,
+                LeadDashboard::class,
             ])
             // Use the panel root as the home URL. Avoid calling Filament page
             // helpers during provider registration to prevent early facade access.
