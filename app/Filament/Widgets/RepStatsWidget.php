@@ -32,9 +32,13 @@ class RepStatsWidget extends StatsOverviewWidget
                 ->description('Awaiting your acceptance')
                 ->icon('heroicon-o-clock')
                 ->color('warning'),
-            Stat::make('Portfolio', $portfolioCount)
-                ->description($convertedCount.' converted ('.$conversionRate.'%)')
-                ->icon('heroicon-o-user-group')
+            Stat::make('Total Portfolio', $portfolioCount)
+                ->description('Customers in portfolio')
+                ->icon('heroicon-o-users')
+                ->color('info'),
+            Stat::make('Converted', $convertedCount)
+                ->description($conversionRate.'% conversion rate')
+                ->icon('heroicon-o-check-circle')
                 ->color('success'),
         ];
     }

@@ -18,6 +18,7 @@ class CreateCustomer extends CreateRecord
         if ($user && $user->role === 'rep') {
             $payload['rep_id'] = $user->id;
             $payload['lead_id'] = $payload['lead_id'] ?? $user->lead_id ?? null;
+            $payload['rep_acceptance_status'] = 'accepted';
 
             $data['reps'] = array_unique(array_merge($data['reps'] ?? [], [$user->id]));
             if (! empty($payload['lead_id'])) {
