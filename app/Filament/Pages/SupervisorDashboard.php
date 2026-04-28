@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Stockists\StockistResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\Stockist;
@@ -41,8 +40,8 @@ class SupervisorDashboard extends BaseDashboard
 
     public function mount()
     {
-        if (auth()->user()->role !== 'supervisor') {
-            return redirect()->to(CustomerResource::getUrl('index'));
+        if (! auth()->check() || auth()->user()->role !== 'supervisor') {
+            return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
 

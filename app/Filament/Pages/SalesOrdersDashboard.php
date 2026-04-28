@@ -11,7 +11,17 @@ class SalesOrdersDashboard extends BaseDashboard
 
     protected static ?string $slug = 'sales-orders-dashboard';
 
-    protected static bool $shouldRegisterNavigation = false;
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()->role === 'sales';
+    }
+
+    public function mount()
+    {
+        if (! auth()->check() || auth()->user()->role !== 'sales') {
+            return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+    }
 
     public function getWidgets(): array
     {

@@ -18,12 +18,19 @@ class RepDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return auth()->user()->role === 'rep';
     }
 
     public static function canViewNavigation(): bool
     {
         return auth()->user()->role === 'rep';
+    }
+
+    public function mount()
+    {
+        if (! auth()->check() || auth()->user()->role !== 'rep') {
+            return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
     }
 
     public function getHeaderWidgets(): array

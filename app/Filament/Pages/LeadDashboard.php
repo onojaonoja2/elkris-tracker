@@ -22,12 +22,19 @@ class LeadDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return auth()->user()->role === 'lead';
     }
 
     public static function canViewNavigation(): bool
     {
         return auth()->user()->role === 'lead';
+    }
+
+    public function mount()
+    {
+        if (! auth()->check() || auth()->user()->role !== 'lead') {
+            return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
     }
 
     public function getHeaderWidgets(): array

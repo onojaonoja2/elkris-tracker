@@ -49,7 +49,6 @@ class Dashboard extends BaseDashboard
         }
 
         if ($role === 'lead') {
-            // Ensure the Filament page route is registered before generating a URL via route helpers.
             $panel = Filament::getPanel('admin');
             $routeName = LeadDashboard::getRouteName($panel);
 
@@ -57,7 +56,6 @@ class Dashboard extends BaseDashboard
                 return redirect()->to(LeadDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
             }
 
-            // Fallback to known path if the route isn't registered (e.g., during route cache inconsistencies).
             return redirect()->to(url($panel->getPath().'/lead-dashboard'));
         }
 
@@ -71,6 +69,10 @@ class Dashboard extends BaseDashboard
 
         if ($role === 'manager' || $role === 'admin') {
             return redirect()->to(ManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if ($role === 'supervisor') {
+            return redirect()->to(SupervisorDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
 

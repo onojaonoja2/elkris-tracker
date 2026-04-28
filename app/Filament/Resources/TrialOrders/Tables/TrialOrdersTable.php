@@ -131,12 +131,33 @@ class TrialOrdersTable
                             ->required()
                             ->live(),
                         Select::make('stockist_id')
-                            ->label('Stockist (if holding balance)')
-                            ->options(function () {
-                                // Show all stockists managed by the current supervisor
-                                return Stockist::where('supervisor_id', auth()->id())
-                                    ->pluck('name', 'id')
-                                    ->toArray();
+                            ->label('Select Stockist')
+                            ->options(function ($get) {
+                                $options = [];
+                                $stockists = Stockist::where('supervisor_id', auth()->id())->get();
+                                foreach ($stockists as $stockist) {
+                                    $canFulfill = true;
+                                    $stockList = [];
+                                    foreach ($get('products') ?? [] as $product) {
+                                        if (empty($product['product_name']) || empty($product['grammage'])) {
+                                            continue;
+                                        }
+                                        $stock = StockistStock::where('stockist_id', $stockist->id)
+                                            ->where('product_name', $product['product_name'])
+                                            ->where('grammage', $product['grammage'])
+                                            ->first();
+                                        if (! $stock || $stock->quantity < ($product['quantity'] ?? 0)) {
+                                            $canFulfill = false;
+                                            break;
+                                        }
+                                        $stockList[] = "{$product['product_name']} ({$product['grammage']}g)";
+                                    }
+                                    if ($canFulfill && count($stockList) > 0) {
+                                        $options[$stockist->id] = $stockist->name.' - '.implode(', ', $stockList);
+                                    }
+                                }
+
+                                return $options;
                             })
                             ->visible(fn ($get) => $get('balance_holder') === 'stockist')
                             ->required(fn ($get) => $get('balance_holder') === 'stockist'),
@@ -207,35 +228,20 @@ class TrialOrdersTable
         $agent = $record->agent;
         $products = $record->products ?? [];
 
-        // Find stockist - prefer selected stockist or any available
         $stockist = null;
+
         if ($balanceHolder === 'stockist' && $selectedStockistId) {
             $stockist = Stockist::find($selectedStockistId);
-        } else {
-            // Try to find stockist in agent's state if agent exists
-            if ($agent) {
-                $agentCities = is_array($agent->assigned_cities) ? $agent->assigned_cities : [];
-                $agentState = self::getCityStateMapping()[$agentCities[0] ?? ''] ?? null;
+        }
 
-                if ($agentState) {
-                    $stockist = Stockist::where('state', $agentState)
-                        ->where('supervisor_id', auth()->id())
-                        ->first();
-                }
-            }
-
-            // Fallback: use any available stockist for this supervisor
-            if (! $stockist) {
-                $stockist = Stockist::where('supervisor_id', auth()->id())
-                    ->first();
-            }
+        if (! $stockist && $balanceHolder === 'agent') {
+            $stockist = Stockist::where('supervisor_id', auth()->id())->first();
         }
 
         if (! $stockist) {
-            throw new \Exception('No stockist found. Please create a stockist first.');
+            throw new \Exception('No stockist found with available stock. Please select a stockist with sufficient inventory.');
         }
 
-        // Validate and deduct physical stock from stockist
         foreach ($products as $product) {
             $productName = $product['product_name'] ?? null;
             $grammage = $product['grammage'] ?? null;

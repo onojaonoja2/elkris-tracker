@@ -21,12 +21,19 @@ class ManagerDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
     }
 
     public static function canViewNavigation(): bool
     {
         return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
+    }
+
+    public function mount()
+    {
+        if (! auth()->check() || ! in_array(auth()->user()->role, ['manager', 'admin'])) {
+            return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
     }
 
     public function getHeaderWidgets(): array
