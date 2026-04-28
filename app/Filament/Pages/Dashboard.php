@@ -64,6 +64,10 @@ class Dashboard extends BaseDashboard
         if ($role === 'sales') {
             return redirect()->to(SalesOrdersDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
+
+        if ($role === 'rep') {
+            return redirect()->to(RepDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
     }
 
     public function getWidgets(): array

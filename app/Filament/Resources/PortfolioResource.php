@@ -8,8 +8,12 @@ use App\Filament\Resources\Customers\Tables\CustomersTable;
 use App\Filament\Resources\PortfolioResource\Pages;
 use App\Models\Customer;
 use App\Models\User;
+use Carbon\Carbon;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -25,7 +29,6 @@ class PortfolioResource extends Resource
 
     protected static ?string $slug = 'portfolio';
 
-    // Sort slightly below the Customer resource (alphabetically standard is default but explicit is safer)
     protected static ?int $navigationSort = 2;
 
     public static function canViewAny(): bool
@@ -42,7 +45,72 @@ class PortfolioResource extends Resource
     {
         return CustomersTable::configure($table)
             ->emptyStateHeading('No customers in your portfolio yet')
-            ->emptyStateDescription('Customers you accept via the assigned queue will magically appear here.');
+            ->emptyStateDescription('Customers you accept via the assigned queue will magically appear here.')
+            ->filters([
+                Filter::make('created_at')
+                    ->label('Date Range')
+                    ->form([
+                        DatePicker::make('created_from')
+                            ->label('From Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                        DatePicker::make('created_until')
+                            ->label('To Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['created_from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+            ])
+            ->toolbarActions([
+                Action::make('export')
+                    ->label('Export Portfolio')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(function () {
+                        $user = auth()->user();
+                        $query = Customer::query()->with(['rep', 'lead', 'agent']);
+
+                        if ($user->role === 'rep') {
+                            $query->where('rep_acceptance_status', 'accepted')
+                                ->where('rep_id', $user->id);
+                        } elseif ($user->role === 'lead') {
+                            $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
+                            $query->where('rep_acceptance_status', 'accepted')
+                                ->whereIn('rep_id', $repIds);
+                        }
+
+                        $customers = $query->orderBy('created_at', 'desc')->get();
+                        $data = [];
+                        foreach ($customers as $customer) {
+                            $data[] = [
+                                $customer->customer_name,
+                                $customer->phone_number,
+                                $customer->address,
+                                $customer->city,
+                                $customer->state,
+                                $customer->rep?->name ?? 'N/A',
+                                $customer->lead?->name ?? 'N/A',
+                                $customer->created_at->format('d/m/Y'),
+                            ];
+                        }
+
+                        return response()->streamDownload(function () use ($data) {
+                            $file = fopen('php://output', 'w');
+                            fputcsv($file, ['Customer Name', 'Phone', 'Address', 'City', 'State', 'Assigned Rep', 'Lead', 'Date Added']);
+                            foreach ($data as $row) {
+                                fputcsv($file, $row);
+                            }
+                            fclose($file);
+                        }, 'portfolio_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                            'Content-Type' => 'text/csv',
+                            'Content-Disposition' => 'attachment',
+                        ]);
+                    }),
+            ]);
     }
 
     public static function getEloquentQuery(): Builder
@@ -50,12 +118,10 @@ class PortfolioResource extends Resource
         $user = auth()->user();
 
         if ($user->role === 'rep') {
-            // Reps see only their own accepted customers
             return parent::getEloquentQuery()
                 ->where('rep_acceptance_status', 'accepted')
                 ->where('rep_id', $user->id);
         } elseif ($user->role === 'lead') {
-            // Leads see all accepted customers assigned to their reps
             $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
 
             return parent::getEloquentQuery()
