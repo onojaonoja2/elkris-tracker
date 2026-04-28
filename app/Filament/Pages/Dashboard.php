@@ -2,10 +2,11 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Resources\Customers\CustomerResource;
-use App\Filament\Pages\SupervisorDashboard;
-use App\Filament\Pages\FieldAgentDashboard;
-use App\Filament\Pages\SalesOrdersDashboard;
+use App\Filament\Resources\Customers\Pages\ListCustomers;
+use App\Filament\Widgets\ManagerStatsWidget;
+use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\SupervisorStatsWidget;
+use App\Filament\Widgets\UpcomingFollowUps;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class Dashboard extends BaseDashboard
@@ -42,7 +43,7 @@ class Dashboard extends BaseDashboard
         }
 
         if ($role === 'field_agent') {
-            return redirect()->to(FieldAgentDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+            return redirect()->to(ListCustomers::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
         if ($role === 'sales') {
@@ -56,19 +57,19 @@ class Dashboard extends BaseDashboard
 
         return match ($role) {
             'field_agent' => [
-                \App\Filament\Widgets\UpcomingFollowUps::class,
+                UpcomingFollowUps::class,
             ],
             'sales' => [
-                \App\Filament\Widgets\OrdersPerCityChart::class,
-                \App\Filament\Widgets\UpcomingFollowUps::class,
+                OrdersPerCityChart::class,
+                UpcomingFollowUps::class,
             ],
             'supervisor' => [
-                \App\Filament\Widgets\SupervisorStatsWidget::class ?? \App\Filament\Widgets\ManagerStatsWidget::class,
+                SupervisorStatsWidget::class ?? ManagerStatsWidget::class,
             ],
             default => [
-                \App\Filament\Widgets\ManagerStatsWidget::class,
-                \App\Filament\Widgets\UpcomingFollowUps::class,
-                \App\Filament\Widgets\OrdersPerCityChart::class,
+                ManagerStatsWidget::class,
+                UpcomingFollowUps::class,
+                OrdersPerCityChart::class,
             ],
         };
     }
