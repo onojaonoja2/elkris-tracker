@@ -7,124 +7,134 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\StockistTransaction;
 use App\Models\TrialOrder;
-use App\Models\User;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Session;
 
 class ManagerStatsWidget extends BaseWidget
 {
-    protected function getStats(): array
+    public static function canView(): bool
+    {
+        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
+    }
+
+    protected function getDefaultDateRange(): array
     {
         $now = Carbon::now('Africa/Lagos');
-        $todayStart = $now->copy()->startOfDay();
-
         $workStart = $now->copy()->setHour(8)->setMinute(0)->setSecond(0);
         $workEnd = $now->copy()->setHour(17)->setMinute(0)->setSecond(0);
 
         if ($now->lt($workStart)) {
-            $dateFrom = $todayStart;
-            $dateTo = $now->copy()->startOfDay()->addDay();
-        } elseif ($now->gte($workEnd)) {
-            $dateFrom = $workStart;
-            $dateTo = $workEnd;
-        } else {
-            $dateFrom = $workStart;
-            $dateTo = $now;
+            return [
+                'from' => $now->copy()->startOfDay(),
+                'to' => $now->copy()->startOfDay()->addDay(),
+            ];
         }
 
-        $leads = User::where('role', 'lead')->with('reps')->get();
-        $leadIds = $leads->pluck('id');
-        $repIds = User::whereIn('lead_id', $leadIds)->where('role', 'rep')->pluck('id');
-        $agentIds = User::where('role', 'field_agent')->pluck('id');
-
-        $totalCustomers = Customer::whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
-            ->count();
-
-        $totalPortfolio = Customer::whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
-            ->whereHas('orders', fn ($q) => $q->where('status', '!=', 'cancelled'))
-            ->count();
-
-        $trialOrders = TrialOrder::whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
-            ->count();
-
-        $stockTransactions = StockistTransaction::whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
-            ->count();
-
-        $totalCalls = CallLog::whereDate('called_at', '>=', $dateFrom)
-            ->whereDate('called_at', '<=', $dateTo)
-            ->count();
-
-        $totalOrders = Order::whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
-            ->where('status', '!=', 'cancelled')
-            ->count();
-
-        $totalRevenue = Order::whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
-            ->where('status', '!=', 'cancelled')
-            ->sum('total_price');
-
-        $repeatOrders = Order::whereDate('created_at', '>=', $dateFrom)
-            ->whereDate('created_at', '<=', $dateTo)
-            ->where('status', '!=', 'cancelled')
-            ->whereHas('customer', fn ($q) => $q->whereHas('orders', fn ($sub) => $sub->where('id', '!=', \DB::raw('orders.id'))->where('status', '!=', 'cancelled')))
-            ->count();
-
-        $conversionRate = $totalCustomers > 0 ? round(($totalPortfolio / $totalCustomers) * 100, 1) : 0;
+        if ($now->gte($workEnd)) {
+            return [
+                'from' => $workStart,
+                'to' => $workEnd,
+            ];
+        }
 
         return [
-            Stat::make('Total Customers', $totalCustomers)
-                ->description('New customers today')
-                ->icon('heroicon-o-users')
-                ->color('info')
-                ->url(route('filament.admin.resources.customers.index'))
-                ->openUrlInNewTab(),
-            Stat::make('Portfolio', $totalPortfolio)
-                ->description('Converted customers')
-                ->icon('heroicon-o-user-group')
-                ->color('success'),
-            Stat::make('Trial Orders', $trialOrders)
-                ->description('Trial orders today')
-                ->icon('heroicon-o-beaker')
-                ->color('warning')
-                ->url(route('filament.admin.resources.trial-orders.index'))
-                ->openUrlInNewTab(),
-            Stat::make('Stockist', $stockTransactions)
-                ->description('Stock transactions today')
-                ->icon('heroicon-o-archive-box')
-                ->color('danger')
-                ->url(route('filament.admin.resources.stock-history.index'))
-                ->openUrlInNewTab(),
-            Stat::make('Calls Made', $totalCalls)
-                ->description('Calls logged today')
-                ->icon('heroicon-o-phone')
-                ->color('primary')
-                ->url(route('filament.admin.resources.call-logs.index'))
-                ->openUrlInNewTab(),
-            Stat::make('Repeat Orders', $repeatOrders)
-                ->description('Repeated purchases')
-                ->icon('heroicon-o-arrow-right')
-                ->color('gray'),
-            Stat::make('Orders', $totalOrders)
-                ->description('Orders placed today')
-                ->icon('heroicon-o-shopping-cart')
-                ->color('info')
-                ->url(route('filament.admin.resources.orders.index'))
-                ->openUrlInNewTab(),
-            Stat::make('Revenue', '₦'.number_format($totalRevenue, 2))
-                ->description('Total revenue today')
-                ->icon('heroicon-o-banknotes')
-                ->color('success'),
+            'from' => $workStart,
+            'to' => $now,
         ];
     }
 
-    public static function canView(): bool
+    protected function getStats(): array
     {
-        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
+        $now = Carbon::now('Africa/Lagos');
+
+        $preset = Session::get('manager_date_preset', 'today');
+
+        match ($preset) {
+            'yesterday' => $from = $now->copy()->subDay()->startOfDay(),
+            'this_week' => $from = $now->copy()->startOfWeek(),
+            'this_month' => $from = $now->copy()->startOfMonth(),
+            'lifetime' => $from = Carbon::now('Africa/Lagos')->subYears(10),
+            default => $from = $now->copy()->setHour(8)->setMinute(0)->setSecond(0),
+        };
+
+        if ($preset !== 'lifetime') {
+            if ($preset === 'yesterday') {
+                $to = $now->copy()->subDay()->endOfDay();
+            } elseif ($preset === 'this_week') {
+                $to = $now->copy()->endOfWeek();
+            } elseif ($preset === 'this_month') {
+                $to = $now->copy()->endOfMonth();
+            } else {
+                $to = $now;
+            }
+        } else {
+            $to = Carbon::now('Africa/Lagos');
+        }
+
+        $totalCustomers = Customer::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->count();
+
+        $convertedCustomers = Customer::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->whereHas('orders', fn ($q) => $q->where('status', '!=', 'cancelled'))
+            ->count();
+
+        $trialOrders = TrialOrder::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->count();
+
+        $stockTxns = StockistTransaction::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->count();
+
+        $calls = CallLog::whereDate('called_at', '>=', $from)
+            ->whereDate('called_at', '<=', $to)
+            ->count();
+
+        $orders = Order::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->where('status', '!=', 'cancelled')
+            ->count();
+
+        $revenue = Order::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->where('status', '!=', 'cancelled')
+            ->sum('total_price');
+
+        $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
+
+        return [
+            Stat::make('Total Customers', $totalCustomers)
+                ->description('New customers')
+                ->icon('heroicon-o-users')
+                ->color('info'),
+            Stat::make('Converted', $convertedCustomers)
+                ->description($conversionRate.'% conversion')
+                ->icon('heroicon-o-check-circle')
+                ->color('success'),
+            Stat::make('Trial Orders', $trialOrders)
+                ->description('Trial orders')
+                ->icon('heroicon-o-beaker')
+                ->color('warning'),
+            Stat::make('Stockist', $stockTxns)
+                ->description('Stockist txns')
+                ->icon('heroicon-o-archive-box')
+                ->color('danger'),
+            Stat::make('Calls Made', $calls)
+                ->description('Calls logged')
+                ->icon('heroicon-o-phone')
+                ->color('primary'),
+            Stat::make('Orders', $orders)
+                ->description('Orders placed')
+                ->icon('heroicon-o-shopping-cart')
+                ->color('info'),
+            Stat::make('Revenue', '₦'.number_format($revenue, 2))
+                ->description('Total revenue')
+                ->icon('heroicon-o-banknotes')
+                ->color('success'),
+        ];
     }
 }

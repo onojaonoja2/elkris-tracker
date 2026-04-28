@@ -36,6 +36,11 @@ class CallLogResource extends Resource
         return in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep']);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! in_array(auth()->user()->role, ['manager', 'admin']);
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();

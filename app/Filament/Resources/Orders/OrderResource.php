@@ -33,6 +33,11 @@ class OrderResource extends Resource
         return in_array(auth()->user()->role, ['admin', 'sales', 'rep', 'lead', 'manager']);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! in_array(auth()->user()->role, ['manager', 'admin']);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema

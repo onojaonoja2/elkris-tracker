@@ -30,6 +30,11 @@ class CustomerResource extends Resource implements CopilotResource
         return ! in_array(auth()->user()->role, ['sales', 'supervisor']);
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! in_array(auth()->user()->role, ['manager', 'admin']);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return CustomerForm::configure($schema);

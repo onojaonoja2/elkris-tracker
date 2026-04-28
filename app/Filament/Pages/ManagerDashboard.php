@@ -2,13 +2,14 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\ManagerAnalyticsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
-use App\Filament\Widgets\UpcomingFollowUps;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Illuminate\Support\Facades\Session;
 
 class ManagerDashboard extends BaseDashboard
 {
@@ -38,11 +39,35 @@ class ManagerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
-            ManagerAnalyticsWidget::class,
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             OrdersPerCityChart::class,
-            UpcomingFollowUps::class,
+        ];
+    }
+
+    public function getHeaderActions(): array
+    {
+        return [
+            Action::make('filter_date')
+                ->label('Filter by Date')
+                ->icon('heroicon-o-calendar')
+                ->color('secondary')
+                ->form([
+                    Select::make('preset')
+                        ->options([
+                            'today' => 'Today (8AM-5PM)',
+                            'yesterday' => 'Yesterday',
+                            'this_week' => 'This Week',
+                            'this_month' => 'This Month',
+                            'lifetime' => 'Lifetime',
+                        ])
+                        ->default('today')
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    Session::put('manager_date_preset', $data['preset']);
+                    $this->redirect($this->getUrl());
+                }),
         ];
     }
 }
