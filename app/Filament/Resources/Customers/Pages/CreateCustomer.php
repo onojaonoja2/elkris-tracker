@@ -12,7 +12,6 @@ class CreateCustomer extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        // Ensure scalar fallbacks for legacy non-nullable columns
         $payload = $data;
         $user = auth()->user();
 
@@ -20,12 +19,12 @@ class CreateCustomer extends CreateRecord
             $payload['rep_id'] = $user->id;
             $payload['lead_id'] = $payload['lead_id'] ?? $user->lead_id ?? null;
 
-            // Ensure pivot syncing for the rep and their lead
             $data['reps'] = array_unique(array_merge($data['reps'] ?? [], [$user->id]));
             if (! empty($payload['lead_id'])) {
                 $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$payload['lead_id']]));
             }
         } elseif ($user && $user->role === 'lead') {
+            $payload['agent_id'] = $user->id;
             $payload['lead_id'] = $user->id;
             $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$user->id]));
         } elseif ($user && $user->role === 'field_agent') {
@@ -39,10 +38,8 @@ class CreateCustomer extends CreateRecord
             $payload['rep_id'] = is_array($data['reps']) ? reset($data['reps']) : $data['reps'];
         }
 
-        // Create the customer record (exclude pivot arrays)
         $customer = static::getModel()::create(collect($payload)->except(['leads', 'reps'])->toArray());
 
-        // Sync leads and reps into pivot tables
         if (! empty($data['leads'])) {
             $customer->leads()->sync($data['leads']);
         }
