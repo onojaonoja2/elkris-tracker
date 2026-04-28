@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Orders;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
 use App\Models\Order;
 use BackedEnum;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -174,6 +175,46 @@ class OrderResource extends Resource
                 EditAction::make()->visible(fn () => in_array(auth()->user()->role, ['admin', 'sales'])),
             ])
             ->toolbarActions([
+                Action::make('export')
+                    ->label('Export Orders')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(function () {
+                        $user = auth()->user();
+                        $query = Order::query()->with(['customer', 'user', 'products']);
+
+                        if (! in_array($user->role, ['admin', 'sales'])) {
+                            $query->where('user_id', $user->id);
+                        }
+
+                        $orders = $query->orderBy('created_at', 'desc')->get();
+                        $data = [];
+                        foreach ($orders as $order) {
+                            $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
+                            $data[] = [
+                                $order->id,
+                                $order->customer?->customer_name ?? 'N/A',
+                                $order->user?->name ?? 'N/A',
+                                ucfirst($order->status),
+                                $products,
+                                number_format($order->total_price, 2),
+                                $order->created_at->format('d/m/Y H:i'),
+                                $order->expected_delivery_date ? Carbon::parse($order->expected_delivery_date)->format('d/m/Y') : 'N/A',
+                            ];
+                        }
+
+                        return response()->streamDownload(function () use ($data) {
+                            $file = fopen('php://output', 'w');
+                            fputcsv($file, ['Order ID', 'Customer', 'Submitted By', 'Status', 'Products', 'Total Price', 'Submitted Date', 'Expected Delivery']);
+                            foreach ($data as $row) {
+                                fputcsv($file, $row);
+                            }
+                            fclose($file);
+                        }, 'orders_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                            'Content-Type' => 'text/csv',
+                            'Content-Disposition' => 'attachment',
+                        ]);
+                    }),
             ]);
     }
 

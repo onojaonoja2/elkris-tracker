@@ -31,7 +31,6 @@ class LeadStatsWidget extends StatsOverviewWidget
 
         $submissionsWaiting = Customer::whereNotNull('agent_id')
             ->whereNull('rep_id')
-            ->whereNull('lead_id')
             ->count();
 
         return [
