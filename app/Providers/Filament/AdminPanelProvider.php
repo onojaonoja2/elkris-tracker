@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\LeadDashboard;
+use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\SupervisorDashboard;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -41,6 +42,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+                ManagerDashboard::class,
                 SupervisorDashboard::class,
                 LeadDashboard::class,
             ])

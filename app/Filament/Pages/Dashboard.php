@@ -68,6 +68,10 @@ class Dashboard extends BaseDashboard
         if ($role === 'rep') {
             return redirect()->to(RepDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
+
+        if ($role === 'manager' || $role === 'admin') {
+            return redirect()->to(ManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
     }
 
     public function getWidgets(): array
