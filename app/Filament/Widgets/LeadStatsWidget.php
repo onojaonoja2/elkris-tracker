@@ -13,21 +13,22 @@ class LeadStatsWidget extends StatsOverviewWidget
     {
         $leadId = auth()->id();
 
-        // Get all reps under this lead
         $reps = User::where('lead_id', $leadId)->where('role', 'rep')->get();
         $repIds = $reps->pluck('id');
 
-        // Count customers assigned to those reps
+        $portfolioCustomers = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId));
+        $totalPortfolio = $portfolioCustomers->count();
+        $convertedPortfolio = (clone $portfolioCustomers)->whereHas('orders')->count();
+        $conversionRate = $totalPortfolio > 0 ? round(($convertedPortfolio / $totalPortfolio) * 100, 1) : 0;
+
         $customersCount = Customer::whereIn('rep_id', $repIds)
             ->where('rep_acceptance_status', 'accepted')
             ->count();
 
-        // Count pending assignments
         $pendingAssignments = Customer::where('lead_id', $leadId)
             ->where('rep_acceptance_status', 'pending')
             ->count();
 
-        // Count field agent submissions waiting for assignment
         $submissionsWaiting = Customer::whereNotNull('agent_id')
             ->whereNull('rep_id')
             ->whereNull('lead_id')
@@ -38,8 +39,8 @@ class LeadStatsWidget extends StatsOverviewWidget
                 ->description('Active representatives')
                 ->icon('heroicon-o-users')
                 ->color('info'),
-            Stat::make('Active Customers', $customersCount)
-                ->description('Under team portfolio')
+            Stat::make('Portfolio', $totalPortfolio)
+                ->description($convertedPortfolio.' converted ('.$conversionRate.'%)')
                 ->icon('heroicon-o-user-group')
                 ->color('success'),
             Stat::make('Pending Assignments', $pendingAssignments)
