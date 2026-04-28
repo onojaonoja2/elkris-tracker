@@ -86,6 +86,35 @@ class OrderResource extends Resource
                         'delivered' => 'Delivered',
                         'cancelled' => 'Cancelled',
                     ]),
+                Filter::make('order_type')
+                    ->label('Order Type')
+                    ->form([
+                        Select::make('order_type')
+                            ->options([
+                                'one_time' => 'One-Time Order',
+                                'repeat' => 'Repeat Order (2+)',
+                            ])->placeholder('All'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (empty($data['order_type'])) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('customer', function ($q) use ($data) {
+                            $subQuery = Order::select('customer_id')
+                                ->whereNotNull('customer_id')
+                                ->groupBy('customer_id')
+                                ->selectRaw('customer_id, COUNT(*) as order_count');
+
+                            if ($data['order_type'] === 'one_time') {
+                                $subQuery->having('order_count', 1);
+                            } else {
+                                $subQuery->having('order_count', '>', 1);
+                            }
+
+                            $q->whereIn('id', $subQuery->pluck('customer_id'));
+                        });
+                    }),
                 Filter::make('created_at')
                     ->form([
                         DatePicker::make('created_from'),
@@ -112,7 +141,7 @@ class OrderResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close')
                     ->infolist(function (Order $record) {
-                        return [
+                        $entries = [
                             TextEntry::make('customer.customer_name')->label('Name'),
                             TextEntry::make('customer.phone_number')->label('Phone'),
                             TextEntry::make('customer.address')->label('Address'),
@@ -120,6 +149,27 @@ class OrderResource extends Resource
                             TextEntry::make('customer.state')->label('State'),
                             TextEntry::make('customer.diabetic_awareness')->label('Diabetic Awareness'),
                         ];
+
+                        foreach ($record->products as $product) {
+                            $entries[] = TextEntry::make("product_{$product->id}_name")
+                                ->label('Product')
+                                ->default($product->product_name);
+                            $entries[] = TextEntry::make("product_{$product->id}_grammage")
+                                ->label('Grammage')
+                                ->default($product->grammage.'g');
+                            $entries[] = TextEntry::make("product_{$product->id}_size")
+                                ->label('Size')
+                                ->default($product->size ?? 'N/A');
+                            $entries[] = TextEntry::make("product_{$product->id}_price")
+                                ->label('Price')
+                                ->money('NGN')
+                                ->default($product->price);
+                            $entries[] = TextEntry::make("product_{$product->id}_qty")
+                                ->label('Quantity')
+                                ->default($product->quantity);
+                        }
+
+                        return $entries;
                     }),
                 EditAction::make()->visible(fn () => in_array(auth()->user()->role, ['admin', 'sales'])),
             ])

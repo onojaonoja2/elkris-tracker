@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Customer;
-use App\Models\User;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -26,13 +25,8 @@ class LeadPortfolioWidget extends TableWidget
             ->query(function (): Builder {
                 $leadId = auth()->id();
 
-                // Get all reps assigned to this lead
-                $repIds = User::where('lead_id', $leadId)->where('role', 'rep')->pluck('id');
-
-                // Get all customers assigned to those reps
                 return Customer::query()
-                    ->whereIn('rep_id', $repIds)
-                    ->where('rep_acceptance_status', 'accepted');
+                    ->whereHas('leads', fn ($q) => $q->where('users.id', $leadId));
             })
             ->columns([
                 TextColumn::make('customer_name')
