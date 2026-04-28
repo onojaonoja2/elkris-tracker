@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ManagerConversionWidget;
+use App\Filament\Widgets\ManagerCustomersWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
@@ -46,6 +47,7 @@ class ManagerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            ManagerCustomersWidget::class,
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             OrdersPerCityChart::class,
