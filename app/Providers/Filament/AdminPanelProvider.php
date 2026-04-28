@@ -6,6 +6,7 @@ use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
+use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SupervisorDashboard;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -45,10 +46,16 @@ class AdminPanelProvider extends PanelProvider
                 ManagerDashboard::class,
                 SupervisorDashboard::class,
                 LeadDashboard::class,
+                RepDashboard::class,
             ])
-            // Use the panel root as the home URL. Avoid calling Filament page
-            // helpers during provider registration to prevent early facade access.
-            ->homeUrl('/admin')
+            ->homeUrl(fn () => match (auth()->user()->role) {
+                'supervisor' => '/admin/supervisor-dashboard',
+                'lead' => '/admin/lead-dashboard',
+                'rep' => '/admin/rep-dashboard',
+                'sales' => '/admin/sales-orders-dashboard',
+                'manager', 'admin' => '/admin/manager-dashboard',
+                default => '/admin',
+            })
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
