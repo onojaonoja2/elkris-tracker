@@ -86,9 +86,11 @@ class TrialOrdersTable
                 Filter::make('created_at')
                     ->form([
                         DatePicker::make('created_from')
-                            ->label('From Date'),
+                            ->label('From Date')
+                            ->closeOnDateSelection(),
                         DatePicker::make('created_until')
-                            ->label('To Date'),
+                            ->label('To Date')
+                            ->closeOnDateSelection(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query

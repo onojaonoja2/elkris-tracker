@@ -8,6 +8,7 @@ use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SupervisorDashboard;
+use App\Filament\Widgets\NotificationBellWidget;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -59,6 +60,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
+                NotificationBellWidget::class,
                 // FilamentInfoWidget::class,
             ])
             ->maxContentWidth(Width::Full)

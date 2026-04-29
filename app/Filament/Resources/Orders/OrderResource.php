@@ -123,8 +123,8 @@ class OrderResource extends Resource
                     }),
                 Filter::make('created_at')
                     ->form([
-                        DatePicker::make('created_from'),
-                        DatePicker::make('created_until'),
+                        DatePicker::make('created_from')->closeOnDateSelection(),
+                        DatePicker::make('created_until')->closeOnDateSelection(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query

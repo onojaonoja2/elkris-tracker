@@ -14,11 +14,6 @@ use Illuminate\Support\Facades\Session;
 
 class ManagerStatsWidget extends BaseWidget
 {
-    public static function canView(): bool
-    {
-        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
-    }
-
     protected function getDefaultDateRange(): array
     {
         $now = Carbon::now('Africa/Lagos');
@@ -131,10 +126,30 @@ class ManagerStatsWidget extends BaseWidget
                 ->description('Orders placed')
                 ->icon('heroicon-o-shopping-cart')
                 ->color('info'),
-            Stat::make('Revenue', '₦'.number_format($revenue, 2))
+            Stat::make('Revenue', self::formatCurrency($revenue))
                 ->description('Total revenue')
                 ->icon('heroicon-o-banknotes')
                 ->color('success'),
         ];
+    }
+
+    protected static function formatCurrency(float $amount): string
+    {
+        if ($amount >= 1000000000) {
+            return '₦'.number_format($amount / 1000000000, 1).'B';
+        }
+        if ($amount >= 1000000) {
+            return '₦'.number_format($amount / 1000000, 1).'M';
+        }
+        if ($amount >= 1000) {
+            return '₦'.number_format($amount / 1000, 1).'K';
+        }
+
+        return '₦'.number_format($amount, 0);
+    }
+
+    public static function canView(): bool
+    {
+        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
     }
 }

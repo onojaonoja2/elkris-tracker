@@ -53,11 +53,13 @@ class PortfolioResource extends Resource
                         DatePicker::make('created_from')
                             ->label('From Date')
                             ->native(false)
-                            ->displayFormat('d/m/Y'),
+                            ->displayFormat('d/m/Y')
+                            ->closeOnDateSelection(),
                         DatePicker::make('created_until')
                             ->label('To Date')
                             ->native(false)
-                            ->displayFormat('d/m/Y'),
+                            ->displayFormat('d/m/Y')
+                            ->closeOnDateSelection(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
