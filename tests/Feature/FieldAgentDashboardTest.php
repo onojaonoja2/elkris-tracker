@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Widgets\FieldAgentDailySubmissionsWidget;
+use App\Filament\Widgets\FieldAgentReplaceCustomersWidget;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -57,5 +58,61 @@ class FieldAgentDashboardTest extends TestCase
         // Test the widget directly using Livewire
         Livewire::test(FieldAgentDailySubmissionsWidget::class)
             ->assertSee('Customers Submitted Today');
+    }
+
+    public function test_replace_customer_phone_validation(): void
+    {
+        $agent = User::create([
+            'name' => 'Test Agent',
+            'email' => 'agent3@test.com',
+            'password' => bcrypt('password'),
+            'role' => 'field_agent',
+            'my_id' => '345678',
+        ]);
+
+        $customer = Customer::create([
+            'customer_name' => 'Old Customer',
+            'phone_number' => '12345678901',
+            'address' => 'Old Address',
+            'city' => 'lagos_island',
+            'state' => 'Lagos',
+            'region' => 'South West',
+            'priority' => 'medium',
+            'customer_status' => 'customer',
+            'agent_id' => $agent->id,
+            'needs_replacement' => true,
+        ]);
+
+        $this->actingAs($agent);
+
+        // Test with phone number less than 11 digits (should fail)
+        Livewire::test(FieldAgentReplaceCustomersWidget::class)
+            ->callTableAction('replaceWithNew', $customer->id, [
+                'customer_name' => 'New Customer',
+                'phone_number' => '1234567890', // 10 digits
+                'address' => 'New Address',
+                'priority' => 'high',
+            ])
+            ->assertHasTableActionErrors(['phone_number']);
+
+        // Test with phone number more than 11 digits (should fail)
+        Livewire::test(FieldAgentReplaceCustomersWidget::class)
+            ->callTableAction('replaceWithNew', $customer->id, [
+                'customer_name' => 'New Customer',
+                'phone_number' => '123456789012', // 12 digits
+                'address' => 'New Address',
+                'priority' => 'high',
+            ])
+            ->assertHasTableActionErrors(['phone_number']);
+
+        // Test with exactly 11 digits (should pass)
+        Livewire::test(FieldAgentReplaceCustomersWidget::class)
+            ->callTableAction('replaceWithNew', $customer->id, [
+                'customer_name' => 'New Customer',
+                'phone_number' => '12345678901', // 11 digits
+                'address' => 'New Address',
+                'priority' => 'high',
+            ])
+            ->assertHasNoTableActionErrors();
     }
 }

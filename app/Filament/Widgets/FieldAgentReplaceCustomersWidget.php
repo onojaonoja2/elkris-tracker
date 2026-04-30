@@ -7,6 +7,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Support\RawJs;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -76,8 +77,11 @@ class FieldAgentReplaceCustomersWidget extends BaseWidget
                         TextInput::make('customer_name')
                             ->required(),
                         TextInput::make('phone_number')
+                            ->required()
                             ->tel()
-                            ->required(),
+                            ->mask('99999999999')
+                            ->rule('digits:11')
+                            ->helperText('Must be exactly 11 digits'),
                         Textarea::make('address')
                             ->required(),
                         Select::make('priority')
