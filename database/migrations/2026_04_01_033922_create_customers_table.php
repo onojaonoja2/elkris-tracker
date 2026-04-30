@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('customers', function (Blueprint $table) {
             $table->id();
-            
+
             // Foreign Keys (Managed via Filament BelongsToSelect or Select)
             $table->foreignId('lead_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('rep_id')->constrained('users')->cascadeOnDelete();
@@ -25,19 +25,19 @@ return new class extends Migration
             $table->string('gender')->nullable();
             $table->string('city')->nullable();
             $table->text('address')->nullable();
-            
+
             // Status & Classification (Handled by Filament Select/Toggles)
             // $table->string('status')->default('draft');
             $table->string('customer_status')->nullable();
             $table->string('diabetic_awareness')->nullable();
-            
+
             // Interaction & Logistics
             $table->date('call_date')->nullable();
             $table->string('preffered_call_time')->nullable();
             $table->text('feedback')->nullable();
             $table->text('remarks')->nullable();
             $table->date('follow_up_date')->nullable();
-            
+
             // Order details
             $table->integer('order_quantity')->default(0);
             $table->text('delivery_details')->nullable();

@@ -15,19 +15,24 @@ class UsersTable
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('email')
                     ->label('Email address')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('email_verified_at')
                     ->dateTime()
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('role')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('my_id')
                     ->label('ID')
-                    ->sortable() // Allows you to sort users by this number
-                    ->searchable(), // Allows you to search for a user by their custom ID
+                    ->sortable()
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

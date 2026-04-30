@@ -30,10 +30,10 @@ class ViewCustomerTool extends BaseTool
         $record = $model::find($request['id']);
 
         if (! $record) {
-            return 'Customer #' . $request['id'] . ' not found.';
+            return 'Customer #'.$request['id'].' not found.';
         }
 
-        $lines = ['Customer #' . $record->getKey() . ':', ''];
+        $lines = ['Customer #'.$record->getKey().':', ''];
 
         foreach ($record->toArray() as $key => $value) {
             if (is_array($value)) {

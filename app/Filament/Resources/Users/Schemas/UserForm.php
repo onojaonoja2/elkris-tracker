@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Filament\Resources\Customers\Schemas\CustomerForm;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -28,28 +29,53 @@ class UserForm
                 //     ->default('rep'),
                 TextInput::make('my_id')
                     ->label('Internal ID')
-                    ->numeric() // Ensures only numbers can be typed
-                    ->unique(ignoreRecord: true) // Prevents duplicate IDs
-                    ->required(),
+                    ->numeric()
+                    ->disabled()
+                    ->dehydrated(false)
+                    ->visible(fn (string $operation): bool => $operation === 'edit'),
                 Select::make('role')
                     ->label('User Role')
-                    ->options([
-                        'admin' => 'Administrator',
-                        'lead' => 'Team Lead',
-                        'rep' => 'Representative',
-                        'sales' => 'Sales',
-                    ])
+                    ->options(self::getRoleOptions())
                     ->required()
-                    ->default('rep')
-                    ->selectablePlaceholder(false) // Prevents picking a blank option
-                    ->live(), // This tells Filament to refresh the form instantly when changed
+                    ->default('field_agent')
+                    ->selectablePlaceholder(false)
+                    ->live(),
+
+                Select::make('assigned_cities')
+                    ->label('Assigned Cities')
+                    ->multiple()
+                    ->options(CustomerForm::nigerianCities())
+                    ->searchable()
+                    ->visible(fn (callable $get) => $get('role') === 'field_agent')
+                    ->required(fn (callable $get) => $get('role') === 'field_agent'),
 
                 Select::make('lead_id')
                     ->label('Reports To')
                     ->relationship('lead', 'name', fn ($query) => $query->where('role', 'lead'))
-                    ->visible(fn(callable $get) => $get('role') === 'rep') // Only shows if 'rep' is selected
-                    ->required(fn(callable $get) => $get('role') === 'rep')
+                    ->visible(fn (callable $get) => $get('role') === 'rep') // Only shows if 'rep' is selected
+                    ->required(fn (callable $get) => $get('role') === 'rep')
                     ->live(),
             ]);
+    }
+
+    public static function getRoleOptions(): array
+    {
+        $role = auth()->user()->role;
+
+        if ($role === 'supervisor') {
+            return [
+                'field_agent' => 'Field Agent',
+            ];
+        }
+
+        return [
+            'admin' => 'Administrator',
+            'manager' => 'Manager',
+            'supervisor' => 'Supervisor',
+            'lead' => 'Team Lead',
+            'rep' => 'Representative',
+            'field_agent' => 'Field Agent',
+            'sales' => 'Sales',
+        ];
     }
 }

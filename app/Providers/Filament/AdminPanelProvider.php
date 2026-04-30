@@ -2,12 +2,18 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Http\Middleware\Authenticate;
+use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\FieldAgentDashboard;
+use App\Filament\Pages\LeadDashboard;
+use App\Filament\Pages\ManagerDashboard;
+use App\Filament\Pages\RepDashboard;
+use App\Filament\Pages\SupervisorDashboard;
+use App\Filament\Widgets\NotificationBellWidget;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
-use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -27,7 +33,6 @@ class AdminPanelProvider extends PanelProvider
     {
         return $panel
             ->default()
-            ->spa()
             ->unsavedChangesAlerts()
             ->databaseTransactions()
             ->id('admin')
@@ -40,12 +45,27 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+                ManagerDashboard::class,
+                SupervisorDashboard::class,
+                LeadDashboard::class,
+                RepDashboard::class,
+                FieldAgentDashboard::class,
             ])
+            ->homeUrl(fn () => match (auth()->user()->role) {
+                'supervisor' => '/admin/supervisor-dashboard',
+                'lead' => '/admin/lead-dashboard',
+                'rep' => '/admin/rep-dashboard',
+                'sales' => '/admin/sales-orders-dashboard',
+                'field_agent' => '/admin/field-agent-dashboard',
+                'manager', 'admin' => '/admin/manager-dashboard',
+                default => '/admin',
+            })
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
+                NotificationBellWidget::class,
                 // FilamentInfoWidget::class,
-                ])
+            ])
             ->maxContentWidth(Width::Full)
             ->middleware([
                 EncryptCookies::class,

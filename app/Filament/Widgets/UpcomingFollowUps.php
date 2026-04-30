@@ -9,93 +9,74 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 
 class UpcomingFollowUps extends TableWidget
 {
+    public static function canView(): bool
+    {
+        $role = auth()->user()->role;
+
+        return $role !== 'field_agent' && $role !== 'supervisor';
+    }
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
+
     protected static ?string $heading = 'Upcoming Follow Ups 7 Days';
 
-    protected int | string | array $columnSpan = 'full'; // Make it wide
+    protected int|string|array $columnSpan = 'full';
 
     public function table(Table $table): Table
     {
+        $user = auth()->user();
+        $today = now()->startOfDay();
+        $nextWeek = now()->addDays(7)->endOfDay();
+
         return $table
             ->query(
-                fn(): Builder => Customer::query()
-                    ->whereBetween('follow_up_date', [
-                        now()->startOfDay(),
-                        now()->addDays(7)->endOfDay()
-                    ])
-                    // Logic: If NOT Admin/Lead, filter by current User ID
+                fn (): Builder => Customer::query()
+                    ->where('rep_acceptance_status', 'accepted')
+                    ->where(function ($q) use ($today, $nextWeek) {
+                        $q->whereBetween('follow_up_date', [$today, $nextWeek])
+                            ->orWhereExists(function ($sub) use ($today, $nextWeek) {
+                                $sub->select(DB::raw(1))
+                                    ->from('customer_rep')
+                                    ->whereColumn('customer_rep.customer_id', 'customers.id')
+                                    ->whereRaw('DATE_ADD(customer_rep.created_at, INTERVAL 3 DAY) BETWEEN ? AND ?', [$today, $nextWeek]);
+                            })
+                            ->orWhereExists(function ($sub) use ($today, $nextWeek) {
+                                $sub->select(DB::raw(1))
+                                    ->from('customer_rep')
+                                    ->whereColumn('customer_rep.customer_id', 'customers.id')
+                                    ->whereRaw('DATE_ADD(customer_rep.created_at, INTERVAL 7 DAY) BETWEEN ? AND ?', [$today, $nextWeek]);
+                            });
+                    })
                     ->when(
-                        !in_array(auth()->user()->role, ['admin', 'lead']),
-                        fn($query) => $query->where('rep_id', auth()->id())
+                        ! in_array($user->role, ['admin', 'lead']),
+                        fn ($query) => $query->where('rep_id', $user->id)
                     )
                     ->orderBy('follow_up_date', 'asc')
                     ->limit(20)
             )
             ->columns([
-                TextColumn::make('customer_name')->searchable(),
-                TextColumn::make('call_date')->date()->sortable(),
-                TextColumn::make('follow_up_date')->date()->sortable(),
-                TextColumn::make('phone_number'),
-                // TextColumn::make('lead_id')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('rep_id')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('customer_name')
-                //     ->searchable(),
-                // TextColumn::make('phone_number')
-                //     ->searchable(),
-                // TextColumn::make('age')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('gender')
-                //     ->searchable(),
-                // TextColumn::make('city')
-                //     ->searchable(),
-                // TextColumn::make('status')
-                //     ->searchable(),
-                // TextColumn::make('customer_status')
-                //     ->searchable(),
-                // TextColumn::make('diabetic_awareness')
-                //     ->searchable(),
-                // TextColumn::make('call_date')
-                //     ->date()
-                //     ->sortable(),
-                // TextColumn::make('preffered_call_time')
-                //     ->searchable(),
-                // TextColumn::make('follow_up_date')
-                //     ->date()
-                //     ->sortable(),
-                // TextColumn::make('order_quantity')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('delivery_status')
-                //     ->searchable(),
-                // TextColumn::make('sort')
-                //     ->numeric()
-                //     ->sortable(),
-                // TextColumn::make('created_at')
-                //     ->dateTime()
-                //     ->sortable()
-                //     ->toggleable(isToggledHiddenByDefault: true),
-                // TextColumn::make('updated_at')
-                //     ->dateTime()
-                //     ->sortable()
-                //     ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('customer_name')->searchable()->toggleable(),
+                TextColumn::make('call_date')->date()->sortable()->toggleable(),
+                TextColumn::make('follow_up_date')
+                    ->date()
+                    ->label('Manual Follow-up')
+                    ->sortable()
+                    ->toggleable(),
+                TextColumn::make('phone_number')->toggleable(),
             ])
             ->filters([
                 //
             ])
             ->headerActions([
-                // The "Link to another table"
                 Action::make('view_all')
                     ->label('View All Follow-ups')
-                    ->url(fn(): string => route('filament.admin.resources.customers.index', [
-                        'tableFilters[call_date][from]' => now()->format('Y-m-d'),
-                    ]))
+                    ->url(fn (): string => route('filament.admin.resources.customers.index'))
                     ->button(),
             ])
             ->recordActions([

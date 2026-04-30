@@ -4,12 +4,16 @@ namespace App\Filament\Widgets;
 
 use App\Models\User;
 use Filament\Widgets\ChartWidget;
+use Livewire\Attributes\On;
 
 class CreatedPerRepChart extends ChartWidget
 {
     protected ?string $heading = 'Rep Performance: New Customers (Past 7 Days)';
 
-    protected int | string | array $columnSpan = 'full';
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
+
+    protected int|string|array $columnSpan = 3;
 
     // Only allow Admin and Lead to see this widget
     public static function canView(): bool
@@ -19,11 +23,17 @@ class CreatedPerRepChart extends ChartWidget
 
     protected function getData(): array
     {
-        $results = User::query()
-            ->where('role', 'rep')
+        $query = User::query()->where('role', 'rep');
+
+        // Team Leads organically only see the performance tracking points for their specific sub-reps natively
+        if (auth()->user()->role === 'lead') {
+            $query->where('lead_id', auth()->id());
+        }
+
+        $results = $query
             ->withCount([
                 'repCustomers as created_count' => fn ($query) => $query->where('created_at', '>=', now()->subDays(7)),
-                'repCustomers as updated_count' => fn ($query) => $query->where('updated_at', '>=', now()->subDays(7))
+                'repCustomers as updated_count' => fn ($query) => $query->where('updated_at', '>=', now()->subDays(7)),
             ])
             ->get();
 
@@ -33,7 +43,7 @@ class CreatedPerRepChart extends ChartWidget
                     'label' => 'New Customers',
                     'data' => $results->pluck('created_count')->toArray(),
                     // Using a sleek Emerald Green for "New"
-                    'backgroundColor' => '#10b981', 
+                    'backgroundColor' => '#10b981',
                     'borderColor' => '#059669',
                     'borderWidth' => 1,
                 ],
@@ -41,7 +51,7 @@ class CreatedPerRepChart extends ChartWidget
                     'label' => 'Record Updates',
                     'data' => $results->pluck('updated_count')->toArray(),
                     // Using a modern Royal Purple for "Updates"
-                    'backgroundColor' => '#8b5cf6', 
+                    'backgroundColor' => '#8b5cf6',
                     'borderColor' => '#7c3aed',
                     'borderWidth' => 1,
                 ],
@@ -49,7 +59,7 @@ class CreatedPerRepChart extends ChartWidget
             'labels' => $results->pluck('name')->toArray(),
         ];
     }
-    
+
     protected function getType(): string
     {
         return 'bar';

@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
-// use App\Models\User;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\KeyValue;
+use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class CustomerForm
@@ -15,52 +18,21 @@ class CustomerForm
     {
         return $schema
             ->components([
-                // 1. LEAD SELECTION: Open for Admin/Lead, Locked for Rep
-                Select::make('lead_id')
-                    ->relationship('lead', 'name', fn($query) => $query->where('role', 'lead'))
-                    ->label('Assigned Lead')
+                // 1. LEAD SELECTION: Visible only to Admin
+                MultiSelect::make('leads')
+                    ->label('Assigned Leads')
+                    ->relationship('leads', 'name', fn ($query) => $query->where('role', 'lead'))
                     ->searchable()
-                    ->preload()
-                    ->required()
-                    // ->default(fn () => auth()->user()->role === 'rep' ? auth()->user()->lead_id : null)
-                    // Logic: Disable ONLY if the user is a Rep
-                    // ->disabled(fn () => auth()->user()->role === 'rep')
-                    ->dehydrated(), // Ensures the ID is sent even if the field is disabled
+                    ->required(fn (): bool => auth()->user()->role === 'admin')
+                    ->visible(fn (): bool => auth()->user()->role === 'admin'),
 
-                // Select::make('lead_id')
-                //     ->label('Assigned Lead')
-                //     // 1. Direct query to get all Users where role is 'lead'
-                //     ->options(User::query()
-                //         ->where('role', 'lead')
-                //         ->pluck('name', 'id') // 'name' for the label, 'id' for the value
-                //     )
-                //     ->searchable()
-                //     // 2. Since you have 200,000 users, don't use ->preload() if the list is huge
-                //     // Use ->getSearchResultsUsing() instead for high performance
-                //     ->getSearchResultsUsing(fn (string $search): array => User::query()
-                //         ->where('role', 'lead')
-                //         ->where('name', 'like', "%{$search}%")
-                //         ->limit(50)
-                //         ->pluck('name', 'id')
-                //         ->toArray()
-                //     )
-                //     // 3. Ensure we can see the name when editing an existing record
-                //     ->getOptionLabelUsing(fn ($value): ?string => User::find($value)?->name)
-                //     ->required()
-                //     // ->default(fn () => auth()->user()->role === 'rep' ? auth()->user()->lead_id : null)
-                //     // ->disabled(fn () => auth()->user()->role === 'rep')
-                //     ->dehydrated(),
-
-                // 2. REP SELECTION: Open for Admin/Lead, Hidden for Rep (Auto-fills current ID)
-                Select::make('rep_id')
-                    ->relationship('rep', 'name', fn($query) => $query->where('role', 'rep'))
-                    ->label('Assigned Rep')
+                // 2. REP SELECTION: Visible only to Admin
+                MultiSelect::make('reps')
+                    ->label('Assigned Reps')
+                    ->relationship('reps', 'name', fn ($query) => $query->where('role', 'rep'))
                     ->searchable()
-                    ->preload()
-                    ->required()
-                    ->default(fn() => auth()->user()->role === 'rep' ? auth()->id() : null)
-                    // Logic: Only hide if the user is a Rep (Admin and Leads see the dropdown)
-                    ->hidden(fn() => auth()->user()->role === 'rep'),
+                    ->required(fn (): bool => auth()->user()->role === 'admin')
+                    ->visible(fn (): bool => auth()->user()->role === 'admin'),
 
                 TextInput::make('customer_name')
                     ->required()
@@ -68,43 +40,72 @@ class CustomerForm
 
                 TextInput::make('phone_number')
                     ->tel()
-                    ->required(),
+                    ->required()
+                    ->unique(ignoreRecord: true)
+                    ->maxLength(11)
+                    ->regex('/^[0-9]{11}$/')
+                    ->validationMessages([
+                        'regex' => 'The phone number must be exactly 11 numeric digits without spaces or dashes.',
+                    ]),
 
                 TextInput::make('age')
-                    ->numeric(),
+                    ->numeric()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 Select::make('gender')
                     ->options([
                         'male' => 'Male',
-                        'female' => 'Female'
-                    ]),
-
-                // TextInput::make('city'),
-                Select::make('city')
-                    ->options([
-                        'abuja' => 'Abuja',
-                        'lagos' => 'Lagos',
+                        'female' => 'Female',
                     ])
-                    ->required(),
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+
+                Select::make('city')
+                    ->options(self::nigerianCities())
+                    ->searchable()
+                    ->required()
+                    ->default(fn () => self::getDefaultCity())
+                    ->live(debounce: 500)
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
+                    ->afterStateUpdated(function (Set $set, $state) {
+                        $map = self::getCityMapping();
+                        if (isset($map[$state])) {
+                            $set('state', $map[$state]['state']);
+                            $set('region', $map[$state]['region']);
+                        } else {
+                            $set('state', null);
+                            $set('region', null);
+                        }
+                    }),
+
+                Hidden::make('state')
+                    ->default(function () {
+                        $city = self::getDefaultCity();
+
+                        return $city ? (self::getCityMapping()[$city]['state'] ?? null) : null;
+                    }),
+
+                Hidden::make('region')
+                    ->default(function () {
+                        $city = self::getDefaultCity();
+
+                        return $city ? (self::getCityMapping()[$city]['region'] ?? null) : null;
+                    }),
 
                 Textarea::make('address')
+                    ->required(fn () => auth()->user()->role === 'field_agent')
                     ->columnSpanFull(),
 
-                // Select::make('status')
-                //     ->options([
-                //         'draft' => 'Draft',
-                //         'pending' => 'Pending',
-                //         'active' => 'Active',
-                //         'closed' => 'Closed',
-                //     ])
-                //     ->required()
-                //     ->default('draft'),
+                Hidden::make('customer_status')
+                    ->default('customer'),
 
-                Select::make('customer_status')
+                Select::make('priority')
+                    ->label('Customer Priority')
                     ->options([
-                        'prospect' => 'Prospect',
-                        'customer' => 'Customer',
+                        'high' => 'High',
+                        'medium' => 'Medium',
+                        'low' => 'Low',
                     ])
+                    ->default('medium')
                     ->required(),
 
                 Select::make('diabetic_awareness')
@@ -112,47 +113,165 @@ class CustomerForm
                         'yes' => 'Yes',
                         'no' => 'No',
                         'unknown' => 'Unknown',
-                    ]),
+                    ])
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 DatePicker::make('call_date')
                     ->native(false)
-                    ->displayFormat('d/m/Y'),
+                    ->displayFormat('d/m/Y')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                TextInput::make('preffered_call_time'),
+                TextInput::make('preffered_call_time')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 Textarea::make('feedback')
                     ->rows(3)
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 Textarea::make('remarks')
                     ->rows(3)
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
                 DatePicker::make('follow_up_date')
                     ->native(false)
-                    ->displayFormat('d/m/Y'),
+                    ->displayFormat('d/m/Y')
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                TextInput::make('order_quantity')
-                    ->required()
-                    ->numeric()
-                    ->default(0)
-                    ->prefix('Qty:'),
+                KeyValue::make('lifetime_purchases')
+                    ->label('Lifetime Purchases')
+                    ->keyLabel('Product & Grammage')
+                    ->valueLabel('Total Quantity')
+                    ->disabled() // Read-only tally
+                    ->columnSpanFull()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                Textarea::make('delivery_details')
-                    ->columnSpanFull(),
-
-                Select::make('delivery_status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'dispatched' => 'Dispatched',
-                        'delivered' => 'Delivered',
-                        'cancelled' => 'Cancelled',
-                    ]),
-
-                // TextInput::make('sort')
-                //     ->numeric()
-                //     ->default(0)
-                //     ->hidden(), 
+                // Products and order details are now handled via the OrdersRelationManager
             ]);
+    }
+
+    /**
+     * Extracts the fallback default city for field agents.
+     */
+    public static function getDefaultCity(): ?string
+    {
+        $user = auth()->user();
+        if ($user && $user->role === 'field_agent' && ! empty($user->assigned_cities)) {
+            return is_array($user->assigned_cities) ? $user->assigned_cities[0] : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * 82 Nigerian cities and urban areas.
+     *
+     * @return array<string, string>
+     */
+    public static function nigerianCities(): array
+    {
+        $options = [];
+        foreach (self::getCityMapping() as $key => $data) {
+            $options[$data['state']][$key] = $data['city'];
+        }
+
+        return $options;
+    }
+
+    public static function getCityMapping(): array
+    {
+        return [
+            // South West
+            'lagos_island' => ['city' => 'Lagos Island', 'state' => 'Lagos', 'region' => 'South West'],
+            'ikorodu' => ['city' => 'Ikorodu', 'state' => 'Lagos', 'region' => 'South West'],
+            'epe' => ['city' => 'Epe', 'state' => 'Lagos', 'region' => 'South West'],
+            'ibadan' => ['city' => 'Ibadan', 'state' => 'Oyo', 'region' => 'South West'],
+            'ogbomosho' => ['city' => 'Ogbomosho', 'state' => 'Oyo', 'region' => 'South West'],
+            'oyo' => ['city' => 'Oyo', 'state' => 'Oyo', 'region' => 'South West'],
+            'iseyin' => ['city' => 'Iseyin', 'state' => 'Oyo', 'region' => 'South West'],
+            'shaki' => ['city' => 'Shaki', 'state' => 'Oyo', 'region' => 'South West'],
+            'kisi' => ['city' => 'Kisi', 'state' => 'Oyo', 'region' => 'South West'],
+            'igboho' => ['city' => 'Igboho', 'state' => 'Oyo', 'region' => 'South West'],
+            'ife' => ['city' => 'Ife', 'state' => 'Osun', 'region' => 'South West'],
+            'ilesa' => ['city' => 'Ilesa', 'state' => 'Osun', 'region' => 'South West'],
+            'iwo' => ['city' => 'Iwo', 'state' => 'Osun', 'region' => 'South West'],
+            'osogbo' => ['city' => 'Osogbo', 'state' => 'Osun', 'region' => 'South West'],
+            'ila' => ['city' => 'Ila', 'state' => 'Osun', 'region' => 'South West'],
+            'gbongan' => ['city' => 'Gbongan', 'state' => 'Osun', 'region' => 'South West'],
+            'ilawe_ekiti' => ['city' => 'Ilawe Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'ise_ekiti' => ['city' => 'Ise Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'ijero_ekiti' => ['city' => 'Ijero Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'ado_ekiti' => ['city' => 'Ado Ekiti', 'state' => 'Ekiti', 'region' => 'South West'],
+            'akure' => ['city' => 'Akure', 'state' => 'Ondo', 'region' => 'South West'],
+            'ondo_city' => ['city' => 'Ondo', 'state' => 'Ondo', 'region' => 'South West'],
+            'owo' => ['city' => 'Owo', 'state' => 'Ondo', 'region' => 'South West'],
+            'ikare' => ['city' => 'Ikare', 'state' => 'Ondo', 'region' => 'South West'],
+            'abeokuta' => ['city' => 'Abeokuta', 'state' => 'Ogun', 'region' => 'South West'],
+            'sagamu' => ['city' => 'Sagamu', 'state' => 'Ogun', 'region' => 'South West'],
+            'obafemi_owode' => ['city' => 'Obafemi Owode', 'state' => 'Ogun', 'region' => 'South West'],
+            'ijebu_ode' => ['city' => 'Ijebu Ode', 'state' => 'Ogun', 'region' => 'South West'],
+
+            // South South
+            'benin_city' => ['city' => 'Benin City', 'state' => 'Edo', 'region' => 'South South'],
+            'auchi' => ['city' => 'Auchi', 'state' => 'Edo', 'region' => 'South South'],
+            'uromi' => ['city' => 'Uromi', 'state' => 'Edo', 'region' => 'South South'],
+            'ekpoma' => ['city' => 'Ekpoma', 'state' => 'Edo', 'region' => 'South South'],
+            'warri' => ['city' => 'Warri', 'state' => 'Delta', 'region' => 'South South'],
+            'sapele' => ['city' => 'Sapele', 'state' => 'Delta', 'region' => 'South South'],
+            'asaba' => ['city' => 'Asaba', 'state' => 'Delta', 'region' => 'South South'],
+            'uyo' => ['city' => 'Uyo', 'state' => 'Akwa Ibom', 'region' => 'South South'],
+            'ikot_ekpeme' => ['city' => 'Ikot Ekpeme', 'state' => 'Akwa Ibom', 'region' => 'South South'],
+            'port_harcourt' => ['city' => 'Port Harcourt', 'state' => 'Rivers', 'region' => 'South South'],
+            'buguma' => ['city' => 'Buguma', 'state' => 'Rivers', 'region' => 'South South'],
+            'calabar' => ['city' => 'Calabar', 'state' => 'Cross River', 'region' => 'South South'],
+            'ugeb' => ['city' => 'Ugeb', 'state' => 'Cross River', 'region' => 'South South'],
+
+            // South East Zone
+            'aba' => ['city' => 'Aba', 'state' => 'Abia', 'region' => 'South East Zone'],
+            'umuahia' => ['city' => 'Umuahia', 'state' => 'Abia', 'region' => 'South East Zone'],
+            'enugu' => ['city' => 'Enugu', 'state' => 'Enugu', 'region' => 'South East Zone'],
+            'nsukka' => ['city' => 'Nsukka', 'state' => 'Enugu', 'region' => 'South East Zone'],
+            'awka' => ['city' => 'Awka', 'state' => 'Anambra', 'region' => 'South East Zone'],
+            'okpoko' => ['city' => 'Okpoko', 'state' => 'Anambra', 'region' => 'South East Zone'],
+            'owerri' => ['city' => 'Owerri', 'state' => 'Imo', 'region' => 'South East Zone'],
+            'okigwe' => ['city' => 'Okigwe', 'state' => 'Imo', 'region' => 'South East Zone'],
+            'abakaliki' => ['city' => 'Abakaliki', 'state' => 'Ebonyi', 'region' => 'South East Zone'],
+
+            // North Central Zone
+            'minna' => ['city' => 'Minna', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'mokwa' => ['city' => 'Mokwa', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'lavun' => ['city' => 'Lavun', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'bida' => ['city' => 'Bida', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'suleja' => ['city' => 'Suleja', 'state' => 'Niger', 'region' => 'North Central Zone'],
+            'ilorin' => ['city' => 'Ilorin', 'state' => 'Kwara', 'region' => 'North Central Zone'],
+            'abuja' => ['city' => 'Abuja', 'state' => 'FCT', 'region' => 'North Central Zone'],
+            'lafia' => ['city' => 'Lafia', 'state' => 'Nasarawa', 'region' => 'North Central Zone'],
+            'makurdi' => ['city' => 'Makurdi', 'state' => 'Benue', 'region' => 'North Central Zone'],
+            'gboko' => ['city' => 'Gboko', 'state' => 'Benue', 'region' => 'North Central Zone'],
+            'otukpo' => ['city' => 'Otukpo', 'state' => 'Benue', 'region' => 'North Central Zone'],
+            'okene' => ['city' => 'Okene', 'state' => 'Kogi', 'region' => 'North Central Zone'],
+
+            // North West Zone
+            'kano' => ['city' => 'Kano', 'state' => 'Kano', 'region' => 'North West Zone'],
+            'zaria' => ['city' => 'Zaria', 'state' => 'Kaduna', 'region' => 'North West Zone'],
+            'kaduna_city' => ['city' => 'Kaduna', 'state' => 'Kaduna', 'region' => 'North West Zone'],
+            'sokoto' => ['city' => 'Sokoto', 'state' => 'Sokoto', 'region' => 'North West Zone'],
+            'katsina_city' => ['city' => 'Katsina', 'state' => 'Katsina', 'region' => 'North West Zone'],
+            'funtua' => ['city' => 'Funtua', 'state' => 'Katsina', 'region' => 'North West Zone'],
+            'gusau' => ['city' => 'Gusau', 'state' => 'Zamfara', 'region' => 'North West Zone'],
+            'garki' => ['city' => 'Garki', 'state' => 'Jigawa', 'region' => 'North West Zone'],
+
+            // North East Zone
+            'bauchi_city' => ['city' => 'Bauchi', 'state' => 'Bauchi', 'region' => 'North East Zone'],
+            'maiduguri' => ['city' => 'Maiduguri', 'state' => 'Borno', 'region' => 'North East Zone'],
+            'bama' => ['city' => 'Bama', 'state' => 'Borno', 'region' => 'North East Zone'],
+            'yola' => ['city' => 'Yola', 'state' => 'Adamawa', 'region' => 'North East Zone'],
+            'mubi' => ['city' => 'Mubi', 'state' => 'Adamawa', 'region' => 'North East Zone'],
+            'gombe_city' => ['city' => 'Gombe', 'state' => 'Gombe', 'region' => 'North East Zone'],
+            'jalingo' => ['city' => 'Jalingo', 'state' => 'Taraba', 'region' => 'North East Zone'],
+            'potiskum' => ['city' => 'Potiskum', 'state' => 'Yobe', 'region' => 'North East Zone'],
+            'gashua' => ['city' => 'Gashua', 'state' => 'Yobe', 'region' => 'North East Zone'],
+        ];
     }
 }

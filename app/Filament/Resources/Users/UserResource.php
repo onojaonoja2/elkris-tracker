@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
@@ -24,7 +25,28 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return in_array(auth()->user()->role, ['admin', 'supervisor']);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user->role === 'supervisor') {
+            return $query->where('role', 'field_agent');
+        }
+
+        if ($user->role === 'lead') {
+            $query->where('lead_id', $user->id);
+        }
+
+        return $query;
+    }
+
+    public static function canCreate(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'supervisor']);
     }
 
     public static function form(Schema $schema): Schema
