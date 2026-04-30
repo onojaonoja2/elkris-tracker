@@ -7,7 +7,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Support\RawJs;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -55,20 +54,6 @@ class FieldAgentReplaceCustomersWidget extends BaseWidget
                     ->sortable(),
             ])
             ->recordActions([
-                Action::make('resubmit')
-                    ->label('Resubmit with Corrections')
-                    ->color('success')
-                    ->icon('heroicon-o-pencil')
-                    ->url(fn ($record) => route('filament.admin.resources.customers.edit', $record->id))
-                    ->action(function ($record) {
-                        $record->update([
-                            'needs_replacement' => false,
-                            'rep_acceptance_status' => 'pending',
-                            'rejected_at' => null,
-                            'rejected_by' => null,
-                            'rejection_note' => null,
-                        ]);
-                    }),
                 Action::make('replaceWithNew')
                     ->label('Replace with New Customer')
                     ->color('warning')
