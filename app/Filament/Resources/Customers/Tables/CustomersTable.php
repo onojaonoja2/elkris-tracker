@@ -177,6 +177,7 @@ class CustomersTable
                     ->action(function ($record, array $data) {
                         $record->update(['lead_id' => $data['lead_id']]);
                         $record->leads()->syncWithoutDetaching([$data['lead_id']]);
+                        $this->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('assignToRep')
@@ -199,6 +200,7 @@ class CustomersTable
                             'lead_id' => auth()->id(),
                         ]);
                         $record->reps()->syncWithoutDetaching([$data['rep_id']]);
+                        $this->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('acceptAssignment')
@@ -211,6 +213,7 @@ class CustomersTable
                             'rep_acceptance_status' => 'accepted',
                             'rejection_note' => null,
                         ]);
+                        $this->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('rejectAssignment')
@@ -233,6 +236,7 @@ class CustomersTable
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
+                        $this->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('rejectByTeamLead')
@@ -255,6 +259,7 @@ class CustomersTable
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
+                        $this->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('requestReplacement')
@@ -270,6 +275,7 @@ class CustomersTable
                             'lead_id' => null,
                         ]);
                         $record->leads()->detach();
+                        $this->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('logCall')
@@ -307,6 +313,7 @@ class CustomersTable
                             'notes' => $data['notes'],
                             'other_comment' => $data['other_comment'],
                         ]);
+                        $this->dispatch('refresh-dashboard');
                     })
                     ->successNotificationTitle('Call logged successfully'),
 

@@ -18,6 +18,11 @@ class EditTrialOrder extends EditRecord
         ];
     }
 
+    protected function afterSave(): void
+    {
+        $this->dispatch('refresh-dashboard');
+    }
+
     public function getFormActions(): array
     {
         // Hide save actions for locked records

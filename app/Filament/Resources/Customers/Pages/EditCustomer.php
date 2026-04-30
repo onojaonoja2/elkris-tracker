@@ -18,6 +18,11 @@ class EditCustomer extends EditRecord
         ];
     }
 
+    protected function afterSave(): void
+    {
+        $this->dispatch('refresh-dashboard');
+    }
+
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         // Ensure scalar fallbacks for legacy non-nullable columns when updating

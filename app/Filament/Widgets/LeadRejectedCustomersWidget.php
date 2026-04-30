@@ -7,12 +7,16 @@ use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Livewire\Attributes\On;
 
 class LeadRejectedCustomersWidget extends BaseWidget
 {
     protected static ?string $heading = 'Rejected Customers';
 
     protected int|string|array $columnSpan = 'full';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public static function canView(): bool
     {
@@ -66,6 +70,7 @@ class LeadRejectedCustomersWidget extends BaseWidget
                             'lead_id' => null,
                         ]);
                         $record->leads()->detach();
+                        $this->dispatch('refresh-dashboard');
                     }),
             ]);
     }

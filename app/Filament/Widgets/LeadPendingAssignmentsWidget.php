@@ -9,12 +9,16 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\On;
 
 class LeadPendingAssignmentsWidget extends TableWidget
 {
     protected static ?string $heading = 'Pending Rep Acceptance';
 
     protected int|string|array $columnSpan = 'full';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public static function canView(): bool
     {
@@ -59,6 +63,7 @@ class LeadPendingAssignmentsWidget extends TableWidget
                         ]);
 
                         $record->leads()->syncWithoutDetaching([$lead->id]);
+                        $this->dispatch('refresh-dashboard');
                     }),
                 Action::make('reject')
                     ->label('Reject')
@@ -79,6 +84,7 @@ class LeadPendingAssignmentsWidget extends TableWidget
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
+                        $this->dispatch('refresh-dashboard');
                     }),
             ])
             ->paginated(false);

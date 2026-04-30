@@ -101,11 +101,11 @@ class StockTransactionResource extends Resource
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
-                                $data['created_from'],
+                                $data['created_from'] ?? null,
                                 fn (Builder $query, $date): Builder => $query->whereDate('transaction_date', '>=', $date),
                             )
                             ->when(
-                                $data['created_until'],
+                                $data['created_until'] ?? null,
                                 fn (Builder $query, $date): Builder => $query->whereDate('transaction_date', '<=', $date),
                             );
                     }),

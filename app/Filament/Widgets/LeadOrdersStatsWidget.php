@@ -6,9 +6,13 @@ use App\Models\Order;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Livewire\Attributes\On;
 
 class LeadOrdersStatsWidget extends StatsOverviewWidget
 {
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
+
     protected function getStats(): array
     {
         $leadId = auth()->id();

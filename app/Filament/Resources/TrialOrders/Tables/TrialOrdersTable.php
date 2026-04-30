@@ -95,11 +95,11 @@ class TrialOrdersTable
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
-                                $data['created_from'],
+                                $data['created_from'] ?? null,
                                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '>=', $date),
                             )
                             ->when(
-                                $data['created_until'],
+                                $data['created_until'] ?? null,
                                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     }),
@@ -166,6 +166,7 @@ class TrialOrdersTable
                     ])
                     ->action(function ($record, array $data) {
                         self::confirmPayment($record, $data);
+                        $this->dispatch('refresh-dashboard');
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Confirm Payment Received')

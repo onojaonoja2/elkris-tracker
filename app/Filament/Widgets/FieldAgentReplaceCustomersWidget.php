@@ -10,12 +10,16 @@ use Filament\Forms\Components\TextInput;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Livewire\Attributes\On;
 
 class FieldAgentReplaceCustomersWidget extends BaseWidget
 {
     protected static ?string $heading = 'Replace Customer';
 
     protected int|string|array $columnSpan = 'full';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public static function canView(): bool
     {
@@ -98,6 +102,7 @@ class FieldAgentReplaceCustomersWidget extends BaseWidget
                             'priority' => $data['priority'],
                             'customer_status' => 'customer',
                         ]);
+                        $this->dispatch('refresh-dashboard');
                     }),
             ]);
     }

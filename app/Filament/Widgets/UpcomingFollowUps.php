@@ -10,6 +10,7 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 
 class UpcomingFollowUps extends TableWidget
 {
@@ -19,6 +20,9 @@ class UpcomingFollowUps extends TableWidget
 
         return $role !== 'field_agent' && $role !== 'supervisor';
     }
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     protected static ?string $heading = 'Upcoming Follow Ups 7 Days';
 

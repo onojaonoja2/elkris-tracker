@@ -16,4 +16,9 @@ class CreateTrialOrder extends CreateRecord
 
         return $data;
     }
+
+    protected function afterCreate(): void
+    {
+        $this->dispatch('refresh-dashboard');
+    }
 }

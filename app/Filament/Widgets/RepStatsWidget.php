@@ -5,9 +5,13 @@ namespace App\Filament\Widgets;
 use App\Models\Customer;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Livewire\Attributes\On;
 
 class RepStatsWidget extends StatsOverviewWidget
 {
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
+
     protected function getStats(): array
     {
         $repId = auth()->id();

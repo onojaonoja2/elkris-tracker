@@ -15,12 +15,16 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\On;
 
 class ManagerCustomersWidget extends TableWidget
 {
     protected static ?string $heading = 'System Customers';
 
     protected int|string|array $columnSpan = 'full';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public static function canView(): bool
     {

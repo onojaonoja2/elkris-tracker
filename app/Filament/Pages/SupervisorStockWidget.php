@@ -7,12 +7,16 @@ use App\Models\StockistStock;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Livewire\Attributes\On;
 
 class SupervisorStockWidget extends TableWidget
 {
     protected static ?string $heading = 'Stock Breakdown by Product';
 
     protected int|string|array $columnSpan = 'full';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public function table(Table $table): Table
     {

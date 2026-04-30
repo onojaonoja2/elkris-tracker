@@ -76,7 +76,8 @@ class ManagerDashboard extends BaseDashboard
                 ->action(function (array $data) {
                     Session::put('manager_date_preset', $data['preset']);
                     $this->redirect($this->getUrl());
-                }),
+                })
+                ->successNotificationTitle('Date filter applied'),
         ];
     }
 }

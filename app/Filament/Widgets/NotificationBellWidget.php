@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
 
 class NotificationBellWidget extends Widget
 {
@@ -14,6 +15,9 @@ class NotificationBellWidget extends Widget
     protected static bool $isLazy = false;
 
     protected string $view = 'filament.widgets.notification-bell-widget';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public static function canView(): bool
     {

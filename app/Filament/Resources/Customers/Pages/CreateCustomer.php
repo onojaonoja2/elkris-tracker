@@ -52,6 +52,11 @@ class CreateCustomer extends CreateRecord
         return $customer;
     }
 
+    protected function afterCreate(): void
+    {
+        $this->dispatch('refresh-dashboard');
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('create');

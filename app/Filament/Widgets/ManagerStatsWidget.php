@@ -11,9 +11,13 @@ use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\On;
 
 class ManagerStatsWidget extends BaseWidget
 {
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
+
     protected function getDefaultDateRange(): array
     {
         $now = Carbon::now('Africa/Lagos');

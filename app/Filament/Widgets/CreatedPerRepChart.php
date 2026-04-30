@@ -4,10 +4,14 @@ namespace App\Filament\Widgets;
 
 use App\Models\User;
 use Filament\Widgets\ChartWidget;
+use Livewire\Attributes\On;
 
 class CreatedPerRepChart extends ChartWidget
 {
     protected ?string $heading = 'Rep Performance: New Customers (Past 7 Days)';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     protected int|string|array $columnSpan = 3;
 

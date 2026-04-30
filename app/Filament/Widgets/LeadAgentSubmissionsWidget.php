@@ -10,12 +10,16 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Livewire\Attributes\On;
 
 class LeadAgentSubmissionsWidget extends TableWidget
 {
     protected static ?string $heading = 'Field Agent Submissions';
 
     protected int|string|array $columnSpan = 'full';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public static function canView(): bool
     {
@@ -75,6 +79,7 @@ class LeadAgentSubmissionsWidget extends TableWidget
                             'lead_id' => auth()->id(),
                         ]);
                         $record->reps()->syncWithoutDetaching([$data['rep_id']]);
+                        $this->dispatch('refresh-dashboard');
                     }),
             ])
             ->paginated(false);

@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Models\Customer;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Livewire\Attributes\On;
 
 class FieldAgentDailySubmissionsWidget extends BaseWidget
 {
@@ -12,6 +13,9 @@ class FieldAgentDailySubmissionsWidget extends BaseWidget
     {
         return auth()->user() && auth()->user()->role === 'field_agent';
     }
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     protected function getStats(): array
     {

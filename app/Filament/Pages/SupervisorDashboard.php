@@ -115,9 +115,11 @@ class SupervisorDashboard extends BaseDashboard
                             ]);
                         }
                     }
+                    $this->dispatch('refresh-dashboard');
                 })
                 ->modalHeading('Receive Stock')
-                ->modalButton('Receive'),
+                ->modalButton('Receive')
+                ->successNotificationTitle('Stock received successfully'),
 
             Action::make('exportReport')
                 ->label('Export Report')
