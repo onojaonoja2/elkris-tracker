@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\Stockists\StockistResource;
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\SupervisorStatsWidget;
+use App\Filament\Widgets\SupervisorStockWidget;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;

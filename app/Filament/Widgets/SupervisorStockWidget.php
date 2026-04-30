@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Widgets;
 
 use App\Models\Stockist;
 use App\Models\StockistStock;
