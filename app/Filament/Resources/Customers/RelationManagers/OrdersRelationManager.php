@@ -100,6 +100,19 @@ class OrdersRelationManager extends RelationManager
                             ->default(0)
                             ->live(onBlur: true)
                             ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                        Select::make('promotion_type')
+                            ->label('Promotion')
+                            ->options([
+                                'buy_2_get_1_free' => 'Buy 2 Get 1 Free',
+                            ])
+                            ->nullable()
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                        TextInput::make('free_quantity')
+                            ->label('Free Qty')
+                            ->numeric()
+                            ->readOnly()
+                            ->default(0),
                         TextInput::make('line_total')
                             ->label('Line Total (₦)')
                             ->numeric()
@@ -108,7 +121,7 @@ class OrdersRelationManager extends RelationManager
                             ->dehydrated(false)
                             ->default(0),
                     ])
-                    ->columns(5)
+                    ->columns(7)
                     ->deleteAction(fn ($action) => $action->after(fn (Set $set, Get $get) => self::recalculateTotalPrice($set, $get)))
                     ->reorderable(false)
                     ->columnSpanFull(),
@@ -161,6 +174,16 @@ class OrdersRelationManager extends RelationManager
     {
         $quantity = (float) ($get('quantity') ?? 1);
         $price = (float) ($get('price') ?? 0);
+        $promotionType = $get('promotion_type');
+
+        // Calculate free quantity for promotion
+        $freeQty = 0;
+        if ($promotionType === 'buy_2_get_1_free' && $quantity >= 2) {
+            $freeQty = floor($quantity / 2);
+        }
+        $set('free_quantity', $freeQty);
+
+        // Line total is only for paid items
         $set('line_total', $quantity * $price);
         self::recalculateTotalPrice($set, $get);
     }

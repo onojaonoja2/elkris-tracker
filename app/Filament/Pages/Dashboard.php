@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
 use App\Filament\Widgets\SupervisorStatsWidget;
@@ -45,7 +44,7 @@ class Dashboard extends BaseDashboard
         }
 
         if ($role === 'field_agent') {
-            return redirect()->to(ListCustomers::getUrl([], isAbsolute: false, panel: 'admin'));
+            return redirect()->to(FieldAgentDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
         if ($role === 'lead') {

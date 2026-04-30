@@ -8,6 +8,7 @@ use App\Filament\Widgets\LeadOrdersStatsWidget;
 use App\Filament\Widgets\LeadOrdersWidget;
 use App\Filament\Widgets\LeadPendingAssignmentsWidget;
 use App\Filament\Widgets\LeadPortfolioWidget;
+use App\Filament\Widgets\LeadRejectedCustomersWidget;
 use App\Filament\Widgets\LeadStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -42,6 +43,7 @@ class LeadDashboard extends BaseDashboard
         return [
             LeadAgentSubmissionsWidget::class,
             LeadPendingAssignmentsWidget::class,
+            LeadRejectedCustomersWidget::class,
             LeadPortfolioWidget::class,
             LeadOrdersWidget::class,
         ];

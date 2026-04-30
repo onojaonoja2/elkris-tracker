@@ -98,6 +98,16 @@ class CustomerForm
                 Hidden::make('customer_status')
                     ->default('customer'),
 
+                Select::make('priority')
+                    ->label('Customer Priority')
+                    ->options([
+                        'high' => 'High',
+                        'medium' => 'Medium',
+                        'low' => 'Low',
+                    ])
+                    ->default('medium')
+                    ->required(),
+
                 Select::make('diabetic_awareness')
                     ->options([
                         'yes' => 'Yes',

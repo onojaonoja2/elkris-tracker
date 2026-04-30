@@ -73,11 +73,11 @@ class LeadPendingAssignmentsWidget extends TableWidget
                     ->action(function ($record, array $data) {
                         $record->update([
                             'rep_id' => null,
-                            'rep_acceptance_status' => 'pending',
-                            'lead_id' => null,
+                            'rep_acceptance_status' => 'rejected',
+                            'rejected_at' => now(),
+                            'rejected_by' => auth()->id(),
                             'rejection_note' => $data['rejection_note'],
                         ]);
-                        $record->leads()->detach();
                         $record->reps()->detach();
                     }),
             ])

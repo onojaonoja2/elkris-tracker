@@ -3,18 +3,26 @@
 namespace App\Models;
 
 use EslamRedaDiv\FilamentCopilot\Concerns\HasCopilotChat;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Schema;
 
 #[Fillable(['name', 'email', 'password', 'role', 'my_id', 'lead_id', 'assigned_cities', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasCopilotChat, HasFactory, Notifiable;
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        return $this->is_active ?? true;
+    }
 
     /**
      * Boot up the model to hook into lifecycle events natively.
@@ -30,7 +38,7 @@ class User extends Authenticatable
                 $user->my_id = (string) $id;
             }
 
-            if (! isset($user->is_active)) {
+            if (! isset($user->is_active) && Schema::hasColumn('users', 'is_active')) {
                 $user->is_active = true;
             }
         });

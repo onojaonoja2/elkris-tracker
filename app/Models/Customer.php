@@ -18,6 +18,9 @@ class Customer extends Model
     {
         return [
             'lifetime_purchases' => 'array',
+            'rejected_at' => 'datetime',
+            'replacement_requested_at' => 'datetime',
+            'needs_replacement' => 'boolean',
         ];
     }
 
@@ -83,6 +86,22 @@ class Customer extends Model
     public function callLogs()
     {
         return $this->hasMany(CallLog::class);
+    }
+
+    /**
+     * Get the user who rejected this customer.
+     */
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
+    /**
+     * Get the user who requested replacement for this customer.
+     */
+    public function replacementRequestedBy()
+    {
+        return $this->belongsTo(User::class, 'replacement_requested_by');
     }
 
     /**

@@ -167,12 +167,28 @@ class OrderResource extends Resource
                                 ->label('Size')
                                 ->default($product->size ?? 'N/A');
                             $entries[] = TextEntry::make("product_{$product->id}_price")
-                                ->label('Price')
+                                ->label('Unit Price')
                                 ->money('NGN')
                                 ->default($product->price);
                             $entries[] = TextEntry::make("product_{$product->id}_qty")
-                                ->label('Quantity')
+                                ->label('Paid Qty')
                                 ->default($product->quantity);
+                            if ($product->free_quantity > 0) {
+                                $entries[] = TextEntry::make("product_{$product->id}_free")
+                                    ->label('Free Qty')
+                                    ->default($product->free_quantity)
+                                    ->color('success');
+                                $entries[] = TextEntry::make("product_{$product->id}_total")
+                                    ->label('Total Qty')
+                                    ->default($product->quantity + $product->free_quantity);
+                            }
+                            if ($product->promotion_type) {
+                                $entries[] = TextEntry::make("product_{$product->id}_promo")
+                                    ->label('Promotion')
+                                    ->default(ucwords(str_replace('_', ' ', $product->promotion_type)))
+                                    ->badge()
+                                    ->color('info');
+                            }
                         }
 
                         return $entries;

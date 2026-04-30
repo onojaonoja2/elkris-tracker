@@ -40,6 +40,19 @@ class LeadAgentSubmissionsWidget extends TableWidget
                 TextColumn::make('agent.name')
                     ->label('Submitted By')
                     ->searchable(),
+                TextColumn::make('priority')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->color(fn (string $state): string => match ($state) {
+                        'high' => 'danger',
+                        'medium' => 'warning',
+                        'low' => 'success',
+                        default => 'gray',
+                    }),
+                TextColumn::make('city')
+                    ->searchable(),
+                TextColumn::make('state')
+                    ->searchable(),
                 TextColumn::make('created_at')
                     ->label('Date')
                     ->date('d/m/Y'),

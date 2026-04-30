@@ -78,12 +78,12 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep'])),
                 TextColumn::make('state')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep'])),
                 TextColumn::make('region')
                     ->sortable()
                     ->searchable()
@@ -103,6 +103,18 @@ class CustomersTable
                     ->searchable()
                     ->toggleable()
                     ->visible(fn () => auth()->user()->role !== 'field_agent'),
+
+                TextColumn::make('priority')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
+                    ->color(fn (string $state): string => match ($state) {
+                        'high' => 'danger',
+                        'medium' => 'warning',
+                        'low' => 'success',
+                        default => 'gray',
+                    })
+                    ->sortable()
+                    ->toggleable(),
 
                 TextColumn::make('customer_status')
                     ->searchable()
@@ -215,12 +227,49 @@ class CustomersTable
                     ->action(function ($record, array $data) {
                         $record->update([
                             'rep_id' => null,
-                            'rep_acceptance_status' => 'pending',
-                            'lead_id' => null,
+                            'rep_acceptance_status' => 'rejected',
+                            'rejected_at' => now(),
+                            'rejected_by' => auth()->id(),
                             'rejection_note' => $data['rejection_note'],
                         ]);
-                        $record->leads()->detach();
                         $record->reps()->detach();
+                    }),
+
+                Action::make('rejectByTeamLead')
+                    ->label('Reject Customer')
+                    ->color('danger')
+                    ->icon('heroicon-o-x-mark')
+                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status !== 'rejected')
+                    ->form([
+                        Textarea::make('rejection_note')
+                            ->label('Reason for Rejection')
+                            ->required()
+                            ->rows(3),
+                    ])
+                    ->action(function ($record, array $data) {
+                        $record->update([
+                            'rep_id' => null,
+                            'rep_acceptance_status' => 'rejected',
+                            'rejected_at' => now(),
+                            'rejected_by' => auth()->id(),
+                            'rejection_note' => $data['rejection_note'],
+                        ]);
+                        $record->reps()->detach();
+                    }),
+
+                Action::make('requestReplacement')
+                    ->label('Request Replacement')
+                    ->color('warning')
+                    ->icon('heroicon-o-arrow-path')
+                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status === 'rejected' && ! $record->needs_replacement)
+                    ->action(function ($record) {
+                        $record->update([
+                            'needs_replacement' => true,
+                            'replacement_requested_by' => auth()->id(),
+                            'replacement_requested_at' => now(),
+                            'lead_id' => null,
+                        ]);
+                        $record->leads()->detach();
                     }),
 
                 Action::make('logCall')

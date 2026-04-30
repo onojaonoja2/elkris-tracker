@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\FieldAgentDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\RepDashboard;
@@ -48,12 +49,14 @@ class AdminPanelProvider extends PanelProvider
                 SupervisorDashboard::class,
                 LeadDashboard::class,
                 RepDashboard::class,
+                FieldAgentDashboard::class,
             ])
             ->homeUrl(fn () => match (auth()->user()->role) {
                 'supervisor' => '/admin/supervisor-dashboard',
                 'lead' => '/admin/lead-dashboard',
                 'rep' => '/admin/rep-dashboard',
                 'sales' => '/admin/sales-orders-dashboard',
+                'field_agent' => '/admin/field-agent-dashboard',
                 'manager', 'admin' => '/admin/manager-dashboard',
                 default => '/admin',
             })
