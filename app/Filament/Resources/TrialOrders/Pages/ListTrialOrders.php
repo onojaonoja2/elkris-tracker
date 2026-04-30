@@ -18,6 +18,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 
 class ListTrialOrders extends ListRecords
@@ -285,40 +286,44 @@ class ListTrialOrders extends ListRecords
 
         if ($stockist) {
             $totalDeducted = 0;
-            foreach ($products as $product) {
-                $productName = $product['product_name'] ?? null;
-                $grammage = $product['grammage'] ?? null;
-                $quantity = $product['quantity'] ?? 0;
-                $price = $product['price'] ?? 0;
-                $lineTotal = $quantity * $price;
 
-                if ($productName && $grammage && $quantity > 0) {
-                    $stockistStock = StockistStock::where('stockist_id', $stockist->id)
-                        ->where('product_name', $productName)
-                        ->where('grammage', $grammage)
-                        ->first();
+            DB::transaction(function () use ($stockist, $products, $agent, $trialOrder, &$totalDeducted) {
+                foreach ($products as $product) {
+                    $productName = $product['product_name'] ?? null;
+                    $grammage = $product['grammage'] ?? null;
+                    $quantity = $product['quantity'] ?? 0;
+                    $price = $product['price'] ?? 0;
+                    $lineTotal = $quantity * $price;
 
-                    if ($stockistStock && $stockistStock->quantity >= $quantity) {
-                        $stockistStock->decrement('quantity', $quantity);
-                        $totalDeducted += $lineTotal;
+                    if ($productName && $grammage && $quantity > 0) {
+                        $stockistStock = StockistStock::where('stockist_id', $stockist->id)
+                            ->where('product_name', $productName)
+                            ->where('grammage', $grammage)
+                            ->lockForUpdate()
+                            ->first();
 
-                        StockistTransaction::create([
-                            'stockist_id' => $stockist->id,
-                            'user_id' => auth()->id(),
-                            'field_agent_id' => $agent->id,
-                            'trial_order_id' => $trialOrder->id,
-                            'type' => 'deducted',
-                            'amount' => $lineTotal,
-                            'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for trial order",
-                            'transaction_date' => now()->toDateString(),
-                        ]);
+                        if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                            $stockistStock->decrement('quantity', $quantity);
+                            $totalDeducted += $lineTotal;
+
+                            StockistTransaction::create([
+                                'stockist_id' => $stockist->id,
+                                'user_id' => auth()->id(),
+                                'field_agent_id' => $agent->id,
+                                'trial_order_id' => $trialOrder->id,
+                                'type' => 'deducted',
+                                'amount' => $lineTotal,
+                                'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for trial order",
+                                'transaction_date' => now()->toDateString(),
+                            ]);
+                        }
                     }
                 }
-            }
 
-            if ($totalDeducted > 0) {
-                $stockist->decrement('stock_balance', $totalDeducted);
-            }
+                if ($totalDeducted > 0) {
+                    $stockist->decrement('stock_balance', $totalDeducted);
+                }
+            });
         }
     }
 
@@ -354,39 +359,43 @@ class ListTrialOrders extends ListRecords
         ]);
 
         $totalDeducted = 0;
-        foreach ($products as $product) {
-            $productName = $product['product_name'] ?? null;
-            $grammage = $product['grammage'] ?? null;
-            $quantity = $product['quantity'] ?? 0;
-            $price = $product['price'] ?? 0;
-            $lineTotal = $quantity * $price;
 
-            if ($productName && $grammage && $quantity > 0) {
-                $stockistStock = StockistStock::where('stockist_id', $stockist->id)
-                    ->where('product_name', $productName)
-                    ->where('grammage', $grammage)
-                    ->first();
+        DB::transaction(function () use ($stockist, $products, $trialOrder, &$totalDeducted) {
+            foreach ($products as $product) {
+                $productName = $product['product_name'] ?? null;
+                $grammage = $product['grammage'] ?? null;
+                $quantity = $product['quantity'] ?? 0;
+                $price = $product['price'] ?? 0;
+                $lineTotal = $quantity * $price;
 
-                if ($stockistStock && $stockistStock->quantity >= $quantity) {
-                    $stockistStock->decrement('quantity', $quantity);
-                    $totalDeducted += $lineTotal;
+                if ($productName && $grammage && $quantity > 0) {
+                    $stockistStock = StockistStock::where('stockist_id', $stockist->id)
+                        ->where('product_name', $productName)
+                        ->where('grammage', $grammage)
+                        ->lockForUpdate()
+                        ->first();
 
-                    StockistTransaction::create([
-                        'stockist_id' => $stockist->id,
-                        'user_id' => auth()->id(),
-                        'trial_order_id' => $trialOrder->id,
-                        'type' => 'deducted',
-                        'amount' => $lineTotal,
-                        'description' => "Stockist trial: {$quantity}x {$productName} ({$grammage}g)",
-                        'transaction_date' => now()->toDateString(),
-                    ]);
+                    if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                        $stockistStock->decrement('quantity', $quantity);
+                        $totalDeducted += $lineTotal;
+
+                        StockistTransaction::create([
+                            'stockist_id' => $stockist->id,
+                            'user_id' => auth()->id(),
+                            'trial_order_id' => $trialOrder->id,
+                            'type' => 'deducted',
+                            'amount' => $lineTotal,
+                            'description' => "Stockist trial: {$quantity}x {$productName} ({$grammage}g)",
+                            'transaction_date' => now()->toDateString(),
+                        ]);
+                    }
                 }
             }
-        }
 
-        if ($totalDeducted > 0) {
-            $stockist->decrement('stock_balance', $totalDeducted);
-        }
+            if ($totalDeducted > 0) {
+                $stockist->decrement('stock_balance', $totalDeducted);
+            }
+        });
     }
 
     protected function getHeaderWidgets(): array

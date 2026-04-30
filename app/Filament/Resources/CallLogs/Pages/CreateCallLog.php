@@ -3,11 +3,9 @@
 namespace App\Filament\Resources\CallLogs\Pages;
 
 use App\Filament\Resources\CallLogs\CallLogResource;
-use App\Models\Customer;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Facades\Auth;
 
@@ -18,24 +16,10 @@ class CreateCallLog extends CreateRecord
     protected function getFormSchema(): array
     {
         return [
-            TextInput::make('customer_id')
+            Select::make('customer_id')
                 ->label('Customer')
+                ->relationship('customer', 'customer_name')
                 ->searchable()
-                ->getSearchResultsUsing(fn (string $search) => Customer::query()
-                    ->where(function ($q) use ($search) {
-                        $q->where('customer_name', 'like', "%{$search}%")
-                            ->orWhere('phone_number', 'like', "%{$search}%");
-                    })
-                    ->where(function ($q) {
-                        $user = auth()->user();
-                        if ($user->role === 'rep') {
-                            $q->where('rep_id', $user->id);
-                        } elseif ($user->role === 'lead') {
-                            $q->whereHas('reps', fn ($qr) => $qr->where('lead_id', $user->id));
-                        }
-                    })
-                    ->limit(10)
-                    ->pluck('customer_name', 'id'))
                 ->required(),
 
             DateTimePicker::make('called_at')

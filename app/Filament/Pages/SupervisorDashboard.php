@@ -7,7 +7,6 @@ use App\Filament\Resources\Users\UserResource;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
-use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -15,8 +14,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Widgets\StatsOverviewWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class SupervisorDashboard extends BaseDashboard
 {
@@ -199,36 +196,5 @@ class SupervisorDashboard extends BaseDashboard
             ],
             default => [],
         };
-    }
-}
-
-class SupervisorStatsWidget extends StatsOverviewWidget
-{
-    protected function getStats(): array
-    {
-        $user = auth()->user();
-        $stockists = Stockist::where('supervisor_id', $user->id)->get();
-
-        $stockistCount = $stockists->count();
-
-        $stockistCities = $stockists->pluck('city')->toArray();
-        $fieldAgentCount = User::where('role', 'field_agent')
-            ->where(function ($query) use ($stockistCities) {
-                foreach ($stockistCities as $city) {
-                    $query->orWhereJsonContains('assigned_cities', $city);
-                }
-            })
-            ->count();
-
-        return [
-            Stat::make('Stockists', $stockistCount)
-                ->description('Registered stockists')
-                ->icon('heroicon-o-building-storefront')
-                ->color('info'),
-            Stat::make('Field Agents', $fieldAgentCount)
-                ->description('Active field agents')
-                ->icon('heroicon-o-users')
-                ->color('warning'),
-        ];
     }
 }

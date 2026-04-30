@@ -69,10 +69,6 @@ class Dashboard extends BaseDashboard
         if ($role === 'manager' || $role === 'admin') {
             return redirect()->to(ManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
-
-        if ($role === 'supervisor') {
-            return redirect()->to(SupervisorDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
-        }
     }
 
     public function getWidgets(): array
@@ -91,7 +87,7 @@ class Dashboard extends BaseDashboard
                 UpcomingFollowUps::class,
             ],
             'supervisor' => [
-                SupervisorStatsWidget::class ?? ManagerStatsWidget::class,
+                SupervisorStatsWidget::class,
             ],
             default => [
                 ManagerStatsWidget::class,

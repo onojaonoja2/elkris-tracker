@@ -189,7 +189,13 @@ class CustomersTable
                         Select::make('rep_id')
                             ->label('Select Rep')
                             ->options(function () {
-                                return User::where('role', 'rep')->pluck('name', 'id');
+                                $user = auth()->user();
+                                $query = User::where('role', 'rep');
+                                if ($user->role === 'lead') {
+                                    $query->where('lead_id', $user->id);
+                                }
+
+                                return $query->pluck('name', 'id');
                             })
                             ->required(),
                     ])

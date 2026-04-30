@@ -154,9 +154,11 @@ class EditUser extends EditRecord
     {
         Customer::where('rep_id', $user->id)->update(['rep_id' => $replacementId]);
 
-        DB::table('customer_rep')
-            ->where('user_id', $user->id)
-            ->update(['user_id' => $replacementId]);
+        $customerIds = DB::table('customer_rep')->where('user_id', $user->id)->pluck('customer_id');
+        $user->customersRepped()->detach($customerIds);
+        if ($replacementUser = User::find($replacementId)) {
+            $replacementUser->customersRepped()->syncWithoutDetaching($customerIds);
+        }
 
         Order::where('user_id', $user->id)->update(['user_id' => $replacementId]);
     }
