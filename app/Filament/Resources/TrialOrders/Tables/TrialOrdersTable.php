@@ -15,6 +15,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class TrialOrdersTable
 {
@@ -165,8 +166,88 @@ class TrialOrdersTable
                             ->required(fn ($get) => $get('balance_holder') === 'stockist'),
                     ])
                     ->action(function ($record, array $data) {
-                        self::confirmPayment($record, $data);
-                        $this->dispatch('refresh-dashboard');
+                        // Process payment directly
+                        $balanceHolder = $data['balance_holder'] ?? 'agent';
+                        $paymentMethod = $data['payment_method'] ?? 'cash';
+                        $selectedStockistId = $data['stockist_id'] ?? null;
+
+                        $agent = $record->agent;
+                        $products = $record->products ?? [];
+
+                        $stockist = null;
+
+                        if ($balanceHolder === 'stockist' && $selectedStockistId) {
+                            $stockist = Stockist::find($selectedStockistId);
+                        }
+
+                        if (! $stockist && $balanceHolder === 'agent') {
+                            $stockist = Stockist::where('supervisor_id', auth()->id())->first();
+                        }
+
+                        if (! $stockist) {
+                            throw new \Exception('No stockist found with available stock. Please select a stockist with sufficient inventory.');
+                        }
+
+                        DB::transaction(function () use ($stockist, $products, $record, $balanceHolder, $paymentMethod, $agent) {
+                            foreach ($products as $product) {
+                                $productName = $product['product_name'] ?? null;
+                                $grammage = $product['grammage'] ?? null;
+                                $quantity = $product['quantity'] ?? 0;
+
+                                if ($productName && $grammage && $quantity > 0) {
+                                    $stockistStock = StockistStock::firstOrCreate(
+                                        [
+                                            'stockist_id' => $stockist->id,
+                                            'product_name' => $productName,
+                                            'grammage' => $grammage,
+                                        ],
+                                        [
+                                            'quantity' => 0,
+                                        ]
+                                    );
+
+                                    $stockistStock = StockistStock::where('id', $stockistStock->id)
+                                        ->lockForUpdate()
+                                        ->first();
+
+                                    if ($stockistStock->quantity < $quantity) {
+                                        throw new \Exception("Insufficient stock: {$productName} ({$grammage}g). Available: {$stockistStock->quantity}, Requested: {$quantity}");
+                                    }
+
+                                    $stockistStock->decrement('quantity', $quantity);
+                                }
+                            }
+
+                            $updateData = [
+                                'payment_status' => 'completed',
+                                'status' => 'approved',
+                                'approved_by' => auth()->id(),
+                                'stockist_id' => $stockist->id,
+                            ];
+
+                            if ($balanceHolder === 'agent' && $agent) {
+                                $updateData['agent_balance'] = $record->total_value;
+                                $updateData['stockist_balance'] = 0;
+                                $agent->increment('stock_balance', $record->total_value);
+                            } else {
+                                $updateData['agent_balance'] = 0;
+                                $updateData['stockist_balance'] = $record->total_value;
+                                $stockist->decrement('stock_balance', $record->total_value);
+                            }
+
+                            $record->update($updateData);
+
+                            StockistTransaction::create([
+                                'stockist_id' => $stockist->id,
+                                'user_id' => auth()->id(),
+                                'field_agent_id' => $agent?->id,
+                                'trial_order_id' => $record->id,
+                                'type' => 'deducted',
+                                'amount' => $record->total_value,
+                                'description' => "Trial order approved - Payment via {$paymentMethod}, Balance held with {$balanceHolder}",
+                                'transaction_date' => now()->toDateString(),
+                            ]);
+                        });
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Confirm Payment Received')
@@ -220,89 +301,6 @@ class TrialOrdersTable
             'ilorin' => 'Kwara',
             'abuja' => 'FCT',
         ];
-    }
-
-    public static function confirmPayment($record, array $data): void
-    {
-        $balanceHolder = $data['balance_holder'] ?? 'agent';
-        $paymentMethod = $data['payment_method'] ?? 'cash';
-        $selectedStockistId = $data['stockist_id'] ?? null;
-
-        $agent = $record->agent;
-        $products = $record->products ?? [];
-
-        $stockist = null;
-
-        if ($balanceHolder === 'stockist' && $selectedStockistId) {
-            $stockist = Stockist::find($selectedStockistId);
-        }
-
-        if (! $stockist && $balanceHolder === 'agent') {
-            $stockist = Stockist::where('supervisor_id', auth()->id())->first();
-        }
-
-        if (! $stockist) {
-            throw new \Exception('No stockist found with available stock. Please select a stockist with sufficient inventory.');
-        }
-
-        foreach ($products as $product) {
-            $productName = $product['product_name'] ?? null;
-            $grammage = $product['grammage'] ?? null;
-            $quantity = $product['quantity'] ?? 0;
-
-            if ($productName && $grammage && $quantity > 0) {
-                $stockistStock = StockistStock::where('stockist_id', $stockist->id)
-                    ->where('product_name', $productName)
-                    ->where('grammage', $grammage)
-                    ->first();
-
-                if (! $stockistStock) {
-                    throw new \Exception("Stock not found: {$productName} ({$grammage}g) at stockist {$stockist->name}");
-                }
-
-                if ($stockistStock->quantity < $quantity) {
-                    throw new \Exception("Insufficient stock: {$productName} ({$grammage}g). Available: {$stockistStock->quantity}, Requested: {$quantity}");
-                }
-
-                // Deduct physical stock
-                $stockistStock->decrement('quantity', $quantity);
-            }
-        }
-
-        // Update trial order - mark as completed and locked
-        $updateData = [
-            'payment_status' => 'completed',
-            'status' => 'approved',
-            'approved_by' => auth()->id(),
-            'stockist_id' => $stockist->id,
-        ];
-
-        // Set balance holder based on selection
-        if ($balanceHolder === 'agent' && $agent) {
-            $updateData['agent_balance'] = $record->total_value;
-            $updateData['stockist_balance'] = 0;
-            // Credit the agent's balance
-            $agent->increment('stock_balance', $record->total_value);
-        } else {
-            $updateData['agent_balance'] = 0;
-            $updateData['stockist_balance'] = $record->total_value;
-            // Deduct from stockist's balance
-            $stockist->decrement('stock_balance', $record->total_value);
-        }
-
-        $record->update($updateData);
-
-        // Create transaction log for stockist
-        StockistTransaction::create([
-            'stockist_id' => $stockist->id,
-            'user_id' => auth()->id(),
-            'field_agent_id' => $agent?->id,
-            'trial_order_id' => $record->id,
-            'type' => 'deducted',
-            'amount' => $record->total_value,
-            'description' => "Trial order approved - Payment via {$paymentMethod}, Balance held with {$balanceHolder}",
-            'transaction_date' => now()->toDateString(),
-        ]);
     }
 
     public static function approveTrialOrder($record, array $data): void
