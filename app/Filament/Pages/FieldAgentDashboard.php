@@ -13,9 +13,24 @@ class FieldAgentDashboard extends BaseDashboard
 
     protected static ?string $slug = 'field-agent-dashboard';
 
+    protected static ?string $navigationLabel = 'Dashboard';
+
     protected static ?int $navigationSort = -1;
 
-    protected static bool $shouldRegisterNavigation = true;
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role === 'field_agent';
+    }
+
+    public static function canViewNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role === 'field_agent';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Dashboard';
+    }
 
     public function getHeaderWidgets(): array
     {

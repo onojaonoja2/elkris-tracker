@@ -18,16 +18,23 @@ class ManagerDashboard extends BaseDashboard
 
     protected static ?string $slug = 'manager-dashboard';
 
+    protected static ?string $navigationLabel = 'Dashboard';
+
     protected static ?int $navigationSort = -1;
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
+        return auth()->check() && in_array(auth()->user()->role, ['manager', 'admin']);
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
+        return auth()->check() && in_array(auth()->user()->role, ['manager', 'admin']);
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Dashboard';
     }
 
     public function mount()

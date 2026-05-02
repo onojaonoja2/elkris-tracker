@@ -19,16 +19,23 @@ class LeadDashboard extends BaseDashboard
 
     protected static ?string $slug = 'lead-dashboard';
 
+    protected static ?string $navigationLabel = 'Dashboard';
+
     protected static ?int $navigationSort = -1;
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role === 'lead';
+        return auth()->check() && auth()->user()->role === 'lead';
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->user()->role === 'lead';
+        return auth()->check() && auth()->user()->role === 'lead';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Dashboard';
     }
 
     public function mount()

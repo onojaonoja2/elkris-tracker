@@ -19,14 +19,27 @@ use Filament\Schemas\Components\Utilities\Get;
 
 class SupervisorDashboard extends BaseDashboard
 {
-    // Use a unique route path so this page doesn't overwrite the main dashboard route ('/')
     protected static string $routePath = '/supervisor-dashboard';
 
     protected static ?string $slug = 'supervisor-dashboard';
 
+    protected static ?string $navigationLabel = 'Dashboard';
+
+    protected static ?int $navigationSort = -1;
+
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role === 'supervisor';
+        return auth()->check() && auth()->user()->role === 'supervisor';
+    }
+
+    public static function canViewNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role === 'supervisor';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Dashboard';
     }
 
     protected function getHeaderWidgets(): array

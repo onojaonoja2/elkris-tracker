@@ -14,16 +14,23 @@ class RepDashboard extends BaseDashboard
 
     protected static ?string $slug = 'rep-dashboard';
 
+    protected static ?string $navigationLabel = 'Dashboard';
+
     protected static ?int $navigationSort = -1;
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role === 'rep';
+        return auth()->check() && auth()->user()->role === 'rep';
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->user()->role === 'rep';
+        return auth()->check() && auth()->user()->role === 'rep';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Dashboard';
     }
 
     public function mount()
