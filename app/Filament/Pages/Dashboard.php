@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
-use App\Filament\Widgets\SupervisorStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -85,9 +84,6 @@ class Dashboard extends BaseDashboard
             'sales' => [
                 OrdersPerCityChart::class,
                 UpcomingFollowUps::class,
-            ],
-            'supervisor' => [
-                SupervisorStatsWidget::class,
             ],
             default => [
                 ManagerStatsWidget::class,
