@@ -4,10 +4,11 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\Stockists\StockistResource;
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\SupervisorStatsWidget;
+use App\Filament\Widgets\SupervisorStockWidget;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
-use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -15,19 +16,30 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Widgets\StatsOverviewWidget;
-use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class SupervisorDashboard extends BaseDashboard
 {
-    // Use a unique route path so this page doesn't overwrite the main dashboard route ('/')
     protected static string $routePath = '/supervisor-dashboard';
 
     protected static ?string $slug = 'supervisor-dashboard';
 
+    protected static ?string $navigationLabel = 'Dashboard';
+
+    protected static ?int $navigationSort = -1;
+
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role === 'supervisor';
+        return auth()->check() && auth()->user()->role === 'supervisor';
+    }
+
+    public static function canViewNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role === 'supervisor';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Dashboard';
     }
 
     protected function getHeaderWidgets(): array
@@ -199,36 +211,5 @@ class SupervisorDashboard extends BaseDashboard
             ],
             default => [],
         };
-    }
-}
-
-class SupervisorStatsWidget extends StatsOverviewWidget
-{
-    protected function getStats(): array
-    {
-        $user = auth()->user();
-        $stockists = Stockist::where('supervisor_id', $user->id)->get();
-
-        $stockistCount = $stockists->count();
-
-        $stockistCities = $stockists->pluck('city')->toArray();
-        $fieldAgentCount = User::where('role', 'field_agent')
-            ->where(function ($query) use ($stockistCities) {
-                foreach ($stockistCities as $city) {
-                    $query->orWhereJsonContains('assigned_cities', $city);
-                }
-            })
-            ->count();
-
-        return [
-            Stat::make('Stockists', $stockistCount)
-                ->description('Registered stockists')
-                ->icon('heroicon-o-building-storefront')
-                ->color('info'),
-            Stat::make('Field Agents', $fieldAgentCount)
-                ->description('Active field agents')
-                ->icon('heroicon-o-users')
-                ->color('warning'),
-        ];
     }
 }

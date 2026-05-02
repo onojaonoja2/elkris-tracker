@@ -28,15 +28,7 @@ class Authenticate extends Middleware
         $user = $guard->user();
 
         // Check if user is_active
-        if (method_exists($user, 'getIsActiveAttribute') && ! $user->is_active) {
-            $guard->logout();
-            $this->unauthenticated($request, $guards);
-
-            return;
-        }
-
-        // Also check is_active attribute directly
-        if (isset($user->is_active) && ! $user->is_active) {
+        if (! ($user->is_active ?? true)) {
             $guard->logout();
             $this->unauthenticated($request, $guards);
 

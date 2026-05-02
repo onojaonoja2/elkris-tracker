@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\UpcomingFollowUps;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class SalesOrdersDashboard extends BaseDashboard
@@ -11,9 +12,23 @@ class SalesOrdersDashboard extends BaseDashboard
 
     protected static ?string $slug = 'sales-orders-dashboard';
 
+    protected static ?string $navigationLabel = 'Dashboard';
+
+    protected static ?int $navigationSort = -1;
+
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role === 'sales';
+        return auth()->check() && auth()->user()->role === 'sales';
+    }
+
+    public static function canViewNavigation(): bool
+    {
+        return auth()->check() && auth()->user()->role === 'sales';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Dashboard';
     }
 
     public function mount()
@@ -27,6 +42,7 @@ class SalesOrdersDashboard extends BaseDashboard
     {
         return [
             OrdersPerCityChart::class,
+            UpcomingFollowUps::class,
         ];
     }
 }

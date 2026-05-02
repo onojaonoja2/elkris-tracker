@@ -37,6 +37,21 @@ return new class extends Migration
      */
     public function down(): void
     {
-        //
+        Schema::table('products', function (Blueprint $table) {
+            $table->dropForeign(['order_id']);
+            $table->dropColumn('order_id');
+
+            $table->foreignId('customer_id')->nullable()->constrained()->cascadeOnDelete();
+        });
+
+        Schema::table('customers', function (Blueprint $table) {
+            $table->dropColumn('lifetime_purchases');
+
+            $table->string('delivery_status')->nullable();
+            $table->string('preferred_payment_option')->nullable();
+            $table->decimal('total_price', 12, 2)->default(0);
+            $table->date('preferred_delivery_date')->nullable();
+            $table->text('delivery_details')->nullable();
+        });
     }
 };

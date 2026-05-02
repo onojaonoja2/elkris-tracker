@@ -60,7 +60,6 @@ class AdminPanelProvider extends PanelProvider
                 'manager', 'admin' => '/admin/manager-dashboard',
                 default => '/admin',
             })
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
                 AccountWidget::class,
                 NotificationBellWidget::class,

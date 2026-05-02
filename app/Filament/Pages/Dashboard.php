@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
-use App\Filament\Widgets\SupervisorStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -69,10 +68,6 @@ class Dashboard extends BaseDashboard
         if ($role === 'manager' || $role === 'admin') {
             return redirect()->to(ManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
-
-        if ($role === 'supervisor') {
-            return redirect()->to(SupervisorDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
-        }
     }
 
     public function getWidgets(): array
@@ -89,9 +84,6 @@ class Dashboard extends BaseDashboard
             'sales' => [
                 OrdersPerCityChart::class,
                 UpcomingFollowUps::class,
-            ],
-            'supervisor' => [
-                SupervisorStatsWidget::class ?? ManagerStatsWidget::class,
             ],
             default => [
                 ManagerStatsWidget::class,

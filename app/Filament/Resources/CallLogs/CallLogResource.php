@@ -166,20 +166,7 @@ class CallLogResource extends Resource
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
                     ->action(function () {
-                        $user = auth()->user();
-                        $query = CallLog::query()->with(['user', 'customer']);
-
-                        if ($user->role === 'rep') {
-                            $query->where('user_id', $user->id);
-                        } elseif ($user->role === 'lead') {
-                            $query->whereIn('user_id', function ($q) use ($user) {
-                                $q->select('id')
-                                    ->from('users')
-                                    ->where('lead_id', $user->id)
-                                    ->orWhere('id', $user->id);
-                            });
-                        }
-
+                        $query = static::getEloquentQuery()->with(['user', 'customer']);
                         $logs = $query->orderBy('called_at', 'desc')->get();
                         $data = [];
                         foreach ($logs as $log) {
