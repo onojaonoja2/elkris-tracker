@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -181,11 +182,19 @@ class TrialOrdersTable
                         }
 
                         if (! $stockist && $balanceHolder === 'agent') {
-                            $stockist = Stockist::where('supervisor_id', auth()->id())->first();
+                            $stockist = Stockist::where('supervisor_id', auth()->id())
+                                ->whereIn('city', (array) ($agent?->assigned_cities ?? []))
+                                ->first();
                         }
 
                         if (! $stockist) {
-                            throw new \Exception('No stockist found with available stock. Please select a stockist with sufficient inventory.');
+                            Notification::make()
+                                ->danger()
+                                ->title('No stockist found')
+                                ->body('No stockist found with available stock. Please select a stockist with sufficient inventory.')
+                                ->send();
+
+                            return;
                         }
 
                         DB::transaction(function () use ($stockist, $products, $record, $balanceHolder, $paymentMethod, $agent) {
