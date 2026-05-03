@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -135,35 +136,17 @@ class TrialOrdersTable
                             ->live(),
                         Select::make('stockist_id')
                             ->label('Select Stockist')
-                            ->options(function ($get) {
-                                $options = [];
-                                $stockists = Stockist::where('supervisor_id', auth()->id())->get();
-                                foreach ($stockists as $stockist) {
-                                    $canFulfill = true;
-                                    $stockList = [];
-                                    foreach ($get('products') ?? [] as $product) {
-                                        if (empty($product['product_name']) || empty($product['grammage'])) {
-                                            continue;
-                                        }
-                                        $stock = StockistStock::where('stockist_id', $stockist->id)
-                                            ->where('product_name', $product['product_name'])
-                                            ->where('grammage', $product['grammage'])
-                                            ->first();
-                                        if (! $stock || $stock->quantity < ($product['quantity'] ?? 0)) {
-                                            $canFulfill = false;
-                                            break;
-                                        }
-                                        $stockList[] = "{$product['product_name']} ({$product['grammage']}g)";
-                                    }
-                                    if ($canFulfill && count($stockList) > 0) {
-                                        $options[$stockist->id] = $stockist->name.' - '.implode(', ', $stockList);
-                                    }
-                                }
-
-                                return $options;
+                            ->options(function () {
+                                return Stockist::where('supervisor_id', auth()->id())
+                                    ->get()
+                                    ->mapWithKeys(fn ($stockist) => [
+                                        $stockist->id => $stockist->name.' ('.$stockist->city.')',
+                                    ])
+                                    ->toArray();
                             })
                             ->visible(fn ($get) => $get('balance_holder') === 'stockist')
-                            ->required(fn ($get) => $get('balance_holder') === 'stockist'),
+                            ->required(fn ($get) => $get('balance_holder') === 'stockist')
+                            ->live(),
                     ])
                     ->action(function ($record, array $data) {
                         // Process payment directly
@@ -181,11 +164,43 @@ class TrialOrdersTable
                         }
 
                         if (! $stockist && $balanceHolder === 'agent') {
-                            $stockist = Stockist::where('supervisor_id', auth()->id())->first();
+                            $stockist = Stockist::where('supervisor_id', auth()->id())
+                                ->whereIn('city', (array) ($agent?->assigned_cities ?? []))
+                                ->first();
                         }
 
                         if (! $stockist) {
-                            throw new \Exception('No stockist found with available stock. Please select a stockist with sufficient inventory.');
+                            Notification::make()
+                                ->danger()
+                                ->title('No stockist found')
+                                ->body('No stockist found with available stock. Please select a stockist with sufficient inventory.')
+                                ->send();
+
+                            return;
+                        }
+
+                        // Validate stock availability
+                        foreach ($products as $product) {
+                            $productName = $product['product_name'] ?? null;
+                            $grammage = $product['grammage'] ?? null;
+                            $quantity = $product['quantity'] ?? 0;
+
+                            if ($productName && $grammage && $quantity > 0) {
+                                $stock = StockistStock::where('stockist_id', $stockist->id)
+                                    ->where('product_name', $productName)
+                                    ->where('grammage', $grammage)
+                                    ->first();
+
+                                if (! $stock || $stock->quantity < $quantity) {
+                                    Notification::make()
+                                        ->danger()
+                                        ->title('Insufficient stock')
+                                        ->body("Insufficient stock for {$productName} ({$grammage}g). Available: ".($stock->quantity ?? 0).", Requested: {$quantity}")
+                                        ->send();
+
+                                    return;
+                                }
+                            }
                         }
 
                         DB::transaction(function () use ($stockist, $products, $record, $balanceHolder, $paymentMethod, $agent) {

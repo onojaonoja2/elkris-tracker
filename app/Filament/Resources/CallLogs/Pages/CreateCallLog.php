@@ -18,7 +18,14 @@ class CreateCallLog extends CreateRecord
         return [
             Select::make('customer_id')
                 ->label('Customer')
-                ->relationship('customer', 'customer_name')
+                ->relationship('customer', 'customer_name', fn ($query) => $query->where(function ($q) {
+                    $user = auth()->user();
+                    if ($user->role === 'rep') {
+                        $q->where('rep_id', $user->id);
+                    } elseif ($user->role === 'lead') {
+                        $q->whereHas('reps', fn ($qr) => $qr->where('lead_id', $user->id));
+                    }
+                }))
                 ->searchable()
                 ->required(),
 
