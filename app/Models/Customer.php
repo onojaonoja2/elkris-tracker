@@ -104,6 +104,21 @@ class Customer extends Model
         return $this->belongsTo(User::class, 'replacement_requested_by');
     }
 
+    public function stateRelation()
+    {
+        return $this->belongsTo(State::class, 'state_id');
+    }
+
+    public function lgaRelation()
+    {
+        return $this->belongsTo(Lga::class, 'lga_id');
+    }
+
+    public function cityRelation()
+    {
+        return $this->belongsTo(City::class, 'city_id');
+    }
+
     /**
      * Get the 3-day follow-up date (from when customer was added to portfolio).
      */

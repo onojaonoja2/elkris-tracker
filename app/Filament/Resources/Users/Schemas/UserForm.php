@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Schemas;
 
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -20,6 +21,14 @@ class UserForm
                     ->label('Email address')
                     ->email()
                     ->required(),
+                TextInput::make('phone')
+                    ->label('Phone Number')
+                    ->tel()
+                    ->placeholder('e.g. +2348012345678')
+                    ->visible(fn (string $operation): bool => $operation === 'edit'),
+                Checkbox::make('sms_notifications')
+                    ->label('Receive SMS notifications')
+                    ->visible(fn (string $operation): bool => $operation === 'edit'),
                 DateTimePicker::make('email_verified_at'),
                 TextInput::make('password')
                     ->password()
@@ -76,6 +85,8 @@ class UserForm
             'rep' => 'Representative',
             'field_agent' => 'Field Agent',
             'sales' => 'Sales',
+            'warehouse_manager' => 'Warehouse Manager',
+            'accountant' => 'Accountant',
         ];
     }
 }

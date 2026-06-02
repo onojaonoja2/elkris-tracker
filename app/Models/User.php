@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
 
-#[Fillable(['name', 'email', 'password', 'role', 'my_id', 'lead_id', 'assigned_cities', 'is_active'])]
+#[Fillable(['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'assigned_cities', 'is_active', 'sms_notifications'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -56,6 +56,7 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'assigned_cities' => 'array',
             'is_active' => 'boolean',
+            'sms_notifications' => 'boolean',
         ];
     }
 
@@ -73,6 +74,16 @@ class User extends Authenticatable implements FilamentUser
     public function reps()
     {
         return $this->hasMany(User::class, 'lead_id');
+    }
+
+    public function lga()
+    {
+        return $this->belongsTo(Lga::class, 'lga_id');
+    }
+
+    public function managedWarehouses()
+    {
+        return $this->hasMany(Warehouse::class, 'manager_id');
     }
 
     /**

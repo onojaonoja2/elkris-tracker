@@ -10,6 +10,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
@@ -167,16 +168,26 @@ class CustomersTable
                     ->color(fn ($record) => $record->lead_id ? 'success' : 'primary')
                     ->icon('heroicon-o-users')
                     ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->agent_id !== null))
-                    ->form([
-                        Select::make('lead_id')
-                            ->label('Select Team Lead')
-                            ->options(User::where('role', 'lead')->pluck('name', 'id'))
-                            ->searchable()
-                            ->required(),
-                    ])
+                    ->form(function () {
+                        if (auth()->user()->role === 'lead') {
+                            return [
+                                Hidden::make('lead_id')
+                                    ->default(auth()->id()),
+                            ];
+                        }
+
+                        return [
+                            Select::make('lead_id')
+                                ->label('Select Team Lead')
+                                ->options(User::where('role', 'lead')->pluck('name', 'id'))
+                                ->searchable()
+                                ->required(),
+                        ];
+                    })
                     ->action(function ($record, array $data) {
-                        $record->update(['lead_id' => $data['lead_id']]);
-                        $record->leads()->syncWithoutDetaching([$data['lead_id']]);
+                        $leadId = $data['lead_id'] ?? auth()->id();
+                        $record->update(['lead_id' => $leadId]);
+                        $record->leads()->syncWithoutDetaching([$leadId]);
                         $this->dispatch('refresh-dashboard');
                     }),
 

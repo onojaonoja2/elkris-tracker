@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\KeyValue;
@@ -94,6 +95,16 @@ class CustomerForm
                 Textarea::make('address')
                     ->required(fn () => auth()->user()->role === 'field_agent')
                     ->columnSpanFull(),
+
+                Checkbox::make('assign_to_self')
+                    ->label('Assign to myself (add to my portfolio)')
+                    ->visible(fn () => auth()->user()->role === 'lead')
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set) {
+                        if ($state) {
+                            $set('agent_id', auth()->id());
+                        }
+                    }),
 
                 Hidden::make('customer_status')
                     ->default('customer'),

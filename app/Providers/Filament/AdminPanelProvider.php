@@ -8,7 +8,9 @@ use App\Filament\Pages\FieldAgentDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\RepDashboard;
+use App\Filament\Pages\SalesOrdersDashboard;
 use App\Filament\Pages\SupervisorDashboard;
+use App\Filament\Pages\SystemMaintenance;
 use App\Filament\Widgets\NotificationBellWidget;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -50,6 +52,8 @@ class AdminPanelProvider extends PanelProvider
                 LeadDashboard::class,
                 RepDashboard::class,
                 FieldAgentDashboard::class,
+                SalesOrdersDashboard::class,
+                SystemMaintenance::class,
             ])
             ->homeUrl(fn () => match (auth()->user()->role) {
                 'supervisor' => '/admin/supervisor-dashboard',
@@ -57,6 +61,8 @@ class AdminPanelProvider extends PanelProvider
                 'rep' => '/admin/rep-dashboard',
                 'sales' => '/admin/sales-orders-dashboard',
                 'field_agent' => '/admin/field-agent-dashboard',
+                'warehouse_manager' => '/admin/stock-transfers',
+                'accountant' => '/admin/trial-orders',
                 'manager', 'admin' => '/admin/manager-dashboard',
                 default => '/admin',
             })

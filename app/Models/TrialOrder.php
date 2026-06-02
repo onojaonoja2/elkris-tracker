@@ -25,6 +25,8 @@ class TrialOrder extends Model
             'total_value' => 'decimal:2',
             'agent_balance' => 'decimal:2',
             'stockist_balance' => 'decimal:2',
+            'accountant_verified_at' => 'datetime',
+            'supervisor_verified_at' => 'datetime',
         ];
     }
 
@@ -50,5 +52,15 @@ class TrialOrder extends Model
     public function stockist(): BelongsTo
     {
         return $this->belongsTo(Stockist::class);
+    }
+
+    public function accountantVerifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'accountant_verified_by');
+    }
+
+    public function supervisorVerifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_verified_by');
     }
 }

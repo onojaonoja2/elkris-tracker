@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\TrialOrders\Schemas;
 
+use App\Models\ProductType;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -17,29 +19,37 @@ class TrialOrderForm
         return $schema
             ->components([
                 Section::make('Stock Details')
-                    ->description('Log all physical products successfully picked up from the main stockist.')
+                    ->description('Log all physical products successfully picked up.')
                     ->schema([
                         Repeater::make('products')
                             ->schema([
                                 Select::make('product_name')
-                                    ->options([
-                                        'Elkris Oat Flour' => 'Elkris Oat Flour',
-                                        'Elkris Plantain' => 'Elkris Plantain',
-                                        'Elkris Poundo Yam' => 'Elkris Poundo Yam',
-                                    ])
+                                    ->label('Product')
+                                    ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'name'))
                                     ->required()
                                     ->live()
                                     ->afterStateUpdated(fn (Set $set) => $set('grammage', null)),
+
                                 Select::make('grammage')
-                                    ->label('Grammage (g)')
-                                    ->options(fn (Get $get): array => match ($get('product_name')) {
-                                        'Elkris Oat Flour' => ['5000' => '5000g', '1300' => '1300g', '650' => '650g'],
-                                        'Elkris Plantain' => ['1800' => '1800g', '900' => '900g'],
-                                        'Elkris Poundo Yam' => ['1800' => '1800g'],
-                                        default => [],
+                                    ->label('Weight (g)')
+                                    ->options(function (Get $get) {
+                                        $productName = $get('product_name');
+                                        if (! $productName) {
+                                            return [];
+                                        }
+                                        $pt = ProductType::where('name', $productName)->first();
+                                        if (! $pt) {
+                                            return [];
+                                        }
+
+                                        return collect($pt->available_grammages)
+                                            ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                            ->toArray();
                                     })
                                     ->required()
                                     ->live(),
+
                                 TextInput::make('quantity')
                                     ->numeric()
                                     ->required()
@@ -47,6 +57,7 @@ class TrialOrderForm
                                     ->minValue(1)
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+
                                 TextInput::make('price')
                                     ->label('Unit Price (₦)')
                                     ->numeric()
@@ -55,6 +66,7 @@ class TrialOrderForm
                                     ->minValue(0)
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+
                                 TextInput::make('line_total')
                                     ->label('Line Total (₦)')
                                     ->numeric()
@@ -69,6 +81,16 @@ class TrialOrderForm
                             ->deleteAction(fn ($action) => $action->after(fn (Set $set, Get $get) => self::recalculateTotalPrice($set, $get)))
                             ->reorderable(false),
                     ])
+                    ->columnSpanFull(),
+
+                FileUpload::make('receipt_path')
+                    ->label('Upload Payment Receipt')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/trial-orders')
+                    ->visibility('private')
+                    ->imageEditor()
                     ->columnSpanFull(),
 
                 TextInput::make('total_value')

@@ -42,12 +42,12 @@ class TrialOrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'sales', 'admin']);
+        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent']);
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()->role === 'field_agent';
+        return in_array(auth()->user()->role, ['field_agent', 'admin']);
     }
 
     public static function canEditAny(): bool
@@ -57,7 +57,6 @@ class TrialOrderResource extends Resource
 
     public static function canEditRecord(TrialOrder $record): bool
     {
-        // Prevent editing locked (completed) trial orders
         return ! $record->isLocked() && self::canEditAny();
     }
 
@@ -68,14 +67,12 @@ class TrialOrderResource extends Resource
 
     public static function canDeleteRecord(TrialOrder $record): bool
     {
-        // Prevent deletion of locked (completed) trial orders
         return ! $record->isLocked() && self::canDeleteAny();
     }
 
     public static function canViewRecord(TrialOrder $record): bool
     {
-        // Allow viewing all trial orders, but locked ones are read-only
-        return in_array(auth()->user()->role, ['supervisor', 'sales', 'admin', 'field_agent']);
+        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -83,7 +80,6 @@ class TrialOrderResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        // Field agents strictly only see their own requested or approved loads
         if ($user->role === 'field_agent') {
             $query->where('agent_id', $user->id);
         }

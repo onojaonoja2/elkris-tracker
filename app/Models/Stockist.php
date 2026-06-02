@@ -18,10 +18,13 @@ class Stockist extends Model
         'stock_balance',
         'created_by',
         'supervisor_id',
+        'type',
+        'is_trial_order_marketer',
     ];
 
     protected $casts = [
         'stock_balance' => 'decimal:2',
+        'is_trial_order_marketer' => 'boolean',
     ];
 
     public function creator(): BelongsTo
@@ -42,5 +45,20 @@ class Stockist extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(StockistTransaction::class);
+    }
+
+    public function stateRelation(): BelongsTo
+    {
+        return $this->belongsTo(State::class, 'state_id');
+    }
+
+    public function lgaRelation(): BelongsTo
+    {
+        return $this->belongsTo(Lga::class, 'lga_id');
+    }
+
+    public function cityRelation(): BelongsTo
+    {
+        return $this->belongsTo(City::class, 'city_id');
     }
 }
