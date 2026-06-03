@@ -127,8 +127,12 @@ class PortfolioResource extends Resource
             $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
 
             return parent::getEloquentQuery()
-                ->where('rep_acceptance_status', 'accepted')
-                ->whereIn('rep_id', $repIds);
+                ->where(function (Builder $q) use ($user, $repIds) {
+                    $q->where(function (Builder $sub) use ($repIds) {
+                        $sub->where('rep_acceptance_status', 'accepted')
+                            ->whereIn('rep_id', $repIds);
+                    })->orWhereHas('leads', fn (Builder $lq) => $lq->where('users.id', $user->id));
+                });
         }
 
         return parent::getEloquentQuery();

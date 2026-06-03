@@ -9,6 +9,19 @@ use Illuminate\Database\Eloquent\Model;
 #[Unguarded]
 class Customer extends Model
 {
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $customer) {
+            if ($customer->state_id && ! $customer->state) {
+                $state = State::find($customer->state_id);
+                $customer->state = $state?->name;
+                $customer->region = $state?->region?->name;
+            }
+        });
+    }
+
     /**
      * Get the attributes that should be cast.
      *

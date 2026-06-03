@@ -24,6 +24,26 @@ class StockTransferResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Inventory';
 
+    public static function getNavigationBadge(): ?string
+    {
+        $user = auth()->user();
+        $count = StockTransfer::whereIn('status', ['requested', 'approved']);
+
+        if ($user->role === 'supervisor') {
+            $count->where(function (Builder $q) use ($user) {
+                $q->whereHas('toStockist', fn (Builder $sq) => $sq->where('supervisor_id', $user->id))
+                    ->orWhere('requested_by', $user->id);
+            });
+        }
+
+        if ($user->role === 'warehouse_manager') {
+            $warehouseIds = $user->managedWarehouses()->pluck('id');
+            $count->whereIn('from_warehouse_id', $warehouseIds);
+        }
+
+        return (string) $count->count();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return StockTransferForm::configure($schema);
@@ -43,12 +63,12 @@ class StockTransferResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'manager']);
+        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'manager', 'supervisor', 'accountant', 'sales']);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager']);
+        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor']);
     }
 
     public static function canEditAny(): bool
@@ -68,8 +88,17 @@ class StockTransferResource extends Resource
 
         if ($user->role === 'warehouse_manager') {
             $warehouseIds = $user->managedWarehouses()->pluck('id');
-            $query->whereIn('from_warehouse_id', $warehouseIds)
-                ->orWhereIn('to_warehouse_id', $warehouseIds);
+            $query->where(function (Builder $q) use ($warehouseIds) {
+                $q->whereIn('from_warehouse_id', $warehouseIds)
+                    ->orWhereIn('to_warehouse_id', $warehouseIds);
+            });
+        }
+
+        if ($user->role === 'supervisor') {
+            $query->where(function (Builder $q) use ($user) {
+                $q->whereHas('toStockist', fn (Builder $sq) => $sq->where('supervisor_id', $user->id))
+                    ->orWhere('requested_by', $user->id);
+            });
         }
 
         return $query;

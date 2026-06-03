@@ -49,11 +49,23 @@ class CreateCustomer extends CreateRecord
             $customer->reps()->sync($data['reps']);
         }
 
+        // Sync back to form data so saveRelationships() doesn't overwrite with empty hidden field states
+        if (! empty($data['leads'])) {
+            $this->data['leads'] = $data['leads'];
+        }
+        if (! empty($data['reps'])) {
+            $this->data['reps'] = $data['reps'];
+        }
+
         return $customer;
     }
 
     protected function afterCreate(): void
     {
+        $user = auth()->user();
+        if ($user && $user->role === 'lead') {
+            $this->record->leads()->syncWithoutDetaching([$user->id]);
+        }
         $this->dispatch('refresh-dashboard');
     }
 

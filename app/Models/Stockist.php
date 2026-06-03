@@ -8,6 +8,19 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Stockist extends Model
 {
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $stockist) {
+            if ($stockist->state_id && ! $stockist->state) {
+                $state = State::find($stockist->state_id);
+                $stockist->state = $state?->name;
+                $stockist->region = $state?->region?->name;
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'phone',
@@ -20,6 +33,9 @@ class Stockist extends Model
         'supervisor_id',
         'type',
         'is_trial_order_marketer',
+        'state_id',
+        'lga_id',
+        'city_id',
     ];
 
     protected $casts = [

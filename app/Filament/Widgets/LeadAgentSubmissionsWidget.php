@@ -29,7 +29,7 @@ class LeadAgentSubmissionsWidget extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn (): Builder => Customer::query()->whereNotNull('agent_id')->whereNull('rep_id'))
+            ->query(fn (): Builder => Customer::query()->whereNotNull('agent_id')->whereNull('rep_id')->whereNull('lead_id'))
             ->columns([
                 TextColumn::make('customer_name')
                     ->label('Customer Name')

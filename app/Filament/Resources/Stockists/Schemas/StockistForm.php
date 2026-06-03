@@ -3,10 +3,13 @@
 namespace App\Filament\Resources\Stockists\Schemas;
 
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
+use App\Models\Lga;
+use App\Models\State;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
@@ -28,50 +31,47 @@ class StockistForm
                         'regex' => 'The phone number must be exactly 11 numeric digits.',
                     ]),
 
-                Select::make('state')
-                    ->options(function () {
-                        $states = [];
-                        foreach (CustomerForm::getCityMapping() as $data) {
-                            $states[$data['state']] = $data['state'];
-                        }
-
-                        return array_unique($states);
-                    })
+                Select::make('state_id')
+                    ->label('State')
+                    ->options(fn () => State::pluck('name', 'id'))
                     ->searchable()
                     ->required()
-                    ->live(debounce: 500)
-                    ->afterStateUpdated(function (Set $set) {
-                        $set('city', null);
-                        $set('region', null);
+                    ->live(debounce: 300)
+                    ->afterStateUpdated(function (Set $set, $stateId) {
+                        $set('lga_id', null);
+                        $state = State::find($stateId);
+                        $set('state', $state?->name);
+                        $set('region', $state?->region?->name);
                     }),
 
-                Select::make('city')
-                    ->options(function (callable $get) {
-                        $state = $get('state');
-                        if (! $state) {
-                            return CustomerForm::nigerianCities();
-                        }
-
-                        $cities = [];
-                        foreach (CustomerForm::getCityMapping() as $key => $data) {
-                            if ($data['state'] === $state) {
-                                $cities[$key] = $data['city'];
-                            }
-                        }
-
-                        return $cities;
-                    })
+                Select::make('lga_id')
+                    ->label('Local Government Area')
+                    ->options(fn (Get $get) => $get('state_id')
+                        ? Lga::where('state_id', $get('state_id'))->pluck('name', 'id')
+                        : [])
                     ->searchable()
                     ->required()
-                    ->live()
-                    ->afterStateUpdated(function (Set $set, $state) {
-                        $map = CustomerForm::getCityMapping();
-                        if (isset($map[$state])) {
-                            $set('state', $map[$state]['state']);
-                            $set('region', $map[$state]['region']);
-                        }
-                    }),
+                    ->live(),
 
+                TextInput::make('city')
+                    ->label('City')
+                    ->datalist(function (Get $get) {
+                        $stateId = $get('state_id');
+
+                        $cities = collect(CustomerForm::getCityMapping());
+
+                        if ($stateId) {
+                            $stateName = State::find($stateId)?->name;
+                            $cities = $stateName
+                                ? $cities->where('state', $stateName)
+                                : collect();
+                        }
+
+                        return $cities->pluck('city')->unique()->toArray();
+                    })
+                    ->required(),
+
+                Hidden::make('state'),
                 Hidden::make('region'),
 
                 Textarea::make('address')

@@ -37,7 +37,10 @@ class StockTransferForm
                     ->options(fn () => Stockist::pluck('name', 'id'))
                     ->searchable()
                     ->nullable()
-                    ->live(),
+                    ->live()
+                    ->afterStateUpdated(fn ($set, $state) => $state
+                        ? $set('from_warehouse_id', null)
+                        : null),
 
                 Textarea::make('notes')
                     ->columnSpanFull(),

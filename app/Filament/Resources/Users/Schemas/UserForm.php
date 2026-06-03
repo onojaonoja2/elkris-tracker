@@ -6,6 +6,7 @@ use App\Filament\Resources\Customers\Schemas\CustomerForm;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
 
@@ -50,11 +51,9 @@ class UserForm
                     ->selectablePlaceholder(false)
                     ->live(),
 
-                Select::make('assigned_cities')
+                TagsInput::make('assigned_cities')
                     ->label('Assigned Cities')
-                    ->multiple()
-                    ->options(CustomerForm::nigerianCities())
-                    ->searchable()
+                    ->suggestions(fn () => collect(CustomerForm::getCityMapping())->pluck('city')->unique()->sort()->values()->toArray())
                     ->visible(fn (callable $get) => $get('role') === 'field_agent')
                     ->required(fn (callable $get) => $get('role') === 'field_agent'),
 

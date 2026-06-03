@@ -184,11 +184,11 @@ class CustomersTable
                                 ->required(),
                         ];
                     })
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         $leadId = $data['lead_id'] ?? auth()->id();
                         $record->update(['lead_id' => $leadId]);
                         $record->leads()->syncWithoutDetaching([$leadId]);
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('assignToRep')
@@ -210,14 +210,14 @@ class CustomersTable
                             })
                             ->required(),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         $record->update([
                             'rep_id' => $data['rep_id'],
                             'rep_acceptance_status' => 'pending',
                             'lead_id' => auth()->id(),
                         ]);
                         $record->reps()->syncWithoutDetaching([$data['rep_id']]);
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('acceptAssignment')
@@ -225,12 +225,12 @@ class CustomersTable
                     ->color('success')
                     ->icon('heroicon-o-check')
                     ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
-                    ->action(function ($record) {
+                    ->action(function ($record, $livewire) {
                         $record->update([
                             'rep_acceptance_status' => 'accepted',
                             'rejection_note' => null,
                         ]);
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('rejectAssignment')
@@ -244,7 +244,7 @@ class CustomersTable
                             ->required()
                             ->rows(3),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         $record->update([
                             'rep_id' => null,
                             'rep_acceptance_status' => 'rejected',
@@ -253,7 +253,7 @@ class CustomersTable
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('rejectByTeamLead')
@@ -267,7 +267,7 @@ class CustomersTable
                             ->required()
                             ->rows(3),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         $record->update([
                             'rep_id' => null,
                             'rep_acceptance_status' => 'rejected',
@@ -276,7 +276,7 @@ class CustomersTable
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('requestReplacement')
@@ -284,7 +284,7 @@ class CustomersTable
                     ->color('warning')
                     ->icon('heroicon-o-arrow-path')
                     ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status === 'rejected' && ! $record->needs_replacement)
-                    ->action(function ($record) {
+                    ->action(function ($record, $livewire) {
                         $record->update([
                             'needs_replacement' => true,
                             'replacement_requested_by' => auth()->id(),
@@ -292,7 +292,7 @@ class CustomersTable
                             'lead_id' => null,
                         ]);
                         $record->leads()->detach();
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('logCall')
@@ -321,7 +321,7 @@ class CustomersTable
                             ->label('Other Comment')
                             ->rows(3),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         CallLog::create([
                             'user_id' => auth()->id(),
                             'customer_id' => $record->id,
@@ -330,7 +330,7 @@ class CustomersTable
                             'notes' => $data['notes'],
                             'other_comment' => $data['other_comment'],
                         ]);
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     })
                     ->successNotificationTitle('Call logged successfully'),
 

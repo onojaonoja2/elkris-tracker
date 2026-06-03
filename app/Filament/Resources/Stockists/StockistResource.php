@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Stockists;
 
 use App\Filament\Resources\Stockists\Pages\CreateStockist;
 use App\Filament\Resources\Stockists\Pages\ListStockists;
+use App\Filament\Resources\Stockists\Pages\ViewStockist;
 use App\Filament\Resources\Stockists\Schemas\StockistForm;
 use App\Filament\Resources\Stockists\Tables\StockistTable;
 use App\Models\Stockist;
@@ -13,6 +14,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class StockistResource extends Resource
 {
@@ -28,10 +30,20 @@ class StockistResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'supervisor']);
+        return in_array(auth()->user()->role, ['admin', 'supervisor', 'manager', 'lead', 'rep', 'accountant', 'sales']);
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'supervisor', 'manager', 'lead', 'rep', 'accountant', 'sales']);
     }
 
     public static function canCreate(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'supervisor']);
+    }
+
+    public static function canEditAny(): bool
     {
         return in_array(auth()->user()->role, ['admin', 'supervisor']);
     }
@@ -40,6 +52,10 @@ class StockistResource extends Resource
     {
         $user = auth()->user();
         $query = parent::getEloquentQuery();
+
+        if (in_array($user->role, ['admin', 'manager', 'lead', 'rep', 'accountant', 'sales'])) {
+            return $query;
+        }
 
         if ($user->role === 'supervisor') {
             return $query->where('supervisor_id', $user->id);
@@ -70,6 +86,7 @@ class StockistResource extends Resource
         return [
             'index' => ListStockists::route('/'),
             'create' => CreateStockist::route('/create'),
+            'view' => ViewStockist::route('/{record}'),
         ];
     }
 }

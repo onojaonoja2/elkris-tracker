@@ -5,7 +5,9 @@ namespace App\Filament\Resources\Stockists\Tables;
 use App\Filament\Exports\StockistExporter;
 use App\Models\Stockist;
 use App\Models\StockistTransaction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ExportAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -107,7 +109,10 @@ class StockistTable
                     ->exporter(StockistExporter::class),
             ])
             ->recordActions([
-                //
+                ViewAction::make()
+                    ->label('Dashboard'),
+                EditAction::make()
+                    ->visible(fn () => in_array(auth()->user()->role, ['admin', 'supervisor'])),
             ])
             ->toolbarActions([
                 //

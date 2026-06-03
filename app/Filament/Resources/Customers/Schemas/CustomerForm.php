@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Models\Lga;
+use App\Models\State;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
@@ -10,6 +12,7 @@ use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
@@ -60,37 +63,35 @@ class CustomerForm
                     ])
                     ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                Select::make('city')
-                    ->options(self::nigerianCities())
+                Select::make('state_id')
+                    ->label('State')
+                    ->options(fn () => State::pluck('name', 'id'))
                     ->searchable()
                     ->required()
-                    ->default(fn () => self::getDefaultCity())
-                    ->live(debounce: 500)
+                    ->live(debounce: 300)
                     ->visible(fn () => auth()->user()->role !== 'field_agent')
-                    ->afterStateUpdated(function (Set $set, $state) {
-                        $map = self::getCityMapping();
-                        if (isset($map[$state])) {
-                            $set('state', $map[$state]['state']);
-                            $set('region', $map[$state]['region']);
-                        } else {
-                            $set('state', null);
-                            $set('region', null);
-                        }
+                    ->afterStateUpdated(function (Set $set, $stateId) {
+                        $set('lga_id', null);
+                        $state = State::find($stateId);
+                        $set('state', $state?->name);
+                        $set('region', $state?->region?->name);
                     }),
 
-                Hidden::make('state')
-                    ->default(function () {
-                        $city = self::getDefaultCity();
+                Select::make('lga_id')
+                    ->label('Local Government Area')
+                    ->options(fn (Get $get) => $get('state_id')
+                        ? Lga::where('state_id', $get('state_id'))->pluck('name', 'id')
+                        : [])
+                    ->searchable()
+                    ->required()
+                    ->live()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                        return $city ? (self::getCityMapping()[$city]['state'] ?? null) : null;
-                    }),
+                TextInput::make('city')
+                    ->required()
+                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                Hidden::make('region')
-                    ->default(function () {
-                        $city = self::getDefaultCity();
-
-                        return $city ? (self::getCityMapping()[$city]['region'] ?? null) : null;
-                    }),
+                Hidden::make('region'),
 
                 Textarea::make('address')
                     ->required(fn () => auth()->user()->role === 'field_agent')
@@ -100,11 +101,18 @@ class CustomerForm
                     ->label('Assign to myself (add to my portfolio)')
                     ->visible(fn () => auth()->user()->role === 'lead')
                     ->live()
+                    ->dehydrated(false)
                     ->afterStateUpdated(function ($state, Set $set) {
                         if ($state) {
                             $set('agent_id', auth()->id());
+                            $set('lead_id', auth()->id());
+                            $set('leads', [auth()->id()]);
                         }
                     }),
+
+                Hidden::make('agent_id'),
+
+                Hidden::make('lead_id'),
 
                 Hidden::make('customer_status')
                     ->default('customer'),
@@ -160,34 +168,6 @@ class CustomerForm
 
                 // Products and order details are now handled via the OrdersRelationManager
             ]);
-    }
-
-    /**
-     * Extracts the fallback default city for field agents.
-     */
-    public static function getDefaultCity(): ?string
-    {
-        $user = auth()->user();
-        if ($user && $user->role === 'field_agent' && ! empty($user->assigned_cities)) {
-            return is_array($user->assigned_cities) ? $user->assigned_cities[0] : null;
-        }
-
-        return null;
-    }
-
-    /**
-     * 82 Nigerian cities and urban areas.
-     *
-     * @return array<string, string>
-     */
-    public static function nigerianCities(): array
-    {
-        $options = [];
-        foreach (self::getCityMapping() as $key => $data) {
-            $options[$data['state']][$key] = $data['city'];
-        }
-
-        return $options;
     }
 
     public static function getCityMapping(): array
