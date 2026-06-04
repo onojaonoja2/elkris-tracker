@@ -7,6 +7,7 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\FieldAgentDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
+use App\Filament\Pages\OrderSettings;
 use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SalesOrdersDashboard;
 use App\Filament\Pages\SupervisorDashboard;
@@ -54,6 +55,7 @@ class AdminPanelProvider extends PanelProvider
                 FieldAgentDashboard::class,
                 SalesOrdersDashboard::class,
                 SystemMaintenance::class,
+                OrderSettings::class,
             ])
             ->homeUrl(fn () => match (auth()->user()->role) {
                 'supervisor' => '/admin/supervisor-dashboard',
