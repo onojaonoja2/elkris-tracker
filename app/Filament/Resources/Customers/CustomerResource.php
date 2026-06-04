@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Customers;
 
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
+use App\Filament\Resources\Customers\Pages\ImportCustomers;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
@@ -58,6 +59,7 @@ class CustomerResource extends Resource implements CopilotResource
             'index' => ListCustomers::route('/'),
             'create' => CreateCustomer::route('/create'),
             'edit' => EditCustomer::route('/{record}/edit'),
+            'import' => ImportCustomers::route('/import'),
         ];
     }
 

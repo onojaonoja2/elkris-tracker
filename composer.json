@@ -14,7 +14,8 @@
         "laravel/ai": "^0.4.2",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
-        "league/flysystem-aws-s3-v3": "*"
+        "league/flysystem-aws-s3-v3": "*",
+        "openspout/openspout": "^4.32"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

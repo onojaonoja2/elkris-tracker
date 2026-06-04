@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Customers\Pages;
 
 use App\Filament\Resources\Customers\CustomerResource;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
@@ -15,6 +16,12 @@ class ListCustomers extends ListRecords
         return [
             CreateAction::make()
                 ->hidden(fn () => auth()->user()->role === 'sales'),
+            Action::make('import')
+                ->label('Import Customers')
+                ->icon('heroicon-o-arrow-up-tray')
+                ->color('warning')
+                ->visible(fn () => in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep']))
+                ->url(CustomerResource::getUrl('import')),
         ];
     }
 }
