@@ -33,6 +33,19 @@ class ImportCustomers extends Page
 
     public ?string $fileName = null;
 
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('downloadSample')
+                ->label('Download Sample')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->action(function () {
+                    return response()->download(storage_path('app/customer-import-example.csv'), 'customer-import-example.csv');
+                }),
+        ];
+    }
+
     public function mount(): void
     {
         abort_unless(in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep']), 403);

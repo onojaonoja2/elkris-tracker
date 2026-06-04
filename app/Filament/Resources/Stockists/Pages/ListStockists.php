@@ -13,7 +13,8 @@ class ListStockists extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make(),
+            CreateAction::make()
+                ->hidden(fn (): bool => in_array(auth()->user()->role, ['lead', 'rep'])),
         ];
     }
 }

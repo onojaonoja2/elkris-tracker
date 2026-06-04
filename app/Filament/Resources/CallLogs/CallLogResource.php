@@ -8,6 +8,7 @@ use App\Models\CallLog;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -74,6 +75,10 @@ class CallLogResource extends Resource
                 ->native(false)
                 ->displayFormat('d/m/Y H:i')
                 ->default(now()),
+            DatePicker::make('next_call_date')
+                ->label('Proposed Next Call Date')
+                ->native(false)
+                ->displayFormat('d/m/Y'),
             Select::make('outcome')
                 ->options([
                     'connected' => 'Connected',
@@ -106,6 +111,10 @@ class CallLogResource extends Resource
                     ->sortable(),
                 TextColumn::make('called_at')
                     ->dateTime('d/m/Y H:i')
+                    ->sortable(),
+                TextColumn::make('next_call_date')
+                    ->label('Next Call')
+                    ->date()
                     ->sortable(),
                 TextColumn::make('outcome')
                     ->badge()
@@ -174,6 +183,7 @@ class CallLogResource extends Resource
                                 $log->user?->name ?? 'N/A',
                                 $log->customer?->customer_name ?? 'N/A',
                                 Carbon::parse($log->called_at)->format('d/m/Y H:i'),
+                                $log->next_call_date ? Carbon::parse($log->next_call_date)->format('d/m/Y') : '',
                                 ucfirst(str_replace('_', ' ', $log->outcome)),
                                 $log->notes ?? '',
                                 $log->other_comment ?? '',
@@ -182,7 +192,7 @@ class CallLogResource extends Resource
 
                         return response()->streamDownload(function () use ($data) {
                             $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Rep', 'Customer', 'Called At', 'Outcome', 'Notes', 'Other Comment']);
+                            fputcsv($file, ['Rep', 'Customer', 'Called At', 'Next Call Date', 'Outcome', 'Notes', 'Other Comment']);
                             foreach ($data as $row) {
                                 fputcsv($file, $row);
                             }

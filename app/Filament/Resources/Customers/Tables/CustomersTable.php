@@ -305,6 +305,10 @@ class CustomersTable
                             ->native(false)
                             ->displayFormat('d/m/Y H:i')
                             ->default(now()),
+                        DatePicker::make('next_call_date')
+                            ->label('Proposed Next Call Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
                         Select::make('outcome')
                             ->options([
                                 'connected' => 'Connected',
@@ -326,6 +330,7 @@ class CustomersTable
                             'user_id' => auth()->id(),
                             'customer_id' => $record->id,
                             'called_at' => $data['called_at'] ?? now(),
+                            'next_call_date' => $data['next_call_date'] ?? null,
                             'outcome' => $data['outcome'],
                             'notes' => $data['notes'],
                             'other_comment' => $data['other_comment'],

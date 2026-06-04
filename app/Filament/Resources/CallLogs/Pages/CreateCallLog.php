@@ -34,6 +34,11 @@ class CreateCallLog extends CreateRecord
                 ->displayFormat('d/m/Y H:i')
                 ->default(now()),
 
+            DateTimePicker::make('next_call_date')
+                ->label('Proposed Next Call Date')
+                ->native(false)
+                ->displayFormat('d/m/Y'),
+
             Select::make('outcome')
                 ->options([
                     'connected' => 'Connected',

@@ -10,6 +10,7 @@ class CallLog extends Model
         'user_id',
         'customer_id',
         'called_at',
+        'next_call_date',
         'outcome',
         'notes',
         'other_comment',
@@ -19,6 +20,7 @@ class CallLog extends Model
     {
         return [
             'called_at' => 'datetime',
+            'next_call_date' => 'date',
         ];
     }
 
