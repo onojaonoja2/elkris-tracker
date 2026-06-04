@@ -190,7 +190,8 @@ class OrdersRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->hidden(fn ($record): bool => $record->status === 'delivered'),
                 DeleteAction::make()
                     ->hidden(fn ($record): bool => $record->status === 'delivered'),
             ])

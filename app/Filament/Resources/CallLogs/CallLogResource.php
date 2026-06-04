@@ -157,6 +157,10 @@ class CallLogResource extends Resource
                             ->native(false)
                             ->displayFormat('d/m/Y'),
                     ])
+                    ->default([
+                        'called_from' => now()->startOfDay(),
+                        'called_until' => now()->endOfDay(),
+                    ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when($data['called_from'], fn ($q, $date) => $q->whereDate('called_at', '>=', $date))
@@ -174,8 +178,8 @@ class CallLogResource extends Resource
                     ->label('Export Call Logs')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
-                    ->action(function () {
-                        $query = static::getEloquentQuery()->with(['user', 'customer']);
+                    ->action(function ($livewire) {
+                        $query = $livewire->getFilteredTableQuery()->with(['user', 'customer']);
                         $logs = $query->orderBy('called_at', 'desc')->get();
                         $data = [];
                         foreach ($logs as $log) {

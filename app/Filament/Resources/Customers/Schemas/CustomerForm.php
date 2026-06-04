@@ -2,19 +2,23 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Models\Customer;
 use App\Models\Lga;
+use App\Models\Product;
 use App\Models\State;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class CustomerForm
 {
@@ -158,16 +162,75 @@ class CustomerForm
                     ->displayFormat('d/m/Y')
                     ->visible(fn () => auth()->user()->role !== 'field_agent'),
 
-                KeyValue::make('lifetime_purchases')
-                    ->label('Lifetime Purchases')
-                    ->keyLabel('Product & Grammage')
-                    ->valueLabel('Total Quantity')
-                    ->disabled() // Read-only tally
+                Section::make('Lifetime Purchases')
                     ->columnSpanFull()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => auth()->user()->role !== 'field_agent')
+                    ->schema([
+                        Text::make(fn (?Customer $record): HtmlString => new HtmlString(
+                            $record ? self::renderLifetimePurchasesTable($record) : 'No purchases recorded.'
+                        )),
+                    ]),
 
                 // Products and order details are now handled via the OrdersRelationManager
             ]);
+    }
+
+    public static function renderLifetimePurchasesTable(Customer $record): string
+    {
+        $products = Product::whereHas('order', fn ($q) => $q
+            ->where('customer_id', $record->id)
+            ->where('status', 'delivered')
+        )->get();
+
+        $breakdown = [];
+        foreach ($products as $product) {
+            $key = $product->product_name.' - '.$product->grammage.'g';
+            if (! isset($breakdown[$key])) {
+                $breakdown[$key] = [
+                    'product_name' => $product->product_name,
+                    'grammage' => $product->grammage,
+                    'total_qty' => 0,
+                    'total_price' => 0,
+                ];
+            }
+            $breakdown[$key]['total_qty'] += $product->quantity;
+            $breakdown[$key]['total_price'] += $product->price * $product->quantity;
+        }
+
+        if (empty($breakdown)) {
+            return '<p class="text-sm text-gray-500">No purchases recorded.</p>';
+        }
+
+        $html = '<table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">';
+        $html .= '<thead><tr class="bg-gray-50 border-b border-gray-200">
+            <th class="text-left py-2 px-3 font-medium text-gray-600">Product</th>
+            <th class="text-left py-2 px-3 font-medium text-gray-600">Grammage</th>
+            <th class="text-right py-2 px-3 font-medium text-gray-600">Qty</th>
+            <th class="text-right py-2 px-3 font-medium text-gray-600">Unit Price</th>
+            <th class="text-right py-2 px-3 font-medium text-gray-600">Subtotal</th>
+        </tr></thead><tbody>';
+
+        $grandTotal = 0;
+        foreach ($breakdown as $data) {
+            $unitPrice = $data['total_qty'] > 0 ? round($data['total_price'] / $data['total_qty'], 2) : 0;
+            $subtotal = $data['total_price'];
+            $grandTotal += $subtotal;
+
+            $html .= '<tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 px-3">'.e($data['product_name']).'</td>
+                <td class="py-2 px-3">'.$data['grammage'].'g</td>
+                <td class="py-2 px-3 text-right">'.$data['total_qty'].'</td>
+                <td class="py-2 px-3 text-right">₦'.number_format($unitPrice, 2).'</td>
+                <td class="py-2 px-3 text-right">₦'.number_format($subtotal, 2).'</td>
+            </tr>';
+        }
+
+        $html .= '</tbody><tfoot><tr class="bg-gray-50 font-semibold border-t-2 border-gray-300">
+            <td colspan="4" class="py-2 px-3 text-right">Total</td>
+            <td class="py-2 px-3 text-right">₦'.number_format($grandTotal, 2).'</td>
+        </tr></tfoot></table>';
+
+        return $html;
     }
 
     public static function getCityMapping(): array

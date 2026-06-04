@@ -3,6 +3,8 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Customer;
+use App\Models\Order;
+use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
@@ -31,6 +33,12 @@ class RepStatsWidget extends StatsOverviewWidget
 
         $conversionRate = $portfolioCount > 0 ? round(($convertedCount / $portfolioCount) * 100, 1) : 0;
 
+        $ordersTodayQuery = Order::where('user_id', $repId)
+            ->whereDate('created_at', Carbon::today());
+
+        $ordersToday = $ordersTodayQuery->count();
+        $ordersTodayValue = number_format($ordersTodayQuery->sum('total_price'), 2);
+
         return [
             Stat::make('Pending Assignments', $pendingCount)
                 ->description('Awaiting your acceptance')
@@ -44,6 +52,10 @@ class RepStatsWidget extends StatsOverviewWidget
                 ->description($conversionRate.'% conversion rate')
                 ->icon('heroicon-o-check-circle')
                 ->color('success'),
+            Stat::make('Orders Today', $ordersToday)
+                ->description('₦'.$ordersTodayValue.' total value')
+                ->icon('heroicon-o-shopping-cart')
+                ->color('primary'),
         ];
     }
 

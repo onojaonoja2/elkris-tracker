@@ -123,8 +123,18 @@ class OrderResource extends Resource
                     }),
                 Filter::make('created_at')
                     ->form([
-                        DatePicker::make('created_from')->closeOnDateSelection(),
-                        DatePicker::make('created_until')->closeOnDateSelection(),
+                        DatePicker::make('created_from')
+                            ->closeOnDateSelection()
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                        DatePicker::make('created_until')
+                            ->closeOnDateSelection()
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    ->default([
+                        'created_from' => now()->startOfDay(),
+                        'created_until' => now()->endOfDay(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -200,15 +210,11 @@ class OrderResource extends Resource
                     ->label('Export Orders')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
-                    ->action(function () {
-                        $user = auth()->user();
-                        $query = Order::query()->with(['customer', 'user', 'products']);
-
-                        if (! in_array($user->role, ['admin', 'sales'])) {
-                            $query->where('user_id', $user->id);
-                        }
-
-                        $orders = $query->orderBy('created_at', 'desc')->get();
+                    ->action(function ($livewire) {
+                        $orders = $livewire->getFilteredTableQuery()
+                            ->with(['customer', 'user', 'products'])
+                            ->orderBy('created_at', 'desc')
+                            ->get();
                         $data = [];
                         foreach ($orders as $order) {
                             $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
