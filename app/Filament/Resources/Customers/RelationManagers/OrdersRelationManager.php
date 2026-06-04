@@ -191,11 +191,13 @@ class OrdersRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->hidden(fn ($record): bool => $record->status === 'delivered'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->hidden(fn (): bool => true),
                 ]),
             ]);
     }
