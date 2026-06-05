@@ -31,6 +31,18 @@ class StockistForm
                         'regex' => 'The phone number must be exactly 11 numeric digits.',
                     ]),
 
+                TextInput::make('email')
+                    ->label('Login Email')
+                    ->email()
+                    ->required()
+                    ->unique('users', 'email'),
+
+                TextInput::make('password')
+                    ->label('Login Password')
+                    ->password()
+                    ->required()
+                    ->hiddenOn('edit'),
+
                 Select::make('state_id')
                     ->label('State')
                     ->options(fn () => State::pluck('name', 'id'))

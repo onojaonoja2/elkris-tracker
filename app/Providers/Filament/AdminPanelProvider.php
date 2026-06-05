@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Http\Middleware\Authenticate;
+use App\Filament\Pages\AccountantDashboard;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\FieldAgentDashboard;
 use App\Filament\Pages\LeadDashboard;
@@ -10,8 +11,10 @@ use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\OrderSettings;
 use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SalesOrdersDashboard;
+use App\Filament\Pages\StockistDashboard;
 use App\Filament\Pages\SupervisorDashboard;
 use App\Filament\Pages\SystemMaintenance;
+use App\Filament\Pages\WarehouseManagerDashboard;
 use App\Filament\Widgets\NotificationBellWidget;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -54,6 +57,9 @@ class AdminPanelProvider extends PanelProvider
                 RepDashboard::class,
                 FieldAgentDashboard::class,
                 SalesOrdersDashboard::class,
+                StockistDashboard::class,
+                WarehouseManagerDashboard::class,
+                AccountantDashboard::class,
                 SystemMaintenance::class,
                 OrderSettings::class,
             ])
@@ -63,8 +69,9 @@ class AdminPanelProvider extends PanelProvider
                 'rep' => '/admin/rep-dashboard',
                 'sales' => '/admin/sales-orders-dashboard',
                 'field_agent' => '/admin/field-agent-dashboard',
-                'warehouse_manager' => '/admin/stock-transfers',
-                'accountant' => '/admin/trial-orders',
+                'warehouse_manager' => '/admin/warehouse-dashboard',
+                'accountant' => '/admin/accountant-dashboard',
+                'stockist' => '/admin/stockist-dashboard',
                 'manager', 'admin' => '/admin/manager-dashboard',
                 default => '/admin',
             })

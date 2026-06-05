@@ -73,13 +73,18 @@ class CustomerForm
                     ->searchable()
                     ->required()
                     ->live(debounce: 300)
-                    ->visible(fn () => auth()->user()->role !== 'field_agent')
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'stockist']))
+                    ->default(fn () => self::getDefaultStateId())
                     ->afterStateUpdated(function (Set $set, $stateId) {
                         $set('lga_id', null);
                         $state = State::find($stateId);
                         $set('state', $state?->name);
                         $set('region', $state?->region?->name);
                     }),
+
+                Hidden::make('state_id')
+                    ->default(fn () => self::getDefaultStateId())
+                    ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'stockist'])),
 
                 Select::make('lga_id')
                     ->label('Local Government Area')
@@ -89,13 +94,21 @@ class CustomerForm
                     ->searchable()
                     ->required()
                     ->live()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'stockist']))
+                    ->default(fn () => self::getDefaultLgaId()),
+
+                Hidden::make('lga_id')
+                    ->default(fn () => self::getDefaultLgaId())
+                    ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'stockist'])),
 
                 TextInput::make('city')
-                    ->required()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->required(),
 
-                Hidden::make('region'),
+                Hidden::make('state')
+                    ->default(fn () => State::find(self::getDefaultStateId())?->name),
+
+                Hidden::make('region')
+                    ->default(fn () => State::find(self::getDefaultStateId())?->region?->name),
 
                 Textarea::make('address')
                     ->required(fn () => auth()->user()->role === 'field_agent')
@@ -231,6 +244,36 @@ class CustomerForm
         </tr></tfoot></table>';
 
         return $html;
+    }
+
+    public static function getDefaultStateId(): ?int
+    {
+        $user = auth()->user();
+
+        if ($user->role === 'stockist' && $user->stockist) {
+            return $user->stockist->state_id;
+        }
+
+        if ($user->role === 'field_agent' && $user->lga) {
+            return State::whereHas('lgas', fn ($q) => $q->where('id', $user->lga_id))->first()?->id;
+        }
+
+        return null;
+    }
+
+    public static function getDefaultLgaId(): ?int
+    {
+        $user = auth()->user();
+
+        if ($user->role === 'stockist' && $user->stockist) {
+            return $user->stockist->lga_id;
+        }
+
+        if ($user->role === 'field_agent') {
+            return $user->lga_id;
+        }
+
+        return null;
     }
 
     public static function getCityMapping(): array

@@ -110,7 +110,7 @@ class StockTransfersTable
                     ->label('Create Stock Request')
                     ->icon('heroicon-o-shopping-cart')
                     ->color('info')
-                    ->visible(fn () => in_array(auth()->user()->role, ['supervisor', 'admin', 'warehouse_manager']))
+                    ->visible(fn () => in_array(auth()->user()->role, ['supervisor', 'admin']))
                     ->form([
                         Select::make('stockist_id')
                             ->label('Stockist')
@@ -268,7 +268,12 @@ class StockTransfersTable
                     ->label('Mark Received')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'dispatched')
+                    ->visible(fn (StockTransfer $record) => $record->status === 'dispatched'
+                        && $record->dispatched_by !== auth()->id()
+                        && (
+                            ($record->to_warehouse_id && in_array($record->to_warehouse_id, auth()->user()->managedWarehouses()->pluck('id')->toArray()))
+                            || $record->to_stockist_id
+                        ))
                     ->form(fn (StockTransfer $record) => [
                         Repeater::make('items')
                             ->label('Received Items')

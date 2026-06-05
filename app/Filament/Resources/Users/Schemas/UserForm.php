@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Schemas;
 
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
+use App\Models\Stockist;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -60,9 +61,25 @@ class UserForm
                 Select::make('lead_id')
                     ->label('Reports To')
                     ->relationship('lead', 'name', fn ($query) => $query->where('role', 'lead'))
-                    ->visible(fn (callable $get) => $get('role') === 'rep') // Only shows if 'rep' is selected
+                    ->visible(fn (callable $get) => $get('role') === 'rep')
                     ->required(fn (callable $get) => $get('role') === 'rep')
                     ->live(),
+
+                Select::make('stockist_id')
+                    ->label('Stockist')
+                    ->relationship('stockist', 'name')
+                    ->searchable()
+                    ->visible(fn (callable $get) => $get('role') === 'stockist')
+                    ->required(fn (callable $get) => $get('role') === 'stockist')
+                    ->live()
+                    ->afterStateUpdated(function (callable $set, $state) {
+                        if ($state) {
+                            $stockist = Stockist::find($state);
+                            if ($stockist) {
+                                $set('name', $stockist->name);
+                            }
+                        }
+                    }),
             ]);
     }
 
@@ -73,6 +90,7 @@ class UserForm
         if ($role === 'supervisor') {
             return [
                 'field_agent' => 'Field Agent',
+                'stockist' => 'Stockist',
             ];
         }
 
@@ -86,6 +104,7 @@ class UserForm
             'sales' => 'Sales',
             'warehouse_manager' => 'Warehouse Manager',
             'accountant' => 'Accountant',
+            'stockist' => 'Stockist',
         ];
     }
 }

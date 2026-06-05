@@ -22,7 +22,7 @@ class Dashboard extends BaseDashboard
     public static function canViewNavigation(): bool
     {
         // Only show in navigation for roles that need it
-        return ! in_array(auth()->user()->role, ['field_agent', 'sales', 'supervisor']);
+        return ! in_array(auth()->user()->role, ['field_agent', 'sales', 'supervisor', 'stockist', 'warehouse_manager', 'accountant']);
     }
 
     public static function getNavigationLabel(): string
@@ -63,6 +63,18 @@ class Dashboard extends BaseDashboard
 
         if ($role === 'rep') {
             return redirect()->to(RepDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if ($role === 'stockist') {
+            return redirect()->to(StockistDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if ($role === 'warehouse_manager') {
+            return redirect()->to(WarehouseManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if ($role === 'accountant') {
+            return redirect()->to(AccountantDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
         if ($role === 'manager' || $role === 'admin') {

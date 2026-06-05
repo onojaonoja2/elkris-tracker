@@ -43,6 +43,11 @@ class Stockist extends Model
         'is_trial_order_marketer' => 'boolean',
     ];
 
+    public function user()
+    {
+        return $this->hasOne(User::class, 'stockist_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

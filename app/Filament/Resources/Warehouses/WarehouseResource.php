@@ -47,7 +47,7 @@ class WarehouseResource extends Resource
 
     public static function canCreate(): bool
     {
-        return auth()->user()->role === 'admin';
+        return in_array(auth()->user()->role, ['admin', 'warehouse_manager']);
     }
 
     public static function canEditAny(): bool
