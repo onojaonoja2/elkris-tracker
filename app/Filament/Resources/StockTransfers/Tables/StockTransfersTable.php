@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StockTransfers\Tables;
 
+use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\ProductType;
 use App\Models\Stockist;
@@ -354,6 +355,19 @@ class StockTransfersTable
                                         ['quantity' => 0]
                                     );
                                     $stock->increment('quantity', $accepted);
+                                }
+
+                                if ($record->requested_by) {
+                                    $agentStock = AgentStock::firstOrCreate(
+                                        [
+                                            'user_id' => $record->requested_by,
+                                            'product_type_id' => $item->product_type_id,
+                                            'product_name' => $item->productType?->name ?? 'Unknown',
+                                            'grammage' => $item->grammage,
+                                        ],
+                                        ['quantity' => 0]
+                                    );
+                                    $agentStock->increment('quantity', $accepted);
                                 }
                             }
                         }

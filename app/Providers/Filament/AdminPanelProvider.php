@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\AccountantDashboard;
+use App\Filament\Pages\AgentDashboard;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\FieldAgentDashboard;
 use App\Filament\Pages\LeadDashboard;
@@ -51,6 +52,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+                AgentDashboard::class,
                 ManagerDashboard::class,
                 SupervisorDashboard::class,
                 LeadDashboard::class,
@@ -68,7 +70,10 @@ class AdminPanelProvider extends PanelProvider
                 'lead' => '/admin/lead-dashboard',
                 'rep' => '/admin/rep-dashboard',
                 'sales' => '/admin/sales-orders-dashboard',
-                'field_agent' => '/admin/field-agent-dashboard',
+                'field_agent' => '/admin/agent-dashboard',
+                'direct_sales' => '/admin/agent-dashboard',
+                'open_market' => '/admin/agent-dashboard',
+                'retail_market' => '/admin/agent-dashboard',
                 'warehouse_manager' => '/admin/warehouse-dashboard',
                 'accountant' => '/admin/accountant-dashboard',
                 'stockist' => '/admin/stockist-dashboard',

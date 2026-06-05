@@ -17,7 +17,7 @@ class SupervisorStatsWidget extends StatsOverviewWidget
         $stockistCount = $stockists->count();
 
         $stockistCities = $stockists->pluck('city')->toArray();
-        $fieldAgentCount = User::where('role', 'field_agent')
+        $fieldAgentCount = User::whereIn('role', ['field_agent', 'direct_sales'])
             ->where(function ($query) use ($stockistCities) {
                 foreach ($stockistCities as $city) {
                     $query->orWhereJsonContains('assigned_cities', $city);

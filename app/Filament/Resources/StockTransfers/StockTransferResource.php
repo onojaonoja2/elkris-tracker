@@ -63,12 +63,15 @@ class StockTransferResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'manager', 'supervisor', 'accountant', 'sales']);
+        return in_array(auth()->user()->role, [
+            'admin', 'warehouse_manager', 'manager', 'supervisor',
+            'accountant', 'sales', 'direct_sales', 'open_market', 'retail_market',
+        ]);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor']);
+        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor', 'direct_sales', 'open_market', 'retail_market']);
     }
 
     public static function canEditAny(): bool
@@ -99,6 +102,10 @@ class StockTransferResource extends Resource
                 $q->whereHas('toStockist', fn (Builder $sq) => $sq->where('supervisor_id', $user->id))
                     ->orWhere('requested_by', $user->id);
             });
+        }
+
+        if (in_array($user->role, ['direct_sales', 'open_market', 'retail_market'])) {
+            $query->where('requested_by', $user->id);
         }
 
         return $query;

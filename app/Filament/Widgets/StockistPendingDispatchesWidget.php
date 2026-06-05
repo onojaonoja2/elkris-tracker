@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\AgentStock;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
 use App\Models\StockTransfer;
@@ -79,6 +80,19 @@ class StockistPendingDispatchesWidget extends TableWidget
                                     ['quantity' => 0]
                                 );
                                 $stock->increment('quantity', $accepted);
+
+                                if ($record->requested_by) {
+                                    $agentStock = AgentStock::firstOrCreate(
+                                        [
+                                            'user_id' => $record->requested_by,
+                                            'product_type_id' => $item->product_type_id,
+                                            'product_name' => $item->productType?->name ?? 'Unknown',
+                                            'grammage' => $item->grammage,
+                                        ],
+                                        ['quantity' => 0]
+                                    );
+                                    $agentStock->increment('quantity', $accepted);
+                                }
                             }
                         }
 

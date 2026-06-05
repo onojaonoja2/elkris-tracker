@@ -42,17 +42,17 @@ class TrialOrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent']);
+        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales']);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['field_agent', 'admin']);
+        return in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'admin']);
     }
 
     public static function canEditAny(): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'admin']);
+        return auth()->user()->role === 'admin';
     }
 
     public static function canEditRecord(TrialOrder $record): bool
@@ -62,7 +62,7 @@ class TrialOrderResource extends Resource
 
     public static function canDeleteAny(): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'admin']);
+        return auth()->user()->role === 'admin';
     }
 
     public static function canDeleteRecord(TrialOrder $record): bool
@@ -72,7 +72,7 @@ class TrialOrderResource extends Resource
 
     public static function canViewRecord(TrialOrder $record): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent']);
+        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -80,7 +80,7 @@ class TrialOrderResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if ($user->role === 'field_agent') {
+        if (in_array($user->role, ['field_agent', 'direct_sales'])) {
             $query->where('agent_id', $user->id);
         }
 

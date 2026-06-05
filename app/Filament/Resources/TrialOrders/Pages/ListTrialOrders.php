@@ -32,7 +32,7 @@ class ListTrialOrders extends ListRecords
     {
         $actions = [
             CreateAction::make()
-                ->visible(fn () => auth()->user()->role === 'field_agent'),
+                ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'direct_sales'])),
 
             Action::make('filter_by_location')
                 ->label('Filter by Location')
@@ -205,7 +205,7 @@ class ListTrialOrders extends ListRecords
         $stockists = Stockist::where('supervisor_id', $user->id)->get();
         $stockistCities = $stockists->pluck('city')->toArray();
 
-        return User::where('role', 'field_agent')
+        return User::whereIn('role', ['field_agent', 'direct_sales'])
             ->where(function ($query) use ($stockistCities) {
                 foreach ($stockistCities as $city) {
                     $query->orWhereJsonContains('assigned_cities', $city);

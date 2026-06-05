@@ -60,7 +60,7 @@ class EditUser extends EditRecord
                 ->default(Order::where('user_id', $user->id)->count()),
         ];
 
-        if ($user->role === 'field_agent') {
+        if (in_array($user->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
             $schema[] = Select::make('delete_action')
                 ->label('Action')
                 ->options([
@@ -98,7 +98,7 @@ class EditUser extends EditRecord
         $user = $this->getRecord();
         $replacementId = $data['replacement_user_id'] ?? null;
 
-        if ($user->role === 'field_agent') {
+        if (in_array($user->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
             $action = $data['delete_action'] ?? 'freeze';
 
             if ($action === 'freeze') {

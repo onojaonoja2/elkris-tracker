@@ -28,7 +28,7 @@ class CreateCustomer extends CreateRecord
             $payload['agent_id'] = $user->id;
             $payload['lead_id'] = $user->id;
             $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$user->id]));
-        } elseif ($user && $user->role === 'field_agent') {
+        } elseif ($user && in_array($user->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
             $payload['agent_id'] = $user->id;
         }
 

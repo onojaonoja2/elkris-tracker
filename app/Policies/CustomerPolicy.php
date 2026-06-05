@@ -42,7 +42,7 @@ class CustomerPolicy
         }
 
         // Field agents can update their own
-        if ($user->role === 'field_agent') {
+        if (in_array($user->role, ['field_agent', 'direct_sales'])) {
             return $customer->agent_id === $user->id;
         }
 
@@ -71,7 +71,7 @@ class CustomerPolicy
      */
     public function delete(User $user, Customer $customer): bool
     {
-        if (in_array($user->role, ['rep', 'field_agent'])) {
+        if (in_array($user->role, ['rep', 'field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
             return false;
         } // Reps and Field Agents can't delete
         if (in_array($user->role, ['admin', 'manager'])) {

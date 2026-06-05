@@ -1,19 +1,20 @@
 <?php
 
-namespace App\Filament\Resources\TrialOrders\Pages;
+namespace App\Filament\Resources\SalesRecords\Pages;
 
-use App\Filament\Resources\TrialOrders\TrialOrderResource;
+use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Models\AgentStock;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
-class CreateTrialOrder extends CreateRecord
+class CreateSalesRecord extends CreateRecord
 {
-    protected static string $resource = TrialOrderResource::class;
+    protected static string $resource = SalesRecordResource::class;
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['agent_id'] = auth()->id();
+        $data['agent_type'] = auth()->user()->role;
 
         $products = $data['products'] ?? [];
 

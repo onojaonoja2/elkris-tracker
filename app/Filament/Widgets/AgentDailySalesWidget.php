@@ -2,16 +2,16 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Customer;
+use App\Models\SalesRecord;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
 
-class FieldAgentDailySubmissionsWidget extends BaseWidget
+class AgentDailySalesWidget extends BaseWidget
 {
     public static function canView(): bool
     {
-        return auth()->user() && in_array(auth()->user()->role, ['field_agent', 'direct_sales']);
+        return auth()->user() && in_array(auth()->user()->role, ['open_market', 'retail_market']);
     }
 
     #[On('refresh-dashboard')]
@@ -19,13 +19,15 @@ class FieldAgentDailySubmissionsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $count = Customer::where('agent_id', auth()->id())
+        $count = SalesRecord::where('agent_id', auth()->id())
             ->whereDate('created_at', today())
             ->count();
 
+        $roleLabel = auth()->user()->role === 'open_market' ? 'Open Market' : 'Retail Market';
+
         return [
-            Stat::make('Customers Submitted Today', $count)
-                ->icon('heroicon-o-users')
+            Stat::make("{$roleLabel} Sales Records Today", $count)
+                ->icon('heroicon-o-document-text')
                 ->color('success'),
         ];
     }

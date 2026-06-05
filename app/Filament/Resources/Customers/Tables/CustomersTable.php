@@ -29,14 +29,14 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
 
                 TextColumn::make('rep.name')
                     ->label('Rep Name')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
 
                 TextColumn::make('rep.my_id')
                     ->label('Rep Internal ID')
@@ -50,14 +50,14 @@ class CustomersTable
                         });
                     })
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
 
                 TextColumn::make('agent.name')
                     ->label('Agent Name')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
 
                 TextColumn::make('customer_name')
                     ->searchable()
@@ -71,10 +71,10 @@ class CustomersTable
                 TextColumn::make('age')
                     ->numeric()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('gender')
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('city')
                     ->sortable()
                     ->searchable()
@@ -89,7 +89,7 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('rep_acceptance_status')
                     ->label('Assignment Status')
                     ->badge()
@@ -103,7 +103,7 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
 
                 TextColumn::make('priority')
                     ->badge()
@@ -120,35 +120,35 @@ class CustomersTable
                 TextColumn::make('customer_status')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('diabetic_awareness')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('call_date')
                     ->date()
                     ->sortable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('preffered_call_time')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('follow_up_date')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
 
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])),
             ])
             ->filters([
                 Filter::make('call_date')

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AccountantSalesRecordsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -35,6 +36,7 @@ class AccountantDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            AccountantSalesRecordsWidget::class,
             AccountantStockMovementsWidget::class,
         ];
     }

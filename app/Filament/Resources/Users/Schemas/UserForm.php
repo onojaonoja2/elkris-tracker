@@ -48,15 +48,15 @@ class UserForm
                     ->label('User Role')
                     ->options(self::getRoleOptions())
                     ->required()
-                    ->default('field_agent')
+                    ->default('direct_sales')
                     ->selectablePlaceholder(false)
                     ->live(),
 
                 TagsInput::make('assigned_cities')
                     ->label('Assigned Cities')
                     ->suggestions(fn () => collect(CustomerForm::getCityMapping())->pluck('city')->unique()->sort()->values()->toArray())
-                    ->visible(fn (callable $get) => $get('role') === 'field_agent')
-                    ->required(fn (callable $get) => $get('role') === 'field_agent'),
+                    ->visible(fn (callable $get) => in_array($get('role'), ['direct_sales', 'open_market', 'retail_market']))
+                    ->required(fn (callable $get) => in_array($get('role'), ['direct_sales', 'open_market', 'retail_market'])),
 
                 Select::make('lead_id')
                     ->label('Reports To')
@@ -89,7 +89,9 @@ class UserForm
 
         if ($role === 'supervisor') {
             return [
-                'field_agent' => 'Field Agent',
+                'direct_sales' => 'Direct Sales Agent',
+                'open_market' => 'Open Market Agent',
+                'retail_market' => 'Retail Market Agent',
                 'stockist' => 'Stockist',
             ];
         }
@@ -100,7 +102,9 @@ class UserForm
             'supervisor' => 'Supervisor',
             'lead' => 'Team Lead',
             'rep' => 'Representative',
-            'field_agent' => 'Field Agent',
+            'direct_sales' => 'Direct Sales Agent',
+            'open_market' => 'Open Market Agent',
+            'retail_market' => 'Retail Market Agent',
             'sales' => 'Sales',
             'warehouse_manager' => 'Warehouse Manager',
             'accountant' => 'Accountant',

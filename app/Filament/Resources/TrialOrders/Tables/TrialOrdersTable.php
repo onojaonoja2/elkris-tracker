@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\TrialOrders\Tables;
 
 use App\Filament\Exports\TrialOrderExporter;
+use App\Models\AgentStock;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
@@ -68,9 +69,6 @@ class TrialOrdersTable
                 TextColumn::make('accountantVerifier.name')
                     ->label('Verified By (Acct)')
                     ->placeholder('-'),
-                TextColumn::make('supervisorVerifier.name')
-                    ->label('Verified By (Sup)')
-                    ->placeholder('-'),
                 TextColumn::make('created_at')
                     ->label('Date')
                     ->dateTime()
@@ -105,99 +103,156 @@ class TrialOrdersTable
             ])
             ->recordActions([
 
-                // ACCOUNTANT: Verify receipt
-                Action::make('verifyByAccountant')
-                    ->label('Verify Receipt (Accountant)')
-                    ->icon('heroicon-o-check-badge')
-                    ->color('success')
-                    ->visible(fn (TrialOrder $record) => $record->status === 'receipt_uploaded' && auth()->user()->role === 'accountant')
-                    ->form([
-                        Textarea::make('accountant_notes')
-                            ->label('Verification Notes'),
-                    ])
-                    ->action(function (TrialOrder $record, array $data) {
-                        $record->update([
-                            'status' => 'verified_by_accountant',
-                            'accountant_verified_at' => now(),
-                            'accountant_verified_by' => auth()->id(),
-                            'accountant_notes' => $data['accountant_notes'] ?? null,
-                        ]);
-                        Notification::make()->title('Receipt verified')->success()->send();
-                    })
-                    ->requiresConfirmation(),
-
-                // ACCOUNTANT: Reject receipt
-                Action::make('rejectByAccountant')
-                    ->label('Reject Receipt')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (TrialOrder $record) => $record->status === 'receipt_uploaded' && auth()->user()->role === 'accountant')
-                    ->form([
-                        Textarea::make('accountant_notes')
-                            ->label('Reason for Rejection')
-                            ->required(),
-                    ])
-                    ->action(function (TrialOrder $record, array $data) {
-                        $record->update([
-                            'status' => 'rejected',
-                            'accountant_verified_at' => now(),
-                            'accountant_verified_by' => auth()->id(),
-                            'accountant_notes' => $data['accountant_notes'] ?? null,
-                        ]);
-                        Notification::make()->title('Receipt rejected')->danger()->send();
-                    })
-                    ->requiresConfirmation(),
-
-                // SUPERVISOR: Final approval
-                Action::make('approveBySupervisor')
-                    ->label('Final Approval (Supervisor)')
+                // ACCOUNTANT: Approve (verify + select stockist + deduct stock)
+                Action::make('approveByAccountant')
+                    ->label('Approve (Accountant)')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (TrialOrder $record) => $record->status === 'verified_by_accountant' && in_array(auth()->user()->role, ['supervisor', 'admin']))
-                    ->form([
-                        Textarea::make('supervisor_notes')
-                            ->label('Approval Notes'),
-                    ])
+                    ->visible(fn (TrialOrder $record) => $record->status === 'receipt_uploaded' && auth()->user()->role === 'accountant')
+                    ->form(function (TrialOrder $record) {
+                        return [
+                            Select::make('stockist_id')
+                                ->label('Select Stockist for Deduction')
+                                ->options(fn () => Stockist::whereIn('id', function ($q) {
+                                    $q->select('stockist_id')->from('stockist_stocks')->where('quantity', '>', 0);
+                                })->pluck('name', 'id'))
+                                ->searchable()
+                                ->required()
+                                ->live(),
+
+                            Textarea::make('accountant_notes')
+                                ->label('Approval Notes'),
+                        ];
+                    })
                     ->action(function (TrialOrder $record, array $data) {
-                        $record->update([
-                            'status' => 'approved',
-                            'supervisor_verified_at' => now(),
-                            'supervisor_verified_by' => auth()->id(),
-                            'supervisor_notes' => $data['supervisor_notes'] ?? null,
-                        ]);
+                        $stockistId = $data['stockist_id'];
+                        $stockist = Stockist::find($stockistId);
+                        $products = $record->products ?? [];
 
-                        // Attribute sale value to the marketer and deduct stock
-                        self::attributeSale($record);
+                        foreach ($products as $product) {
+                            $productName = $product['product_name'] ?? null;
+                            $grammage = $product['grammage'] ?? null;
+                            $quantity = $product['quantity'] ?? 0;
 
-                        Notification::make()->title('Trial order approved')->success()->send();
+                            if ($productName && $grammage && $quantity > 0) {
+                                $stock = StockistStock::where('stockist_id', $stockistId)
+                                    ->where('product_name', $productName)
+                                    ->where('grammage', $grammage)
+                                    ->first();
+
+                                if (! $stock || $stock->quantity < $quantity) {
+                                    Notification::make()
+                                        ->danger()
+                                        ->title('Insufficient stock')
+                                        ->body("{$stockist->name} does not have enough {$productName} ({$grammage}g). Available: ".($stock->quantity ?? 0).", Required: {$quantity}")
+                                        ->send();
+
+                                    return;
+                                }
+
+                                if ($record->agent_id) {
+                                    $agentStock = AgentStock::where('user_id', $record->agent_id)
+                                        ->where('product_name', $productName)
+                                        ->where('grammage', $grammage)
+                                        ->first();
+
+                                    if (! $agentStock || $agentStock->quantity < $quantity) {
+                                        Notification::make()
+                                            ->danger()
+                                            ->title('Insufficient agent stock')
+                                            ->body("Agent does not have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0).", Required: {$quantity}")
+                                            ->send();
+
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+
+                        DB::transaction(function () use ($record, $products, $stockistId, $stockist, $data) {
+                            foreach ($products as $product) {
+                                $productName = $product['product_name'] ?? null;
+                                $grammage = $product['grammage'] ?? null;
+                                $quantity = $product['quantity'] ?? 0;
+                                $price = $product['price'] ?? 0;
+                                $lineTotal = $quantity * $price;
+
+                                if ($productName && $grammage && $quantity > 0) {
+                                    $stockistStock = StockistStock::where('stockist_id', $stockistId)
+                                        ->where('product_name', $productName)
+                                        ->where('grammage', $grammage)
+                                        ->lockForUpdate()
+                                        ->first();
+
+                                    if ($stockistStock && $stockistStock->quantity >= $quantity) {
+                                        $stockistStock->decrement('quantity', $quantity);
+
+                                        if ($record->agent_id) {
+                                            AgentStock::where('user_id', $record->agent_id)
+                                                ->where('product_name', $productName)
+                                                ->where('grammage', $grammage)
+                                                ->decrement('quantity', $quantity);
+                                        }
+
+                                        StockistTransaction::create([
+                                            'stockist_id' => $stockistId,
+                                            'user_id' => auth()->id(),
+                                            'field_agent_id' => $record->agent_id,
+                                            'trial_order_id' => $record->id,
+                                            'type' => 'deducted',
+                                            'amount' => $lineTotal,
+                                            'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for trial order #{$record->id}",
+                                            'transaction_date' => now()->toDateString(),
+                                        ]);
+                                    }
+                                }
+                            }
+
+                            $stockist->decrement('stock_balance', $record->total_value);
+
+                            if ($record->agent_id) {
+                                $record->agent?->increment('stock_balance', $record->total_value);
+                            }
+
+                            $record->update([
+                                'status' => 'approved',
+                                'stockist_id' => $stockistId,
+                                'accountant_verified_at' => now(),
+                                'accountant_verified_by' => auth()->id(),
+                                'accountant_notes' => $data['accountant_notes'] ?? null,
+                                'payment_status' => TrialOrder::PAYMENT_STATUS_COMPLETED,
+                            ]);
+                        });
+
+                        Notification::make()->title('Trial order approved and stock deducted')->success()->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Approve Trial Order')
-                    ->modalDescription('This will attribute the sale value to the marketer and deduct stock from their assigned stock.'),
+                    ->modalDescription('Select the stockist to deduct stock from. Stock availability will be verified.'),
 
-                // SUPERVISOR: Reject after accountant verification
-                Action::make('rejectBySupervisor')
-                    ->label('Reject (Supervisor)')
+                // ACCOUNTANT: Reject with reason
+                Action::make('rejectByAccountant')
+                    ->label('Reject (Accountant)')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (TrialOrder $record) => $record->status === 'verified_by_accountant' && in_array(auth()->user()->role, ['supervisor', 'admin']))
+                    ->visible(fn (TrialOrder $record) => $record->status === 'receipt_uploaded' && auth()->user()->role === 'accountant')
                     ->form([
-                        Textarea::make('supervisor_notes')
+                        Textarea::make('accountant_notes')
                             ->label('Reason for Rejection')
                             ->required(),
                     ])
                     ->action(function (TrialOrder $record, array $data) {
                         $record->update([
                             'status' => 'rejected',
-                            'supervisor_verified_at' => now(),
-                            'supervisor_verified_by' => auth()->id(),
-                            'supervisor_notes' => $data['supervisor_notes'] ?? null,
+                            'accountant_verified_at' => now(),
+                            'accountant_verified_by' => auth()->id(),
+                            'accountant_notes' => $data['accountant_notes'] ?? null,
                         ]);
                         Notification::make()->title('Trial order rejected')->danger()->send();
                     })
                     ->requiresConfirmation(),
 
-                // View Receipt
+                // View Receipt (all roles)
                 Action::make('viewReceipt')
                     ->label('View Receipt')
                     ->icon('heroicon-o-photo')
@@ -207,12 +262,12 @@ class TrialOrdersTable
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
 
-                // Confirm Payment (existing - kept for stockist flow)
+                // Confirm Payment (admin only, for legacy flows)
                 Action::make('confirmPayment')
                     ->label('Confirm Payment')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('info')
-                    ->visible(fn ($record) => $record->payment_status === 'pending' && in_array(auth()->user()->role, ['supervisor', 'admin']))
+                    ->visible(fn ($record) => $record->payment_status === 'pending' && auth()->user()->role === 'admin')
                     ->form([
                         Select::make('payment_method')
                             ->label('Payment Method')
