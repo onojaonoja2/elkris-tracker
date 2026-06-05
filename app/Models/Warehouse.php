@@ -11,7 +11,7 @@ class Warehouse extends Model
     protected $fillable = [
         'name', 'type', 'phone', 'address',
         'state_id', 'lga_id', 'city_id',
-        'manager_id', 'is_active',
+        'manager_id', 'sales_person_id', 'is_active',
     ];
 
     protected function casts(): array
@@ -39,6 +39,11 @@ class Warehouse extends Model
     public function manager(): BelongsTo
     {
         return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    public function salesPerson(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sales_person_id');
     }
 
     public function inventories(): HasMany

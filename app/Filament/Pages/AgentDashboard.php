@@ -95,32 +95,30 @@ class AgentDashboard extends BaseDashboard
             ->icon('heroicon-o-shopping-cart')
             ->color('warning')
             ->form([
-                Select::make('stockist_id')
-                    ->label('Stockist')
-                    ->options(fn () => $this->getStockistOptions())
-                    ->searchable()
+                Select::make('source_type')
+                    ->label('Source Type')
+                    ->options([
+                        'warehouse' => 'From Warehouse',
+                        'stockist' => 'From Stockist',
+                    ])
+                    ->default('warehouse')
                     ->required()
-                    ->live()
-                    ->afterStateUpdated(fn ($set) => $set('from_warehouse_id', null)),
+                    ->live(),
 
                 Select::make('from_warehouse_id')
                     ->label('From Warehouse')
-                    ->options(function (callable $get) {
-                        $stockistId = $get('stockist_id');
-                        if (! $stockistId) {
-                            return [];
-                        }
-                        $stockist = Stockist::find($stockistId);
-
-                        return Warehouse::where(function ($q) use ($stockist) {
-                            if ($stockist?->state_id) {
-                                $q->where('state_id', $stockist->state_id);
-                            }
-                            $q->orWhere('type', 'central');
-                        })->pluck('name', 'id');
-                    })
+                    ->options(fn () => $this->getWarehouseOptions())
                     ->searchable()
                     ->required()
+                    ->visible(fn (callable $get) => $get('source_type') === 'warehouse')
+                    ->live(),
+
+                Select::make('from_stockist_id')
+                    ->label('From Stockist')
+                    ->options(fn () => $this->getStockistOptions())
+                    ->searchable()
+                    ->required()
+                    ->visible(fn (callable $get) => $get('source_type') === 'stockist')
                     ->live(),
 
                 Repeater::make('items')
@@ -168,36 +166,43 @@ class AgentDashboard extends BaseDashboard
                     ->label('Request Notes'),
             ])
             ->action(function (array $data) {
-                // Check warehouse inventory for each requested item
-                foreach ($data['items'] as $item) {
-                    $inventory = Inventory::where('warehouse_id', $data['from_warehouse_id'])
-                        ->where('product_type_id', $item['product_type_id'])
-                        ->where('grammage', $item['grammage'])
-                        ->first();
+                if ($data['source_type'] === 'warehouse') {
+                    foreach ($data['items'] as $item) {
+                        $inventory = Inventory::where('warehouse_id', $data['from_warehouse_id'])
+                            ->where('product_type_id', $item['product_type_id'])
+                            ->where('grammage', $item['grammage'])
+                            ->first();
 
-                    $available = $inventory?->quantity ?? 0;
+                        $available = $inventory?->quantity ?? 0;
 
-                    if ($available < $item['quantity']) {
-                        $productType = ProductType::find($item['product_type_id']);
-                        $productName = $productType?->name ?? 'Unknown';
+                        if ($available < $item['quantity']) {
+                            $productType = ProductType::find($item['product_type_id']);
+                            $productName = $productType?->name ?? 'Unknown';
 
-                        Notification::make()
-                            ->danger()
-                            ->title('Insufficient warehouse stock')
-                            ->body("Only {$available} available of {$productName} ({$item['grammage']}g) in the selected warehouse, but {$item['quantity']} requested.")
-                            ->send();
+                            Notification::make()
+                                ->danger()
+                                ->title('Insufficient warehouse stock')
+                                ->body("Only {$available} available of {$productName} ({$item['grammage']}g) in the selected warehouse, but {$item['quantity']} requested.")
+                                ->send();
 
-                        return;
+                            return;
+                        }
                     }
-                }
 
-                $transfer = StockTransfer::create([
-                    'from_warehouse_id' => $data['from_warehouse_id'],
-                    'to_stockist_id' => $data['stockist_id'],
-                    'requested_by' => auth()->id(),
-                    'status' => 'requested',
-                    'notes' => $data['notes'] ?? null,
-                ]);
+                    $transfer = StockTransfer::create([
+                        'from_warehouse_id' => $data['from_warehouse_id'],
+                        'requested_by' => auth()->id(),
+                        'status' => 'requested',
+                        'notes' => $data['notes'] ?? null,
+                    ]);
+                } else {
+                    $transfer = StockTransfer::create([
+                        'from_stockist_id' => $data['from_stockist_id'],
+                        'requested_by' => auth()->id(),
+                        'status' => 'requested',
+                        'notes' => $data['notes'] ?? null,
+                    ]);
+                }
 
                 foreach ($data['items'] as $item) {
                     $transfer->items()->create($item);
@@ -211,6 +216,35 @@ class AgentDashboard extends BaseDashboard
             })
             ->modalHeading('Request Stock')
             ->modalButton('Submit Request');
+    }
+
+    private function getWarehouseOptions(): array
+    {
+        $user = auth()->user();
+
+        $stateId = null;
+
+        if ($user->lga_id) {
+            $lga = Lga::find($user->lga_id);
+            $stateId = $lga?->state_id;
+        }
+
+        if ($user->role === 'direct_sales' && $user->stockist) {
+            $stateId = $user->stockist->state_id;
+        }
+
+        return Warehouse::where(function ($q) use ($stateId) {
+            $q->where('name', 'like', '%Central Lagos%')
+                ->orWhere('name', 'like', '%Abuja%');
+
+            if ($stateId) {
+                $q->orWhere('state_id', $stateId);
+            }
+        })
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->unique()
+            ->toArray();
     }
 
     private function getStockistOptions(): array

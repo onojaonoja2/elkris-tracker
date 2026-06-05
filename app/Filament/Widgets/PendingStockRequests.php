@@ -41,6 +41,11 @@ class PendingStockRequests extends BaseWidget
                     $query->whereIn('from_warehouse_id', $warehouseIds);
                 }
 
+                if ($user->role === 'sales') {
+                    $warehouseIds = $user->salesWarehouses()->pluck('id');
+                    $query->whereIn('from_warehouse_id', $warehouseIds);
+                }
+
                 return $query;
             })
             ->columns([

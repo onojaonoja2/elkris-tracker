@@ -41,6 +41,11 @@ class StockTransferResource extends Resource
             $count->whereIn('from_warehouse_id', $warehouseIds);
         }
 
+        if ($user->role === 'sales') {
+            $warehouseIds = $user->salesWarehouses()->pluck('id');
+            $count->whereIn('from_warehouse_id', $warehouseIds);
+        }
+
         return (string) $count->count();
     }
 
@@ -106,6 +111,11 @@ class StockTransferResource extends Resource
 
         if (in_array($user->role, ['direct_sales', 'open_market', 'retail_market'])) {
             $query->where('requested_by', $user->id);
+        }
+
+        if ($user->role === 'sales') {
+            $warehouseIds = $user->salesWarehouses()->pluck('id');
+            $query->whereIn('from_warehouse_id', $warehouseIds);
         }
 
         return $query;

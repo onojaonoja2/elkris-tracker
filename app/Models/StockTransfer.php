@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class StockTransfer extends Model
 {
     protected $fillable = [
-        'from_warehouse_id', 'to_warehouse_id', 'to_stockist_id',
+        'from_warehouse_id', 'from_stockist_id', 'to_warehouse_id', 'to_stockist_id',
         'dispatched_by', 'received_by', 'received_at',
         'status', 'notes',
         'requested_by', 'approved_by', 'approved_at', 'rejection_reason',
@@ -26,6 +26,11 @@ class StockTransfer extends Model
     public function fromWarehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
+    }
+
+    public function fromStockist(): BelongsTo
+    {
+        return $this->belongsTo(Stockist::class, 'from_stockist_id');
     }
 
     public function toWarehouse(): BelongsTo

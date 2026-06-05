@@ -32,6 +32,9 @@ class WarehousesTable
                 TextColumn::make('manager.name')
                     ->label('Manager'),
 
+                TextColumn::make('salesPerson.name')
+                    ->label('Sales Person'),
+
                 ToggleColumn::make('is_active')
                     ->label('Active'),
             ])

@@ -73,6 +73,12 @@ class WarehouseForm
                     ->searchable()
                     ->nullable(),
 
+                Select::make('sales_person_id')
+                    ->label('Sales Person')
+                    ->options(fn () => User::where('role', 'sales')->pluck('name', 'id'))
+                    ->searchable()
+                    ->nullable(),
+
                 Toggle::make('is_active')
                     ->label('Active')
                     ->default(true),
