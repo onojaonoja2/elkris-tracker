@@ -11,7 +11,7 @@ class FieldAgentDailySubmissionsWidget extends BaseWidget
 {
     public static function canView(): bool
     {
-        return auth()->user() && in_array(auth()->user()->role, ['field_agent', 'direct_sales']);
+        return auth()->user() && in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market']);
     }
 
     #[On('refresh-dashboard')]

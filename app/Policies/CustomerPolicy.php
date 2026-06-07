@@ -42,7 +42,7 @@ class CustomerPolicy
         }
 
         // Field agents can update their own
-        if (in_array($user->role, ['field_agent', 'direct_sales'])) {
+        if (in_array($user->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
             return $customer->agent_id === $user->id;
         }
 

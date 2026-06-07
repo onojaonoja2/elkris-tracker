@@ -19,12 +19,12 @@ class FieldAgentDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['field_agent', 'direct_sales']);
+        return auth()->check() && auth()->user()->role === 'field_agent';
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['field_agent', 'direct_sales']);
+        return auth()->check() && auth()->user()->role === 'field_agent';
     }
 
     public static function getNavigationLabel(): string

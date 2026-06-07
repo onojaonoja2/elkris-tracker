@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\AgentStockBalanceWidget;
 use App\Filament\Widgets\AgentStockCardsWidget;
+use App\Filament\Widgets\FieldAgentDailySubmissionsWidget;
 use App\Filament\Widgets\FieldAgentReplaceCustomersWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use App\Models\Inventory;
@@ -43,6 +44,7 @@ class AgentDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            FieldAgentDailySubmissionsWidget::class,
             AgentStockCardsWidget::class,
         ];
     }
