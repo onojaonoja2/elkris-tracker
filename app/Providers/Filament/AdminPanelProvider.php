@@ -65,21 +65,23 @@ class AdminPanelProvider extends PanelProvider
                 SystemMaintenance::class,
                 OrderSettings::class,
             ])
-            ->homeUrl(fn () => match (auth()->user()->role) {
-                'supervisor' => '/admin/supervisor-dashboard',
-                'lead' => '/admin/lead-dashboard',
-                'rep' => '/admin/rep-dashboard',
-                'sales' => '/admin/sales-orders-dashboard',
-                'field_agent' => '/admin/agent-dashboard',
-                'direct_sales' => '/admin/agent-dashboard',
-                'open_market' => '/admin/agent-dashboard',
-                'retail_market' => '/admin/agent-dashboard',
-                'warehouse_manager' => '/admin/warehouse-dashboard',
-                'accountant' => '/admin/accountant-dashboard',
-                'stockist' => '/admin/stockist-dashboard',
-                'manager', 'admin' => '/admin/manager-dashboard',
-                default => '/admin',
-            })
+            ->homeUrl(fn () => auth()->user()
+                ? match (auth()->user()->role) {
+                    'supervisor' => '/admin/supervisor-dashboard',
+                    'lead' => '/admin/lead-dashboard',
+                    'rep' => '/admin/rep-dashboard',
+                    'sales' => '/admin/sales-orders-dashboard',
+                    'field_agent' => '/admin/agent-dashboard',
+                    'direct_sales' => '/admin/agent-dashboard',
+                    'open_market' => '/admin/agent-dashboard',
+                    'retail_market' => '/admin/agent-dashboard',
+                    'warehouse_manager' => '/admin/warehouse-dashboard',
+                    'accountant' => '/admin/accountant-dashboard',
+                    'stockist' => '/admin/stockist-dashboard',
+                    'manager', 'admin' => '/admin/manager-dashboard',
+                    default => '/admin',
+                }
+                : url('/admin'))
             ->widgets([
                 AccountWidget::class,
                 NotificationBellWidget::class,

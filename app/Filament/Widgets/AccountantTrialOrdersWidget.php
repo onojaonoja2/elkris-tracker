@@ -3,10 +3,10 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
-use App\Models\SalesRecord;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
+use App\Models\TrialOrder;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -17,9 +17,9 @@ use Filament\Widgets\TableWidget;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 
-class AccountantSalesRecordsWidget extends TableWidget
+class AccountantTrialOrdersWidget extends TableWidget
 {
-    protected static ?string $heading = 'Pending Sales Record Verifications';
+    protected static ?string $heading = 'Pending Trial Order Verifications';
 
     protected int|string|array $columnSpan = 'full';
 
@@ -35,29 +35,24 @@ class AccountantSalesRecordsWidget extends TableWidget
     {
         return $table
             ->query(
-                SalesRecord::where('status', 'receipt_uploaded')
+                TrialOrder::where('status', 'receipt_uploaded')
                     ->orderBy('created_at', 'desc')
                     ->limit(20)
             )
             ->columns([
                 TextColumn::make('agent.name')
-                    ->label('Agent'),
-                TextColumn::make('agent_type')
-                    ->label('Type')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'open_market' => 'Open Market',
-                        'retail_market' => 'Retail Market',
-                        default => $state,
-                    }),
+                    ->label('Agent')
+                    ->placeholder('-'),
+                TextColumn::make('stockist.name')
+                    ->label('Stockist')
+                    ->placeholder('-'),
                 TextColumn::make('total_value')
                     ->label('Total (₦)')
                     ->money('NGN'),
-                TextColumn::make('vendor_name')
-                    ->label('Vendor')
-                    ->placeholder('-'),
-                TextColumn::make('business_name')
-                    ->label('Business')
-                    ->placeholder('-'),
+                TextColumn::make('products')
+                    ->label('Products')
+                    ->formatStateUsing(fn ($products) => collect($products)->map(fn ($p) => "{$p['quantity']}x {$p['product_name']}")->implode(', '))
+                    ->limit(50),
                 TextColumn::make('created_at')
                     ->label('Submitted')
                     ->dateTime(),
@@ -67,7 +62,7 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->form(function (SalesRecord $record) {
+                    ->form(function (TrialOrder $record) {
                         return [
                             Select::make('stockist_id')
                                 ->label('Select Stockist for Deduction')
@@ -81,7 +76,7 @@ class AccountantSalesRecordsWidget extends TableWidget
                                 ->label('Approval Notes'),
                         ];
                     })
-                    ->action(function (SalesRecord $record, array $data) {
+                    ->action(function (TrialOrder $record, array $data) {
                         $stockistId = $data['stockist_id'];
                         $stockist = Stockist::find($stockistId);
                         $products = $record->products ?? [];
@@ -155,9 +150,10 @@ class AccountantSalesRecordsWidget extends TableWidget
                                             'stockist_id' => $stockistId,
                                             'user_id' => auth()->id(),
                                             'field_agent_id' => $record->agent_id,
+                                            'trial_order_id' => $record->id,
                                             'type' => 'deducted',
                                             'amount' => $lineTotal,
-                                            'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for sales record #{$record->id}",
+                                            'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for trial order #{$record->id}",
                                             'transaction_date' => now()->toDateString(),
                                         ]);
                                     }
@@ -173,17 +169,17 @@ class AccountantSalesRecordsWidget extends TableWidget
                             $record->update([
                                 'status' => 'approved',
                                 'stockist_id' => $stockistId,
-                                'stockist_balance' => $record->total_value,
                                 'accountant_verified_at' => now(),
                                 'accountant_verified_by' => auth()->id(),
                                 'accountant_notes' => $data['accountant_notes'] ?? null,
+                                'payment_status' => TrialOrder::PAYMENT_STATUS_COMPLETED,
                             ]);
                         });
 
-                        Notification::make()->title('Sales record approved and stock deducted')->success()->send();
+                        Notification::make()->title('Trial order approved and stock deducted')->success()->send();
                     })
                     ->requiresConfirmation()
-                    ->modalHeading('Approve Sales Record')
+                    ->modalHeading('Approve Trial Order')
                     ->modalDescription('Select the stockist to deduct stock from. Stock availability will be verified.'),
 
                 Action::make('rejectByAccountant')
@@ -195,14 +191,14 @@ class AccountantSalesRecordsWidget extends TableWidget
                             ->label('Reason for Rejection')
                             ->required(),
                     ])
-                    ->action(function (SalesRecord $record, array $data) {
+                    ->action(function (TrialOrder $record, array $data) {
                         $record->update([
                             'status' => 'rejected',
                             'accountant_verified_at' => now(),
                             'accountant_verified_by' => auth()->id(),
                             'accountant_notes' => $data['accountant_notes'] ?? null,
                         ]);
-                        Notification::make()->title('Sales record rejected')->danger()->send();
+                        Notification::make()->title('Trial order rejected')->danger()->send();
                     })
                     ->requiresConfirmation(),
 
@@ -210,8 +206,8 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->label('View Receipt')
                     ->icon('heroicon-o-photo')
                     ->color('info')
-                    ->visible(fn (SalesRecord $record) => $record->receipt_path)
-                    ->modalContent(fn (SalesRecord $record) => view('filament.sales-record-receipt', ['record' => $record]))
+                    ->visible(fn (TrialOrder $record) => $record->receipt_path)
+                    ->modalContent(fn (TrialOrder $record) => view('filament.trial-order-receipt', ['record' => $record]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
             ])

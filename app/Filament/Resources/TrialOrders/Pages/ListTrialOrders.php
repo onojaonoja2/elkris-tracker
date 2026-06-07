@@ -4,6 +4,8 @@ namespace App\Filament\Resources\TrialOrders\Pages;
 
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Filament\Resources\TrialOrders\Widgets\SupervisorTrialStatsWidget;
+use App\Models\City;
+use App\Models\State;
 use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
@@ -17,7 +19,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 
@@ -40,23 +43,13 @@ class ListTrialOrders extends ListRecords
                 ->form([
                     Select::make('state_filter')
                         ->label('Select State')
-                        ->options(function () {
-                            $stockists = Stockist::where('supervisor_id', auth()->id())
-                                ->select('state')
-                                ->distinct()
-                                ->pluck('state')
-                                ->toArray();
-
-                            return array_combine($stockists, $stockists);
-                        })
+                        ->options(fn () => State::pluck('name', 'name')->toArray())
                         ->placeholder('All States'),
                 ])
                 ->action(function (array $data) {
-                    $state = $data['state_filter'] ?? null;
+                    $this->state = $data['state_filter'] ?? null;
 
-                    $routeParams = $state ? ['state' => $state] : [];
-
-                    return redirect()->to(route('filament.admin.resources.trial-orders.index', $routeParams));
+                    $this->resetTable();
                 }),
         ];
 
@@ -409,40 +402,30 @@ class ListTrialOrders extends ListRecords
         return [];
     }
 
-    protected function getTableFilters(): array
+    protected function makeTable(): Table
     {
-        $stateFilter = $this->state;
+        return parent::makeTable()
+            ->modifyQueryUsing(function (Builder $query) {
+                if (! $this->state) {
+                    return;
+                }
 
-        if (! $stateFilter) {
-            return [];
-        }
+                $cityNames = City::whereHas('state', fn ($q) => $q->where('name', $this->state))
+                    ->pluck('name')
+                    ->toArray();
 
-        $stateCities = Stockist::where('state', $stateFilter)
-            ->pluck('city')
-            ->toArray();
+                if (empty($cityNames)) {
+                    $query->whereRaw('1 = 0');
 
-        return [
-            SelectFilter::make('state')
-                ->label('State')
-                ->options(function () {
-                    return Stockist::where('supervisor_id', auth()->id())
-                        ->select('state')
-                        ->distinct()
-                        ->pluck('state', 'state')
-                        ->toArray();
-                })
-                ->query(function ($query) use ($stateCities) {
-                    if (empty($stateCities)) {
-                        return;
+                    return;
+                }
+
+                $query->whereHas('agent', function ($q) use ($cityNames) {
+                    foreach ($cityNames as $city) {
+                        $q->orWhereJsonContains('assigned_cities', $city);
                     }
-
-                    $query->whereHas('agent', function ($q) use ($stateCities) {
-                        foreach ($stateCities as $city) {
-                            $q->orWhereJsonContains('assigned_cities', $city);
-                        }
-                    });
-                }),
-        ];
+                });
+            });
     }
 
     protected function exportReport(string $startDate, string $endDate)
