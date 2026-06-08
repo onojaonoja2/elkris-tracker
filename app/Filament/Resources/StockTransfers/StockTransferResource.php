@@ -46,6 +46,13 @@ class StockTransferResource extends Resource
             $count->whereIn('from_warehouse_id', $warehouseIds);
         }
 
+        if ($user->role === 'stockist') {
+            $count->where(function (Builder $q) use ($user) {
+                $q->where('to_stockist_id', $user->stockist_id)
+                    ->orWhere('requested_by', $user->id);
+            });
+        }
+
         return (string) $count->count();
     }
 
@@ -70,13 +77,14 @@ class StockTransferResource extends Resource
     {
         return in_array(auth()->user()->role, [
             'admin', 'warehouse_manager', 'manager', 'supervisor',
-            'accountant', 'sales', 'direct_sales', 'open_market', 'retail_market',
+            'accountant', 'sales', 'direct_sales', 'open_market',
+            'retail_market', 'stockist',
         ]);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor', 'direct_sales', 'open_market', 'retail_market']);
+        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor', 'direct_sales', 'open_market', 'retail_market', 'stockist']);
     }
 
     public static function canEditAny(): bool
@@ -116,6 +124,13 @@ class StockTransferResource extends Resource
         if ($user->role === 'sales') {
             $warehouseIds = $user->salesWarehouses()->pluck('id');
             $query->whereIn('from_warehouse_id', $warehouseIds);
+        }
+
+        if ($user->role === 'stockist') {
+            $query->where(function (Builder $q) use ($user) {
+                $q->where('to_stockist_id', $user->stockist_id)
+                    ->orWhere('requested_by', $user->id);
+            });
         }
 
         return $query;

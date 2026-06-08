@@ -35,7 +35,7 @@ class ListTrialOrders extends ListRecords
     {
         $actions = [
             CreateAction::make()
-                ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'direct_sales'])),
+                ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'stockist'])),
 
             Action::make('filter_by_location')
                 ->label('Filter by Location')

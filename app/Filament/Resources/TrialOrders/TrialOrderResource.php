@@ -42,12 +42,12 @@ class TrialOrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales']);
+        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales', 'stockist']);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'admin']);
+        return in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'admin', 'stockist']);
     }
 
     public static function canEditAny(): bool
@@ -72,7 +72,7 @@ class TrialOrderResource extends Resource
 
     public static function canViewRecord(TrialOrder $record): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales']);
+        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales', 'stockist']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -82,6 +82,10 @@ class TrialOrderResource extends Resource
 
         if (in_array($user->role, ['field_agent', 'direct_sales'])) {
             $query->where('agent_id', $user->id);
+        }
+
+        if ($user->role === 'stockist') {
+            $query->where('stockist_id', $user->stockist_id);
         }
 
         return $query;

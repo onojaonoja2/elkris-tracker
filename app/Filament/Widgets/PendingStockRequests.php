@@ -18,7 +18,7 @@ class PendingStockRequests extends BaseWidget
     {
         return in_array(auth()->user()->role, [
             'admin', 'supervisor', 'warehouse_manager',
-            'accountant', 'sales', 'manager',
+            'accountant', 'sales', 'manager', 'stockist',
         ]);
     }
 
@@ -44,6 +44,13 @@ class PendingStockRequests extends BaseWidget
                 if ($user->role === 'sales') {
                     $warehouseIds = $user->salesWarehouses()->pluck('id');
                     $query->whereIn('from_warehouse_id', $warehouseIds);
+                }
+
+                if ($user->role === 'stockist') {
+                    $query->where(function (Builder $q) use ($user) {
+                        $q->where('to_stockist_id', $user->stockist_id)
+                            ->orWhere('requested_by', $user->id);
+                    });
                 }
 
                 return $query;

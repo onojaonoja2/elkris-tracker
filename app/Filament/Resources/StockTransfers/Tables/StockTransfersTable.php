@@ -469,6 +469,7 @@ class StockTransfersTable
                             'status' => 'received',
                             'received_by' => auth()->id(),
                             'received_at' => now(),
+                            'stockist_accepted_at' => $record->to_stockist_id ? now() : $record->stockist_accepted_at,
                         ]);
 
                         $hasRejections = $record->items()->where('rejected_quantity', '>', 0)->exists();
