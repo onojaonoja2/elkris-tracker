@@ -20,32 +20,33 @@ class TrialOrderObserver
 
     public function updated(TrialOrder $trialOrder): void
     {
-        if ($trialOrder->wasChanged('status') && $trialOrder->status === 'approved') {
-            $lead = $trialOrder->customer->lead;
-            if ($lead) {
-                NotificationService::notifyRep(
-                    $lead->id,
-                    'trial_order_approved',
-                    'Trial Order Approved',
-                    "Trial order #{$trialOrder->id} has been approved",
-                    $trialOrder->id,
-                    'trial_order'
-                );
-            }
+        if (! $trialOrder->wasChanged('status')) {
+            return;
         }
 
-        if ($trialOrder->wasChanged('status') && $trialOrder->status === 'rejected') {
-            $lead = $trialOrder->customer->lead;
-            if ($lead) {
-                NotificationService::notifyRep(
-                    $lead->id,
-                    'trial_order_rejected',
-                    'Trial Order Rejected',
-                    "Trial order #{$trialOrder->id} has been rejected",
-                    $trialOrder->id,
-                    'trial_order'
-                );
-            }
+        $customer = $trialOrder->agent;
+        $lead = $customer?->lead;
+
+        if ($trialOrder->status === 'approved' && $lead) {
+            NotificationService::notifyRep(
+                $lead->id,
+                'trial_order_approved',
+                'Trial Order Approved',
+                "Trial order #{$trialOrder->id} has been approved",
+                $trialOrder->id,
+                'trial_order'
+            );
+        }
+
+        if ($trialOrder->status === 'rejected' && $lead) {
+            NotificationService::notifyRep(
+                $lead->id,
+                'trial_order_rejected',
+                'Trial Order Rejected',
+                "Trial order #{$trialOrder->id} has been rejected",
+                $trialOrder->id,
+                'trial_order'
+            );
         }
     }
 }

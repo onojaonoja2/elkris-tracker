@@ -4,11 +4,9 @@ namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
 use App\Models\SalesRecord;
-use App\Models\Stockist;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -67,104 +65,80 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->form(function (SalesRecord $record) {
+                    ->form(function () {
                         return [
-                            Select::make('stockist_id')
-                                ->label('Select Stockist for Deduction')
-                                ->options(fn () => Stockist::whereIn('id', function ($q) {
-                                    $q->select('stockist_id')->from('stockist_stocks')->where('quantity', '>', 0);
-                                })->pluck('name', 'id'))
-                                ->searchable()
-                                ->required()
-                                ->live(),
                             Textarea::make('accountant_notes')
                                 ->label('Approval Notes'),
                         ];
                     })
                     ->action(function (SalesRecord $record, array $data) {
-                        $stockistId = $data['stockist_id'];
-                        $stockist = Stockist::find($stockistId);
                         $products = $record->products ?? [];
 
-                        foreach ($products as $product) {
-                            $productName = $product['product_name'] ?? null;
-                            $grammage = $product['grammage'] ?? null;
-                            $quantity = $product['quantity'] ?? 0;
+                        DB::transaction(function () use ($record, $products, $data) {
+                            foreach ($products as $product) {
+                                $productName = $product['product_name'] ?? null;
+                                $grammage = $product['grammage'] ?? null;
+                                $quantity = $product['quantity'] ?? 0;
 
-                            if ($productName && $grammage && $quantity > 0) {
-                                $stock = StockistStock::where('stockist_id', $stockistId)
-                                    ->where('product_name', $productName)
-                                    ->where('grammage', $grammage)
-                                    ->first();
+                                if (! $productName || ! $grammage || $quantity <= 0) {
+                                    continue;
+                                }
 
-                                if (! $stock || $stock->quantity < $quantity) {
-                                    Notification::make()
-                                        ->danger()
-                                        ->title('Insufficient stock')
-                                        ->body("{$stockist->name} does not have enough {$productName} ({$grammage}g). Available: ".($stock->quantity ?? 0).", Required: {$quantity}")
-                                        ->send();
+                                if ($record->stockist_id) {
+                                    $stock = StockistStock::where('stockist_id', $record->stockist_id)
+                                        ->where('product_name', $productName)
+                                        ->where('grammage', $grammage)
+                                        ->lockForUpdate()
+                                        ->first();
 
-                                    return;
+                                    if (! $stock || $stock->quantity < $quantity) {
+                                        Notification::make()
+                                            ->danger()
+                                            ->title('Insufficient stock')
+                                            ->body("Stockist doesn't have enough {$productName} ({$grammage}g). Available: ".($stock->quantity ?? 0))
+                                            ->send();
+
+                                        return;
+                                    }
+
+                                    $stock->decrement('quantity', $quantity);
                                 }
 
                                 if ($record->agent_id) {
                                     $agentStock = AgentStock::where('user_id', $record->agent_id)
                                         ->where('product_name', $productName)
                                         ->where('grammage', $grammage)
+                                        ->lockForUpdate()
                                         ->first();
 
                                     if (! $agentStock || $agentStock->quantity < $quantity) {
                                         Notification::make()
                                             ->danger()
                                             ->title('Insufficient agent stock')
-                                            ->body("Agent does not have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0).", Required: {$quantity}")
+                                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0))
                                             ->send();
 
                                         return;
                                     }
-                                }
-                            }
-                        }
 
-                        DB::transaction(function () use ($record, $products, $stockistId, $stockist, $data) {
-                            foreach ($products as $product) {
-                                $productName = $product['product_name'] ?? null;
-                                $grammage = $product['grammage'] ?? null;
-                                $quantity = $product['quantity'] ?? 0;
-                                $price = $product['price'] ?? 0;
-                                $lineTotal = $quantity * $price;
-
-                                if ($productName && $grammage && $quantity > 0) {
-                                    $stockistStock = StockistStock::where('stockist_id', $stockistId)
-                                        ->where('product_name', $productName)
-                                        ->where('grammage', $grammage)
-                                        ->lockForUpdate()
-                                        ->first();
-
-                                    if ($stockistStock && $stockistStock->quantity >= $quantity) {
-                                        $stockistStock->decrement('quantity', $quantity);
-
-                                        if ($record->agent_id) {
-                                            AgentStock::where('user_id', $record->agent_id)
-                                                ->where('product_name', $productName)
-                                                ->where('grammage', $grammage)
-                                                ->decrement('quantity', $quantity);
-                                        }
-
-                                        StockistTransaction::create([
-                                            'stockist_id' => $stockistId,
-                                            'user_id' => auth()->id(),
-                                            'field_agent_id' => $record->agent_id,
-                                            'type' => 'deducted',
-                                            'amount' => $lineTotal,
-                                            'description' => "Deducted {$quantity}x {$productName} ({$grammage}g) for sales record #{$record->id}",
-                                            'transaction_date' => now()->toDateString(),
-                                        ]);
-                                    }
+                                    $agentStock->decrement('quantity', $quantity);
                                 }
                             }
 
-                            $stockist->decrement('stock_balance', $record->total_value);
+                            if ($record->stockist_id) {
+                                StockistTransaction::create([
+                                    'stockist_id' => $record->stockist_id,
+                                    'user_id' => auth()->id(),
+                                    'field_agent_id' => $record->agent_id,
+                                    'sales_record_id' => $record->id,
+                                    'type' => 'deducted',
+                                    'amount' => $record->total_value,
+                                    'description' => "Auto-deducted for sales record #{$record->id}",
+                                    'transaction_date' => now()->toDateString(),
+                                ]);
+
+                                $record->stockist?->decrement('stock_balance', $record->total_value);
+                            }
 
                             if ($record->agent_id) {
                                 $record->agent?->increment('stock_balance', $record->total_value);
@@ -172,8 +146,6 @@ class AccountantSalesRecordsWidget extends TableWidget
 
                             $record->update([
                                 'status' => 'approved',
-                                'stockist_id' => $stockistId,
-                                'stockist_balance' => $record->total_value,
                                 'accountant_verified_at' => now(),
                                 'accountant_verified_by' => auth()->id(),
                                 'accountant_notes' => $data['accountant_notes'] ?? null,
@@ -184,7 +156,7 @@ class AccountantSalesRecordsWidget extends TableWidget
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Approve Sales Record')
-                    ->modalDescription('Select the stockist to deduct stock from. Stock availability will be verified.'),
+                    ->modalDescription('Confirm approval. Stock will be deducted from the creator\'s stock.'),
 
                 Action::make('rejectByAccountant')
                     ->label('Reject')

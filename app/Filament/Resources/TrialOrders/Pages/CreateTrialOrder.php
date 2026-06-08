@@ -68,6 +68,8 @@ class CreateTrialOrder extends CreateRecord
             }
         }
 
+        $data['status'] = 'receipt_uploaded';
+
         return $data;
     }
 
