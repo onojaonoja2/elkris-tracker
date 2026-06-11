@@ -2,11 +2,18 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\AgentStock;
 use App\Models\CallLog;
 use App\Models\Customer;
+use App\Models\Inventory;
 use App\Models\Order;
+use App\Models\SalesRecord;
+use App\Models\Stockist;
+use App\Models\StockistStock;
 use App\Models\StockistTransaction;
+use App\Models\StockTransfer;
 use App\Models\TrialOrder;
+use App\Models\User;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -17,32 +24,6 @@ class ManagerStatsWidget extends BaseWidget
 {
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}
-
-    protected function getDefaultDateRange(): array
-    {
-        $now = Carbon::now('Africa/Lagos');
-        $workStart = $now->copy()->setHour(8)->setMinute(0)->setSecond(0);
-        $workEnd = $now->copy()->setHour(17)->setMinute(0)->setSecond(0);
-
-        if ($now->lt($workStart)) {
-            return [
-                'from' => $now->copy()->startOfDay(),
-                'to' => $now->copy()->startOfDay()->addDay(),
-            ];
-        }
-
-        if ($now->gte($workEnd)) {
-            return [
-                'from' => $workStart,
-                'to' => $workEnd,
-            ];
-        }
-
-        return [
-            'from' => $workStart,
-            'to' => $now,
-        ];
-    }
 
     protected function getStats(): array
     {
@@ -85,6 +66,14 @@ class ManagerStatsWidget extends BaseWidget
             ->whereDate('created_at', '<=', $to)
             ->count();
 
+        $pendingTrialOrders = TrialOrder::where('status', 'receipt_uploaded')->count();
+
+        $salesRecords = SalesRecord::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->count();
+
+        $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
+
         $stockTxns = StockistTransaction::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->count();
@@ -105,34 +94,68 @@ class ManagerStatsWidget extends BaseWidget
 
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
+        $totalStockists = Stockist::count();
+        $totalAgents = User::whereIn('role', ['field_agent', 'direct_sales', 'open_market', 'retail_market'])->count();
+        $totalTransfers = StockTransfer::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->count();
+
+        $warehouseStockUnits = Inventory::sum('quantity');
+        $stockistStockUnits = StockistStock::sum('quantity');
+        $agentStockUnits = AgentStock::sum('quantity');
+
         return [
             Stat::make('Total Customers', $totalCustomers)
-                ->description('New customers')
+                ->description($conversionRate.'% conversion rate')
                 ->icon('heroicon-o-users')
-                ->color('info'),
-            Stat::make('Converted', $convertedCustomers)
-                ->description($conversionRate.'% conversion')
-                ->icon('heroicon-o-check-circle')
-                ->color('success'),
-            Stat::make('Trial Orders', $trialOrders)
-                ->description('Trial orders')
-                ->icon('heroicon-o-beaker')
-                ->color('warning'),
-            Stat::make('Stockist', $stockTxns)
-                ->description('Stockist txns')
-                ->icon('heroicon-o-archive-box')
-                ->color('danger'),
-            Stat::make('Calls Made', $calls)
-                ->description('Calls logged')
-                ->icon('heroicon-o-phone')
-                ->color('primary'),
-            Stat::make('Orders', $orders)
-                ->description('Orders placed')
-                ->icon('heroicon-o-shopping-cart')
                 ->color('info'),
             Stat::make('Revenue', self::formatCurrency($revenue))
                 ->description('Total revenue')
                 ->icon('heroicon-o-banknotes')
+                ->color('success'),
+            Stat::make('Orders', $orders)
+                ->description('Orders placed')
+                ->icon('heroicon-o-shopping-cart')
+                ->color('info'),
+            Stat::make('Total Stockists', $totalStockists)
+                ->description('Registered stockists')
+                ->icon('heroicon-o-building-storefront')
+                ->color('warning'),
+            Stat::make('Total Agents', $totalAgents)
+                ->description('Field agents & sales')
+                ->icon('heroicon-o-user-group')
+                ->color('primary'),
+            Stat::make('Trial Orders', $trialOrders)
+                ->description($pendingTrialOrders.' pending verification')
+                ->icon('heroicon-o-beaker')
+                ->color('warning'),
+            Stat::make('Sales Records', $salesRecords)
+                ->description($pendingSalesRecords.' pending verification')
+                ->icon('heroicon-o-document-text')
+                ->color('gray'),
+            Stat::make('Calls Made', $calls)
+                ->description('Calls logged')
+                ->icon('heroicon-o-phone')
+                ->color('primary'),
+            Stat::make('Stock Transfers', $totalTransfers)
+                ->description('All movements')
+                ->icon('heroicon-o-arrows-right-left')
+                ->color('danger'),
+            Stat::make('Stockist Txns', $stockTxns)
+                ->description('Stockist transactions')
+                ->icon('heroicon-o-archive-box')
+                ->color('danger'),
+            Stat::make('Warehouse Stock', number_format($warehouseStockUnits).' units')
+                ->description('Total inventory units')
+                ->icon('heroicon-o-cube')
+                ->color('info'),
+            Stat::make('Stockist Stock', number_format($stockistStockUnits).' units')
+                ->description('Total stockist units')
+                ->icon('heroicon-o-building-office')
+                ->color('warning'),
+            Stat::make('Agent Stock', number_format($agentStockUnits).' units')
+                ->description('Total agent units')
+                ->icon('heroicon-o-user-group')
                 ->color('success'),
         ];
     }

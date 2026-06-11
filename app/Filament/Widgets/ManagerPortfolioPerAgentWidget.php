@@ -14,7 +14,7 @@ class ManagerPortfolioPerAgentWidget extends TableWidget
 {
     protected static ?string $heading = 'Portfolio per Team Lead';
 
-    protected int|string|array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 6;
 
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}

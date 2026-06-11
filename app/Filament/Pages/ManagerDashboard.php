@@ -4,9 +4,15 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerCustomersWidget;
+use App\Filament\Widgets\ManagerPeopleByStateWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
+use App\Filament\Widgets\ManagerSalesRecordsByStateWidget;
 use App\Filament\Widgets\ManagerStatsWidget;
+use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
+use App\Filament\Widgets\ManagerStockMovementsWidget;
+use App\Filament\Widgets\ManagerTrialOrdersByStateWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\TrialOrdersByStateChart;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -54,10 +60,16 @@ class ManagerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            ManagerPeopleByStateWidget::class,
+            ManagerTrialOrdersByStateWidget::class,
+            ManagerSalesRecordsByStateWidget::class,
+            ManagerStockLevelsOverviewWidget::class,
+            ManagerStockMovementsWidget::class,
             ManagerCustomersWidget::class,
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             OrdersPerCityChart::class,
+            TrialOrdersByStateChart::class,
         ];
     }
 

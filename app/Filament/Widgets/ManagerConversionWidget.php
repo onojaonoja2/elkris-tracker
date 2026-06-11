@@ -16,7 +16,7 @@ class ManagerConversionWidget extends TableWidget
 {
     protected static ?string $heading = 'Conversion Rates';
 
-    protected int|string|array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 6;
 
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}

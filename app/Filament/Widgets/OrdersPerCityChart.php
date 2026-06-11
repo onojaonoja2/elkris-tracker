@@ -11,12 +11,14 @@ class OrdersPerCityChart extends ChartWidget
 {
     protected ?string $heading = 'Total Orders Per City';
 
+    protected int|string|array $columnSpan = 6;
+
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'manager';
+        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
     }
 
     protected function getData(): array
