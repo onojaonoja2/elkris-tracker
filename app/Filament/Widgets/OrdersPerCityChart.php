@@ -23,9 +23,10 @@ class OrdersPerCityChart extends ChartWidget
 
     protected function getData(): array
     {
-        $data = Order::where('status', '!=', 'cancelled')
-            ->select('city', DB::raw('count(*) as total_orders'))
-            ->groupBy('city')
+        $data = Order::where('orders.status', '!=', 'cancelled')
+            ->join('customers', 'orders.customer_id', '=', 'customers.id')
+            ->select('customers.city', DB::raw('count(*) as total_orders'))
+            ->groupBy('customers.city')
             ->pluck('total_orders', 'city')
             ->toArray();
 
