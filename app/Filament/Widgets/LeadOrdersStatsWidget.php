@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\Orders\OrderResource;
 use App\Models\Order;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
@@ -31,15 +32,18 @@ class LeadOrdersStatsWidget extends StatsOverviewWidget
             Stat::make('My Orders', $leadOrders)
                 ->description('₦'.number_format($leadTotal, 2))
                 ->icon('heroicon-o-shopping-bag')
-                ->color('info'),
+                ->color('info')
+                ->url(OrderResource::getUrl('index')),
             Stat::make('Rep Orders', $repOrders)
                 ->description('₦'.number_format($repTotal, 2))
                 ->icon('heroicon-o-user-group')
-                ->color('primary'),
+                ->color('primary')
+                ->url(OrderResource::getUrl('index')),
             Stat::make('Team Orders', $teamOrders)
                 ->description('₦'.number_format($teamTotal, 2))
                 ->icon('heroicon-o-building-office')
-                ->color('success'),
+                ->color('success')
+                ->url(OrderResource::getUrl('index')),
         ];
     }
 

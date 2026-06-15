@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Customer;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -26,7 +27,8 @@ class FieldAgentDailySubmissionsWidget extends BaseWidget
         return [
             Stat::make('Customers Submitted Today', $count)
                 ->icon('heroicon-o-users')
-                ->color('success'),
+                ->color('success')
+                ->url(CustomerResource::getUrl('index')),
         ];
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\PortfolioResource;
 use App\Models\Customer;
 use App\Models\Order;
 use Carbon\Carbon;
@@ -43,19 +45,23 @@ class RepStatsWidget extends StatsOverviewWidget
             Stat::make('Pending Assignments', $pendingCount)
                 ->description('Awaiting your acceptance')
                 ->icon('heroicon-o-clock')
-                ->color('warning'),
+                ->color('warning')
+                ->url(PortfolioResource::getUrl('index')),
             Stat::make('Total Portfolio', $portfolioCount)
                 ->description('Customers in portfolio')
                 ->icon('heroicon-o-users')
-                ->color('info'),
+                ->color('info')
+                ->url(PortfolioResource::getUrl('index')),
             Stat::make('Converted', $convertedCount)
                 ->description($conversionRate.'% conversion rate')
                 ->icon('heroicon-o-check-circle')
-                ->color('success'),
+                ->color('success')
+                ->url(PortfolioResource::getUrl('index')),
             Stat::make('Orders Today', $ordersToday)
                 ->description('₦'.$ordersTodayValue.' total value')
                 ->icon('heroicon-o-shopping-cart')
-                ->color('primary'),
+                ->color('primary')
+                ->url(OrderResource::getUrl('index')),
         ];
     }
 

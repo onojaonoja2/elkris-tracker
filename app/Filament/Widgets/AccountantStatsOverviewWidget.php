@@ -2,6 +2,11 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\Orders\OrderResource;
+use App\Filament\Resources\SalesRecords\SalesRecordResource;
+use App\Filament\Resources\Stockists\StockistResource;
+use App\Filament\Resources\StockTransactions\StockTransactionResource;
+use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\Order;
@@ -47,11 +52,13 @@ class AccountantStatsOverviewWidget extends BaseWidget
             Stat::make('Pending Trial Orders', $pendingTrialOrders)
                 ->description('Pending accountant verification')
                 ->icon('heroicon-o-document-text')
-                ->color('warning'),
+                ->color('warning')
+                ->url(TrialOrderResource::getUrl('index')),
             Stat::make('Pending Sales Records', $pendingSalesRecords)
                 ->description('Pending accountant verification')
                 ->icon('heroicon-o-receipt-percent')
-                ->color('warning'),
+                ->color('warning')
+                ->url(SalesRecordResource::getUrl('index')),
             Stat::make('Channel Sales Value', self::formatCurrency($totalChannelValue))
                 ->description('Approved trial orders + sales records')
                 ->icon('heroicon-o-banknotes')
@@ -59,15 +66,18 @@ class AccountantStatsOverviewWidget extends BaseWidget
             Stat::make('Rep Sales Value', self::formatCurrency($repSalesValue))
                 ->description('Delivered/confirmed orders')
                 ->icon('heroicon-o-shopping-bag')
-                ->color('info'),
+                ->color('info')
+                ->url(OrderResource::getUrl('index')),
             Stat::make('Warehouse Stock', number_format($totalWarehouseStock))
                 ->description('Total units in all warehouses')
                 ->icon('heroicon-o-building-storefront')
-                ->color('primary'),
+                ->color('primary')
+                ->url(StockTransactionResource::getUrl('index')),
             Stat::make('Stockist Stock', number_format($totalStockistStock))
                 ->description('Total units with stockists')
                 ->icon('heroicon-o-archive-box')
-                ->color('gray'),
+                ->color('gray')
+                ->url(StockistResource::getUrl('index')),
             Stat::make('Agent Stock', number_format($totalAgentStock))
                 ->description('Total units with agents')
                 ->icon('heroicon-o-users')

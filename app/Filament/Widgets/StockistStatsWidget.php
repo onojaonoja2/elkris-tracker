@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\Stockists\StockistResource;
+use App\Filament\Resources\StockistTransactions\StockistTransactionResource;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
@@ -32,7 +34,8 @@ class StockistStatsWidget extends StatsOverviewWidget
             Stat::make('Stockist', $stockist->name)
                 ->description($stockist->city.', '.$stockist->state)
                 ->icon('heroicon-o-building-storefront')
-                ->color('info'),
+                ->color('info')
+                ->url(StockistResource::getUrl('view', ['record' => $stockist])),
             Stat::make('Stock Quantity', number_format($stockQty))
                 ->description('Current stock on hand')
                 ->icon('heroicon-o-cube')
@@ -40,7 +43,8 @@ class StockistStatsWidget extends StatsOverviewWidget
             Stat::make('Transactions', $transactionCount)
                 ->description('Total transactions')
                 ->icon('heroicon-o-arrow-path')
-                ->color('warning'),
+                ->color('warning')
+                ->url(StockistTransactionResource::getUrl('index')),
         ];
     }
 

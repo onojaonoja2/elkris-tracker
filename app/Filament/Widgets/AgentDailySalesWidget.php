@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Models\SalesRecord;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -28,7 +29,8 @@ class AgentDailySalesWidget extends BaseWidget
         return [
             Stat::make("{$roleLabel} Sales Records Today", $count)
                 ->icon('heroicon-o-document-text')
-                ->color('success'),
+                ->color('success')
+                ->url(SalesRecordResource::getUrl('index')),
         ];
     }
 }

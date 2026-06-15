@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\Stockists\StockistResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Models\Stockist;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
@@ -29,11 +31,13 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             Stat::make('Stockists', $stockistCount)
                 ->description('Registered stockists')
                 ->icon('heroicon-o-building-storefront')
-                ->color('info'),
+                ->color('info')
+                ->url(StockistResource::getUrl('index')),
             Stat::make('Field Agents', $fieldAgentCount)
                 ->description('Active field agents')
                 ->icon('heroicon-o-users')
-                ->color('warning'),
+                ->color('warning')
+                ->url(UserResource::getUrl('index')),
         ];
     }
 }
