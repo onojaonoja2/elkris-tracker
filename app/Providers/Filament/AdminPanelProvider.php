@@ -10,6 +10,7 @@ use App\Filament\Pages\FieldAgentDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\OrderSettings;
+use App\Filament\Pages\Profile;
 use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SalesOrdersDashboard;
 use App\Filament\Pages\StockistDashboard;
@@ -45,6 +46,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->profile(Profile::class)
             ->colors([
                 'primary' => Color::Cyan,
             ])

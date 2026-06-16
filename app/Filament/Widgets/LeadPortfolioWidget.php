@@ -64,6 +64,7 @@ class LeadPortfolioWidget extends TableWidget
                         'warning' => 'Pending',
                     ]),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Filter::make('created_at')
                     ->form([

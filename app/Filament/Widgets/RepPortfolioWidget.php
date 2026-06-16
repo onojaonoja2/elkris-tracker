@@ -59,6 +59,7 @@ class RepPortfolioWidget extends TableWidget
                         'warning' => 'Pending',
                     ]),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Filter::make('created_at')
                     ->label('Date Range')

@@ -144,6 +144,7 @@ class CallLogResource extends Resource
                     ->limit(50)
                     ->toggleable(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Filter::make('called_at')
                     ->label('Date Range')

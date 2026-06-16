@@ -159,6 +159,7 @@ class OrdersRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 //
             ])

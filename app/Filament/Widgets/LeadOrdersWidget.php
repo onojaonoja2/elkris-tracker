@@ -65,6 +65,7 @@ class LeadOrdersWidget extends TableWidget
                     ->label('Date')
                     ->date('d/m/Y'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Filter::make('created_at')
                     ->label('Date Range')

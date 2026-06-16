@@ -108,6 +108,7 @@ class StockistTable
                 ExportAction::make()
                     ->exporter(StockistExporter::class),
             ])
+            ->defaultSort('created_at', 'desc')
             ->recordActions([
                 ViewAction::make()
                     ->label('Dashboard'),

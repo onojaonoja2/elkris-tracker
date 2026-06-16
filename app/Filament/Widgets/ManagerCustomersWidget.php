@@ -109,6 +109,7 @@ class ManagerCustomersWidget extends TableWidget
                     ->label('Date Added')
                     ->date('d/m/Y'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('rep_id')
                     ->label('Filter by Rep')

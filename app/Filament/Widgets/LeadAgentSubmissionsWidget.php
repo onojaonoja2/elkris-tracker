@@ -61,6 +61,7 @@ class LeadAgentSubmissionsWidget extends TableWidget
                     ->label('Date')
                     ->date('d/m/Y'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->recordActions([
                 Action::make('assignToRep')
                     ->label('Assign to Rep')

@@ -46,7 +46,7 @@ class StockTransactionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->defaultSort('transaction_date', 'desc')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('transaction_date')
                     ->date('d/m/Y')
