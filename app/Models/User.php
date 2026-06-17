@@ -2,26 +2,63 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 use EslamRedaDiv\FilamentCopilot\Concerns\HasCopilotChat;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Schema;
 
-#[Fillable(['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'stockist_id', 'assigned_cities', 'is_active', 'sms_notifications'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
     use HasCopilotChat, HasFactory, Notifiable;
 
+    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'stockist_id', 'assigned_cities', 'is_active', 'sms_notifications'];
+
+    protected $hidden = ['password', 'remember_token'];
+
     public function canAccessPanel(Panel $panel): bool
     {
         return $this->is_active ?? true;
+    }
+
+    public function isFieldAgent(): bool
+    {
+        return in_array($this->role, [
+            UserRole::FieldAgent->value,
+            UserRole::DirectSales->value,
+            UserRole::OpenMarket->value,
+            UserRole::RetailMarket->value,
+        ]);
+    }
+
+    public function isManagement(): bool
+    {
+        return in_array($this->role, [
+            UserRole::Admin->value,
+            UserRole::Manager->value,
+        ]);
+    }
+
+    public function isWarehouseManager(): bool
+    {
+        return $this->role === UserRole::WarehouseManager->value;
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->role, $roles);
     }
 
     /**
@@ -63,7 +100,7 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Get the lead that this user (rep) reports to.
      */
-    public function lead()
+    public function lead(): BelongsTo
     {
         return $this->belongsTo(User::class, 'lead_id');
     }
@@ -71,32 +108,32 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Get the reps that report to this user (lead).
      */
-    public function reps()
+    public function reps(): HasMany
     {
         return $this->hasMany(User::class, 'lead_id');
     }
 
-    public function stockist()
+    public function stockist(): BelongsTo
     {
         return $this->belongsTo(Stockist::class, 'stockist_id');
     }
 
-    public function lga()
+    public function lga(): BelongsTo
     {
         return $this->belongsTo(Lga::class, 'lga_id');
     }
 
-    public function managedWarehouses()
+    public function managedWarehouses(): HasMany
     {
         return $this->hasMany(Warehouse::class, 'manager_id');
     }
 
-    public function salesWarehouses()
+    public function salesWarehouses(): HasMany
     {
         return $this->hasMany(Warehouse::class, 'sales_person_id');
     }
 
-    public function agentStocks()
+    public function agentStocks(): HasMany
     {
         return $this->hasMany(AgentStock::class, 'user_id');
     }
@@ -104,7 +141,7 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Get the customers assigned to this user as lead.
      */
-    public function leadCustomers()
+    public function leadCustomers(): HasMany
     {
         return $this->hasMany(Customer::class, 'lead_id');
     }
@@ -112,7 +149,7 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Get the customers assigned to this user as rep.
      */
-    public function repCustomers()
+    public function repCustomers(): HasMany
     {
         return $this->hasMany(Customer::class, 'rep_id');
     }
@@ -120,7 +157,7 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Customers where this user is one of the leads (many-to-many).
      */
-    public function customersLed()
+    public function customersLed(): BelongsToMany
     {
         return $this->belongsToMany(Customer::class, 'customer_lead', 'user_id', 'customer_id')->withTimestamps();
     }
@@ -128,7 +165,7 @@ class User extends Authenticatable implements FilamentUser
     /**
      * Customers where this user is one of the reps (many-to-many).
      */
-    public function customersRepped()
+    public function customersRepped(): BelongsToMany
     {
         return $this->belongsToMany(Customer::class, 'customer_rep', 'user_id', 'customer_id')->withTimestamps();
     }

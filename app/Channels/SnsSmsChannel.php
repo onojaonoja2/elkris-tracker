@@ -4,6 +4,7 @@ namespace App\Channels;
 
 use Aws\Sns\SnsClient;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 
 class SnsSmsChannel
 {
@@ -33,19 +34,23 @@ class SnsSmsChannel
             return;
         }
 
-        $this->sns->publish([
-            'Message' => $message,
-            'PhoneNumber' => $phone,
-            'MessageAttributes' => [
-                'AWS.SNS.SMS.SenderID' => [
-                    'DataType' => 'String',
-                    'StringValue' => config('services.sns.sender_id'),
+        try {
+            $this->sns->publish([
+                'Message' => $message,
+                'PhoneNumber' => $phone,
+                'MessageAttributes' => [
+                    'AWS.SNS.SMS.SenderID' => [
+                        'DataType' => 'String',
+                        'StringValue' => config('services.sns.sender_id'),
+                    ],
+                    'AWS.SNS.SMS.SMSType' => [
+                        'DataType' => 'String',
+                        'StringValue' => config('services.sns.sms_type'),
+                    ],
                 ],
-                'AWS.SNS.SMS.SMSType' => [
-                    'DataType' => 'String',
-                    'StringValue' => config('services.sns.sms_type'),
-                ],
-            ],
-        ]);
+            ]);
+        } catch (\Throwable $e) {
+            Log::error("Failed to send SMS to {$phone}: {$e->getMessage()}");
+        }
     }
 }

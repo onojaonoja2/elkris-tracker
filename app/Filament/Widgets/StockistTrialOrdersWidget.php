@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\PaymentStatus;
+use App\Enums\TrialOrderStatus;
 use App\Models\TrialOrder;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -42,25 +44,13 @@ class StockistTrialOrdersWidget extends BaseWidget
                     ->money('NGN'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'pending' => 'warning',
-                        'receipt_uploaded' => 'info',
-                        'verified_by_accountant' => 'primary',
-                        'approved' => 'success',
-                        'rejected' => 'danger',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => str_replace('_', ' ', ucfirst($state))),
+                    ->color(fn (TrialOrderStatus $state): string => $state->color())
+                    ->formatStateUsing(fn (TrialOrderStatus $state): string => $state->getLabel()),
                 TextColumn::make('payment_status')
                     ->label('Payment')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'confirmed' => 'info',
-                        'completed' => 'success',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state)),
+                    ->color(fn (PaymentStatus $state): string => $state->color())
+                    ->formatStateUsing(fn (PaymentStatus $state): string => $state->getLabel()),
                 TextColumn::make('created_at')
                     ->label('Date')
                     ->dateTime(),

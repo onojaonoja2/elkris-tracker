@@ -2,14 +2,13 @@
 
 namespace App\Filament\Resources\StockTransfers\Tables;
 
-use App\Models\AgentStock;
-use App\Models\Inventory;
+use App\Enums\StockTransferStatus;
 use App\Models\ProductType;
 use App\Models\Stockist;
-use App\Models\StockistStock;
 use App\Models\StockistTransaction;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
+use App\Services\StockTransferService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -62,15 +61,7 @@ class StockTransfersTable
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'draft' => 'gray',
-                        'requested' => 'info',
-                        'approved' => 'primary',
-                        'dispatched' => 'warning',
-                        'received' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (StockTransferStatus $state): string => $state->color()),
 
                 TextColumn::make('requester.name')
                     ->label('Requested By')
@@ -94,14 +85,7 @@ class StockTransfersTable
             ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options([
-                        'requested' => 'Requested',
-                        'approved' => 'Approved',
-                        'dispatched' => 'Dispatched',
-                        'received' => 'Received',
-                        'cancelled' => 'Cancelled',
-                        'draft' => 'Draft',
-                    ]),
+                    ->options(StockTransferStatus::class),
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
@@ -185,7 +169,7 @@ class StockTransfersTable
                             'from_warehouse_id' => $data['from_warehouse_id'],
                             'to_stockist_id' => $data['stockist_id'],
                             'requested_by' => auth()->id(),
-                            'status' => 'requested',
+                            'status' => StockTransferStatus::Requested,
                             'notes' => $data['notes'] ?? null,
                         ]);
 
@@ -202,16 +186,12 @@ class StockTransfersTable
                     ->label('Approve')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'requested' && auth()->user()->role === 'supervisor')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->role === 'supervisor')
                     ->requiresConfirmation()
                     ->modalHeading('Approve Stock Request')
                     ->modalDescription('Confirm approval of this stock request. Once approved, it can be dispatched.')
                     ->action(function (StockTransfer $record) {
-                        $record->update([
-                            'status' => 'approved',
-                            'approved_by' => auth()->id(),
-                            'approved_at' => now(),
-                        ]);
+                        StockTransferService::approve($record);
                         Notification::make()->title('Stock request approved')->success()->send();
                     }),
 
@@ -219,17 +199,14 @@ class StockTransfersTable
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'requested' && auth()->user()->role === 'supervisor')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->role === 'supervisor')
                     ->form([
                         Textarea::make('rejection_reason')
                             ->label('Reason for Rejection')
                             ->required(),
                     ])
                     ->action(function (StockTransfer $record, array $data) {
-                        $record->update([
-                            'status' => 'cancelled',
-                            'rejection_reason' => $data['rejection_reason'],
-                        ]);
+                        StockTransferService::reject($record, $data['rejection_reason']);
                         Notification::make()->title('Stock request rejected')->danger()->send();
                     }),
 
@@ -239,44 +216,12 @@ class StockTransfersTable
                     ->label('Approve')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'requested' && auth()->user()->role === 'sales')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->role === 'sales')
                     ->requiresConfirmation()
                     ->modalHeading('Approve Stock Request')
                     ->modalDescription('Confirm approval of this stock request. Available stock will be verified before approval.')
                     ->action(function (StockTransfer $record) {
-                        $insufficientItems = [];
-
-                        foreach ($record->items as $item) {
-                            $inventory = Inventory::where([
-                                'warehouse_id' => $record->from_warehouse_id,
-                                'product_type_id' => $item->product_type_id,
-                                'grammage' => $item->grammage,
-                            ])->first();
-
-                            $available = $inventory?->quantity ?? 0;
-
-                            if ($available < $item->quantity) {
-                                $productName = $item->productType?->name ?? 'Unknown';
-                                $insufficientItems[] = "{$productName} {$item->grammage}g (requested: {$item->quantity}, available: {$available})";
-                            }
-                        }
-
-                        if (! empty($insufficientItems)) {
-                            Notification::make()
-                                ->title('Insufficient stock in warehouse')
-                                ->body('The following items have insufficient stock:'.PHP_EOL.implode(PHP_EOL, $insufficientItems))
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        $record->update([
-                            'status' => 'approved',
-                            'approved_by' => auth()->id(),
-                            'approved_at' => now(),
-                        ]);
-
+                        StockTransferService::approve($record, validateInventory: true);
                         Notification::make()->title('Stock request approved')->success()->send();
                     }),
 
@@ -284,30 +229,27 @@ class StockTransfersTable
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'requested' && auth()->user()->role === 'sales')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->role === 'sales')
                     ->form([
                         Textarea::make('rejection_reason')
                             ->label('Reason for Rejection')
                             ->required(),
                     ])
                     ->action(function (StockTransfer $record, array $data) {
-                        $record->update([
-                            'status' => 'cancelled',
-                            'rejection_reason' => $data['rejection_reason'],
-                        ]);
+                        StockTransferService::reject($record, $data['rejection_reason']);
                         Notification::make()->title('Stock request rejected')->danger()->send();
                     }),
 
                 // === EXISTING ACTIONS (adjusted visibility) ===
 
                 EditAction::make()
-                    ->visible(fn (StockTransfer $record) => $record->status === 'draft'),
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Draft),
 
                 Action::make('printDispatch')
                     ->label('Print Dispatch Note')
                     ->icon('heroicon-o-printer')
                     ->color('primary')
-                    ->visible(fn (StockTransfer $record) => in_array($record->status, ['approved', 'dispatched', 'received']))
+                    ->visible(fn (StockTransfer $record) => in_array($record->status, [StockTransferStatus::Approved, StockTransferStatus::Dispatched, StockTransferStatus::Received]))
                     ->action(function (StockTransfer $record) {
                         $pdf = Pdf::loadView('pdf.dispatch-note', ['transfer' => $record]);
 
@@ -321,11 +263,11 @@ class StockTransfersTable
                     ->label('Dispatch')
                     ->icon('heroicon-o-truck')
                     ->color('warning')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'approved')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Approved)
                     ->requiresConfirmation()
                     ->action(function (StockTransfer $record) {
                         $record->update([
-                            'status' => 'dispatched',
+                            'status' => StockTransferStatus::Dispatched,
                             'dispatched_by' => auth()->id(),
                         ]);
                         Notification::make()->title('Stock dispatched successfully')->success()->send();
@@ -335,7 +277,7 @@ class StockTransfersTable
                     ->label('Mark Received')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'dispatched'
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Dispatched
                         && $record->dispatched_by !== auth()->id()
                         && (
                             ($record->to_warehouse_id && in_array($record->to_warehouse_id, auth()->user()->managedWarehouses()->pluck('id')->toArray()))
@@ -383,94 +325,7 @@ class StockTransfersTable
                             ),
                     ])
                     ->action(function (StockTransfer $record, array $data) {
-                        foreach ($data['items'] as $itemData) {
-                            $item = $record->items()->find($itemData['item_id']);
-                            if (! $item) {
-                                continue;
-                            }
-
-                            $accepted = (int) ($itemData['accepted_quantity'] ?? $item->quantity);
-                            $rejected = (int) ($itemData['rejected_quantity'] ?? 0);
-
-                            $item->update([
-                                'rejected_quantity' => $rejected,
-                                'rejection_reason' => $rejected > 0 ? ($itemData['rejection_reason'] ?? null) : null,
-                            ]);
-
-                            $accepted = min($accepted, $item->quantity);
-
-                            if ($accepted > 0) {
-                                if ($record->to_warehouse_id) {
-                                    $inv = Inventory::firstOrCreate(
-                                        [
-                                            'warehouse_id' => $record->to_warehouse_id,
-                                            'product_type_id' => $item->product_type_id,
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        ['quantity' => 0]
-                                    );
-                                    $inv->increment('quantity', $accepted);
-                                }
-
-                                if ($record->to_stockist_id) {
-                                    $stock = StockistStock::firstOrCreate(
-                                        [
-                                            'stockist_id' => $record->to_stockist_id,
-                                            'product_name' => $item->productType?->name ?? 'Unknown',
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        ['quantity' => 0]
-                                    );
-                                    $stock->increment('quantity', $accepted);
-                                }
-
-                                if ($record->requested_by) {
-                                    $agentStock = AgentStock::firstOrCreate(
-                                        [
-                                            'user_id' => $record->requested_by,
-                                            'product_type_id' => $item->product_type_id,
-                                            'product_name' => $item->productType?->name ?? 'Unknown',
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        ['quantity' => 0]
-                                    );
-                                    $agentStock->increment('quantity', $accepted);
-                                }
-                            }
-                        }
-
-                        if ($record->from_warehouse_id) {
-                            foreach ($record->items as $item) {
-                                $inv = Inventory::where([
-                                    'warehouse_id' => $record->from_warehouse_id,
-                                    'product_type_id' => $item->product_type_id,
-                                    'grammage' => $item->grammage,
-                                ])->first();
-                                if ($inv) {
-                                    $inv->decrement('quantity', $item->quantity - $item->rejected_quantity);
-                                }
-                            }
-                        }
-
-                        if ($record->from_stockist_id) {
-                            foreach ($record->items as $item) {
-                                $stock = StockistStock::where([
-                                    'stockist_id' => $record->from_stockist_id,
-                                    'product_name' => $item->productType?->name ?? 'Unknown',
-                                    'grammage' => $item->grammage,
-                                ])->first();
-                                if ($stock) {
-                                    $stock->decrement('quantity', $item->quantity - $item->rejected_quantity);
-                                }
-                            }
-                        }
-
-                        $record->update([
-                            'status' => 'received',
-                            'received_by' => auth()->id(),
-                            'received_at' => now(),
-                            'stockist_accepted_at' => $record->to_stockist_id ? now() : $record->stockist_accepted_at,
-                        ]);
+                        StockTransferService::receive($record, $data['items']);
 
                         $hasRejections = $record->items()->where('rejected_quantity', '>', 0)->exists();
 
@@ -486,7 +341,7 @@ class StockTransfersTable
                     ->label('Resolve Rejections')
                     ->icon('heroicon-o-check-badge')
                     ->color('warning')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'received' && $record->unresolvedRejectedItems()->exists() && auth()->user()->role === 'admin')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Received && $record->unresolvedRejectedItems()->exists() && auth()->user()->role === 'admin')
                     ->form([
                         Textarea::make('resolution_notes')
                             ->label('Resolution Notes')
@@ -511,7 +366,7 @@ class StockTransfersTable
                     ->label('Stockist Accept')
                     ->icon('heroicon-o-hand-thumb-up')
                     ->color('success')
-                    ->visible(fn (StockTransfer $record) => $record->status === 'received' && $record->to_stockist_id && ! $record->stockist_accepted_at)
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Received && $record->to_stockist_id && ! $record->stockist_accepted_at)
                     ->requiresConfirmation()
                     ->modalHeading('Stockist Stock Acceptance')
                     ->modalDescription('Confirm that the stockist has received and accepted the stock. This will record the acceptance and update the stockist records.')
@@ -538,14 +393,14 @@ class StockTransfersTable
                 Action::make('cancel')
                     ->label('Cancel')
                     ->color('danger')
-                    ->visible(fn (StockTransfer $record) => in_array($record->status, ['draft', 'requested', 'approved', 'dispatched']))
+                    ->visible(fn (StockTransfer $record) => in_array($record->status, [StockTransferStatus::Draft, StockTransferStatus::Requested, StockTransferStatus::Approved, StockTransferStatus::Dispatched]))
                     ->requiresConfirmation()
-                    ->form(fn (StockTransfer $record) => $record->status === 'requested'
+                    ->form(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested
                         ? [Textarea::make('rejection_reason')->label('Reason for Cancellation')->required()]
                         : [])
                     ->action(function (StockTransfer $record, array $data) {
                         $record->update([
-                            'status' => 'cancelled',
+                            'status' => StockTransferStatus::Cancelled,
                             'rejection_reason' => $data['rejection_reason'] ?? $record->rejection_reason,
                         ]);
                         Notification::make()->title('Stock transfer cancelled')->danger()->send();

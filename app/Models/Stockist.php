@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Stockist extends Model
 {
-    protected static function boot(): void
-    {
-        parent::boot();
+    use HasFactory;
 
+    protected static function booted(): void
+    {
         static::creating(function (self $stockist) {
             if ($stockist->state_id && ! $stockist->state) {
                 $state = State::find($stockist->state_id);
@@ -38,12 +40,15 @@ class Stockist extends Model
         'city_id',
     ];
 
-    protected $casts = [
-        'stock_balance' => 'decimal:2',
-        'is_trial_order_marketer' => 'boolean',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'stock_balance' => 'decimal:2',
+            'is_trial_order_marketer' => 'boolean',
+        ];
+    }
 
-    public function user()
+    public function user(): HasOne
     {
         return $this->hasOne(User::class, 'stockist_id');
     }

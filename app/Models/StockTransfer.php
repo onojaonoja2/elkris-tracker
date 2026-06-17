@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\StockTransferStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StockTransfer extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'from_warehouse_id', 'from_stockist_id', 'to_warehouse_id', 'to_stockist_id',
         'dispatched_by', 'received_by', 'received_at',
@@ -18,6 +22,7 @@ class StockTransfer extends Model
     protected function casts(): array
     {
         return [
+            'status' => StockTransferStatus::class,
             'received_at' => 'datetime',
             'approved_at' => 'datetime',
         ];

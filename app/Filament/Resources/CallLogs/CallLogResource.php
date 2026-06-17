@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\CallLogs;
 
+use App\Enums\CallOutcome;
 use App\Filament\Resources\CallLogs\Pages\CreateCallLog;
 use App\Filament\Resources\CallLogs\Pages\ListCallLogs;
 use App\Models\CallLog;
@@ -118,24 +119,8 @@ class CallLogResource extends Resource
                     ->sortable(),
                 TextColumn::make('outcome')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'connected' => 'success',
-                        'voicemail' => 'warning',
-                        'not_reachable' => 'danger',
-                        'wrong_number' => 'gray',
-                        'callback' => 'info',
-                        'no_answer' => 'warning',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'connected' => 'Connected',
-                        'voicemail' => 'Voicemail',
-                        'not_reachable' => 'Not Reachable',
-                        'wrong_number' => 'Wrong Number',
-                        'callback' => 'Callback',
-                        'no_answer' => 'No Answer',
-                        default => $state,
-                    }),
+                    ->color(fn (CallOutcome $state): string => $state->color())
+                    ->formatStateUsing(fn (CallOutcome $state): string => $state->getLabel()),
                 TextColumn::make('notes')
                     ->limit(50)
                     ->toggleable(),

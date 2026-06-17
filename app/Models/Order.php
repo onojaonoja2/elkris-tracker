@@ -2,31 +2,56 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Unguarded;
+use App\Enums\OrderStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Unguarded]
 class Order extends Model
 {
-    public function customer()
+    use HasFactory;
+
+    protected $fillable = [
+        'customer_id',
+        'user_id',
+        'lga_id',
+        'status',
+        'is_migrated_order',
+        'expected_delivery_date',
+        'total_price',
+        'preferred_payment_option',
+        'preferred_delivery_date',
+        'delivery_details',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'status' => OrderStatus::class,
+            'expected_delivery_date' => 'date',
+        ];
+    }
+
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function products()
+    public function products(): HasMany
     {
         return $this->hasMany(Product::class);
     }
 
-    protected static function booted()
+    protected static function booted(): void
     {
         static::updated(function (Order $order) {
-            if ($order->isDirty('status') && $order->status === 'delivered') {
+            if ($order->isDirty('status') && $order->status === OrderStatus::Delivered) {
                 $customer = $order->customer;
                 $purchases = $customer->lifetime_purchases ?? [];
 

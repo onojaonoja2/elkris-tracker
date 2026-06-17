@@ -16,12 +16,16 @@ return new class extends Migration
             $table->text('rejection_reason')->nullable()->after('notes');
         });
 
-        DB::statement("ALTER TABLE stock_transfers MODIFY COLUMN status ENUM('draft','requested','approved','dispatched','received','cancelled') NOT NULL DEFAULT 'draft'");
+        if (config('database.default') === 'mysql') {
+            DB::statement("ALTER TABLE stock_transfers MODIFY COLUMN status ENUM('draft','requested','approved','dispatched','received','cancelled') NOT NULL DEFAULT 'draft'");
+        }
     }
 
     public function down(): void
     {
-        DB::statement("ALTER TABLE stock_transfers MODIFY COLUMN status ENUM('draft','dispatched','received','cancelled') NOT NULL DEFAULT 'draft'");
+        if (config('database.default') === 'mysql') {
+            DB::statement("ALTER TABLE stock_transfers MODIFY COLUMN status ENUM('draft','dispatched','received','cancelled') NOT NULL DEFAULT 'draft'");
+        }
 
         Schema::table('stock_transfers', function (Blueprint $table) {
             $table->dropForeign(['requested_by']);

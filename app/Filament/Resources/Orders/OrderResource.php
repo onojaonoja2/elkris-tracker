@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders;
 
+use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
 use App\Models\Order;
 use BackedEnum;
@@ -43,12 +44,7 @@ class OrderResource extends Resource
         return $schema
             ->components([
                 Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'dispatched' => 'Dispatched',
-                        'delivered' => 'Delivered',
-                        'cancelled' => 'Cancelled',
-                    ])
+                    ->options(OrderStatus::class)
                     ->required(),
                 DatePicker::make('expected_delivery_date')
                     ->label('Expected Delivery Date')
@@ -66,13 +62,7 @@ class OrderResource extends Resource
                 TextColumn::make('user.name')->label('Submitted By'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'dispatched' => 'info',
-                        'delivered' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('total_price')
                     ->money('NGN'),
                 TextColumn::make('created_at')
@@ -87,12 +77,7 @@ class OrderResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'dispatched' => 'Dispatched',
-                        'delivered' => 'Delivered',
-                        'cancelled' => 'Cancelled',
-                    ]),
+                    ->options(OrderStatus::class),
                 Filter::make('order_type')
                     ->label('Order Type')
                     ->form([
@@ -223,7 +208,7 @@ class OrderResource extends Resource
                                 $order->id,
                                 $order->customer?->customer_name ?? 'N/A',
                                 $order->user?->name ?? 'N/A',
-                                ucfirst($order->status),
+                                $order->status->getLabel(),
                                 $products,
                                 number_format($order->total_price, 2),
                                 $order->created_at->format('d/m/Y H:i'),

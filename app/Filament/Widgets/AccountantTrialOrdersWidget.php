@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\PaymentStatus;
+use App\Enums\TrialOrderStatus;
 use App\Models\AgentStock;
 use App\Models\StockistStock;
 use App\Models\StockistTransaction;
@@ -33,7 +35,7 @@ class AccountantTrialOrdersWidget extends TableWidget
     {
         return $table
             ->query(
-                TrialOrder::where('status', 'receipt_uploaded')
+                TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)
                     ->orderBy('created_at', 'desc')
                     ->limit(20)
             )
@@ -142,11 +144,11 @@ class AccountantTrialOrdersWidget extends TableWidget
                             }
 
                             $record->update([
-                                'status' => 'approved',
+                                'status' => TrialOrderStatus::Approved,
                                 'accountant_verified_at' => now(),
                                 'accountant_verified_by' => auth()->id(),
                                 'accountant_notes' => $data['accountant_notes'] ?? null,
-                                'payment_status' => TrialOrder::PAYMENT_STATUS_COMPLETED,
+                                'payment_status' => PaymentStatus::Completed,
                             ]);
                         });
 
@@ -167,7 +169,7 @@ class AccountantTrialOrdersWidget extends TableWidget
                     ])
                     ->action(function (TrialOrder $record, array $data) {
                         $record->update([
-                            'status' => 'rejected',
+                            'status' => TrialOrderStatus::Rejected,
                             'accountant_verified_at' => now(),
                             'accountant_verified_by' => auth()->id(),
                             'accountant_notes' => $data['accountant_notes'] ?? null,

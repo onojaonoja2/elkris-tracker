@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
 use Carbon\Carbon;
@@ -51,13 +52,7 @@ class LeadOrdersWidget extends TableWidget
                 BadgeColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'dispatched' => 'info',
-                        'delivered' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('total_price')
                     ->label('Order Value')
                     ->money('NGN'),

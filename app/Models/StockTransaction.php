@@ -2,13 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Unguarded]
 class StockTransaction extends Model
 {
+    protected $fillable = [
+        'type',
+        'transaction_date',
+        'product_type_id',
+        'product_name',
+        'grammage',
+        'quantity',
+        'disbursed_to',
+        'user_id',
+    ];
+
     protected function casts(): array
     {
         return [

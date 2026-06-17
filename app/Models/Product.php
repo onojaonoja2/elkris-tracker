@@ -2,16 +2,26 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Unguarded]
 class Product extends Model
 {
+    protected $fillable = [
+        'order_id',
+        'product_type_id',
+        'product_name',
+        'grammage',
+        'quantity',
+        'price',
+        'promotion_type',
+        'free_quantity',
+    ];
+
     /**
      * Get the order that owns this product entry.
      */
-    public function order()
+    public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
     }

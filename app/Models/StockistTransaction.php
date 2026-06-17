@@ -18,10 +18,13 @@ class StockistTransaction extends Model
         'transaction_date',
     ];
 
-    protected $casts = [
-        'amount' => 'decimal:2',
-        'transaction_date' => 'date',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'amount' => 'decimal:2',
+            'transaction_date' => 'date',
+        ];
+    }
 
     public function stockist(): BelongsTo
     {

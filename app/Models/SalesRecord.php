@@ -2,13 +2,31 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Unguarded]
 class SalesRecord extends Model
 {
+    protected $fillable = [
+        'agent_id',
+        'agent_type',
+        'products',
+        'total_value',
+        'vendor_name',
+        'business_name',
+        'receipt_path',
+        'receipt_original_name',
+        'status',
+        'stockist_id',
+        'stockist_balance',
+        'accountant_verified_at',
+        'accountant_verified_by',
+        'supervisor_verified_at',
+        'supervisor_verified_by',
+        'accountant_notes',
+        'supervisor_notes',
+    ];
+
     protected function casts(): array
     {
         return [

@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\OrderStatus;
+use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\Stockists\StockistResource;
@@ -24,19 +26,19 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $pendingTrialOrders = TrialOrder::where('status', 'receipt_uploaded')
+        $pendingTrialOrders = TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)
             ->whereNotNull('agent_id')
             ->count();
 
         $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
 
-        $totalTrialOrdersValue = TrialOrder::where('status', 'approved')
+        $totalTrialOrdersValue = TrialOrder::where('status', TrialOrderStatus::Approved)
             ->sum('total_value');
 
         $totalSalesRecordsValue = SalesRecord::where('status', 'approved')
             ->sum('total_value');
 
-        $repSalesValue = Order::whereIn('status', ['delivered', 'confirmed', 'completed'])
+        $repSalesValue = Order::where('status', OrderStatus::Delivered)
             ->whereHas('customer', fn ($q) => $q->whereNotNull('rep_id'))
             ->sum('total_price');
 

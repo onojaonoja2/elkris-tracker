@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\StockTransferStatus;
 use App\Models\StockTransfer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -47,15 +48,7 @@ class ManagerStockMovementsWidget extends TableWidget
                         ?? 'N/A'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'draft' => 'gray',
-                        'requested' => 'info',
-                        'approved' => 'primary',
-                        'dispatched' => 'warning',
-                        'received' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (StockTransferStatus $state): string => $state->color()),
                 TextColumn::make('items_summary')
                     ->label('Items')
                     ->getStateUsing(fn (StockTransfer $record): string => $record->items->map(

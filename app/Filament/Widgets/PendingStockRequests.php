@@ -63,12 +63,7 @@ class PendingStockRequests extends BaseWidget
                 TextColumn::make('toStockist.name')
                     ->label('For Stockist'),
                 TextColumn::make('status')
-                    ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'requested' => 'info',
-                        'approved' => 'primary',
-                        default => 'gray',
-                    }),
+                    ->badge(),
                 TextColumn::make('requester.name')
                     ->label('Requested By'),
                 TextColumn::make('created_at')

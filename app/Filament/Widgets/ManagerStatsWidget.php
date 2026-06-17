@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\OrderStatus;
+use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\CallLogs\CallLogResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Orders\OrderResource;
@@ -69,14 +71,14 @@ class ManagerStatsWidget extends BaseWidget
 
         $convertedCustomers = Customer::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->whereHas('orders', fn ($q) => $q->where('status', '!=', 'cancelled'))
+            ->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled))
             ->count();
 
         $trialOrders = TrialOrder::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->count();
 
-        $pendingTrialOrders = TrialOrder::where('status', 'receipt_uploaded')->count();
+        $pendingTrialOrders = TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)->count();
 
         $salesRecords = SalesRecord::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
@@ -94,12 +96,12 @@ class ManagerStatsWidget extends BaseWidget
 
         $orders = Order::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->where('status', '!=', 'cancelled')
+            ->where('status', '!=', OrderStatus::Cancelled)
             ->count();
 
         $revenue = Order::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->where('status', '!=', 'cancelled')
+            ->where('status', '!=', OrderStatus::Cancelled)
             ->sum('total_price');
 
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;

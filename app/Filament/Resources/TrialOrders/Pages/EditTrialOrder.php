@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TrialOrders\Pages;
 
+use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -20,8 +21,8 @@ class EditTrialOrder extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        if ($this->record->status !== 'approved') {
-            $data['status'] = 'receipt_uploaded';
+        if ($this->record->status !== TrialOrderStatus::Approved) {
+            $data['status'] = TrialOrderStatus::ReceiptUploaded;
         }
 
         return $data;

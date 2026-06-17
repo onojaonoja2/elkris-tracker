@@ -46,13 +46,7 @@ class LeadAgentSubmissionsWidget extends TableWidget
                     ->searchable(),
                 TextColumn::make('priority')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->color(fn (string $state): string => match ($state) {
-                        'high' => 'danger',
-                        'medium' => 'warning',
-                        'low' => 'success',
-                        default => 'gray',
-                    }),
+                    ->label('Priority'),
                 TextColumn::make('city')
                     ->searchable(),
                 TextColumn::make('state')

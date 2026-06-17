@@ -51,12 +51,7 @@ class WarehouseRecentMovementsWidget extends TableWidget
                     ->label('To Stockist')
                     ->placeholder('-'),
                 TextColumn::make('status')
-                    ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'dispatched' => 'warning',
-                        'received' => 'success',
-                        default => 'gray',
-                    }),
+                    ->badge(),
                 TextColumn::make('updated_at')
                     ->label('Date')
                     ->dateTime(),

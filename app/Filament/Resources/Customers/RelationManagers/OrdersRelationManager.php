@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers\RelationManagers;
 
+use App\Enums\OrderStatus;
 use App\Models\Setting;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -147,13 +148,7 @@ class OrdersRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('id')->label('Order #'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'dispatched' => 'info',
-                        'delivered' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (OrderStatus $state): string => $state->color()),
                 Tables\Columns\TextColumn::make('total_price')
                     ->money('NGN'),
                 Tables\Columns\TextColumn::make('created_at')

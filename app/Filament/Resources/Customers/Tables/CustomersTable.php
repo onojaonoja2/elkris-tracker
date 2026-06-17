@@ -107,13 +107,7 @@ class CustomersTable
 
                 TextColumn::make('priority')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->color(fn (string $state): string => match ($state) {
-                        'high' => 'danger',
-                        'medium' => 'warning',
-                        'low' => 'success',
-                        default => 'gray',
-                    })
+                    ->label('Priority')
                     ->sortable()
                     ->toggleable(),
 

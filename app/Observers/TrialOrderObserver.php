@@ -2,6 +2,9 @@
 
 namespace App\Observers;
 
+use App\Enums\TrialOrderStatus;
+use App\Events\TrialOrderApproved;
+use App\Events\TrialOrderRejected;
 use App\Models\TrialOrder;
 use App\Services\NotificationService;
 
@@ -24,29 +27,12 @@ class TrialOrderObserver
             return;
         }
 
-        $customer = $trialOrder->agent;
-        $lead = $customer?->lead;
-
-        if ($trialOrder->status === 'approved' && $lead) {
-            NotificationService::notifyRep(
-                $lead->id,
-                'trial_order_approved',
-                'Trial Order Approved',
-                "Trial order #{$trialOrder->id} has been approved",
-                $trialOrder->id,
-                'trial_order'
-            );
+        if ($trialOrder->status === TrialOrderStatus::Approved) {
+            TrialOrderApproved::dispatch($trialOrder);
         }
 
-        if ($trialOrder->status === 'rejected' && $lead) {
-            NotificationService::notifyRep(
-                $lead->id,
-                'trial_order_rejected',
-                'Trial Order Rejected',
-                "Trial order #{$trialOrder->id} has been rejected",
-                $trialOrder->id,
-                'trial_order'
-            );
+        if ($trialOrder->status === TrialOrderStatus::Rejected) {
+            TrialOrderRejected::dispatch($trialOrder);
         }
     }
 }

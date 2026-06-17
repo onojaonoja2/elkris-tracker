@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TrialOrders\Pages;
 
+use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Models\AgentStock;
 use App\Models\StockistStock;
@@ -68,7 +69,7 @@ class CreateTrialOrder extends CreateRecord
             }
         }
 
-        $data['status'] = 'receipt_uploaded';
+        $data['status'] = TrialOrderStatus::ReceiptUploaded;
 
         return $data;
     }
