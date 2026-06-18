@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Stockist;
 use App\Models\TrialOrder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -18,7 +17,6 @@ class TrialOrderFactory extends Factory
     {
         return [
             'agent_id' => User::factory(),
-            'stockist_id' => Stockist::factory(),
             'products' => [
                 [
                     'product_name' => fake()->randomElement(['Ora herbal mix', 'African bitters', 'Immune booster']),

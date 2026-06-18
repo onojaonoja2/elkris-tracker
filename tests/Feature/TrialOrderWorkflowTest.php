@@ -5,8 +5,6 @@ namespace Tests\Feature;
 use App\Enums\PaymentStatus;
 use App\Enums\TrialOrderStatus;
 use App\Models\AgentStock;
-use App\Models\Stockist;
-use App\Models\StockistStock;
 use App\Models\TrialOrder;
 use App\Models\User;
 use App\Notifications\NewSubmissionNotification;
@@ -22,13 +20,11 @@ class TrialOrderWorkflowTest extends TestCase
     public function test_trial_order_can_be_created_by_field_agent(): void
     {
         $agent = User::factory()->fieldAgent()->create();
-        $stockist = Stockist::factory()->create();
 
         $this->actingAs($agent);
 
         $trialOrder = TrialOrder::create([
             'agent_id' => $agent->id,
-            'stockist_id' => $stockist->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',
@@ -55,13 +51,11 @@ class TrialOrderWorkflowTest extends TestCase
 
         $admin = User::factory()->admin()->create();
         $agent = User::factory()->fieldAgent()->create();
-        $stockist = Stockist::factory()->create();
 
         $this->actingAs($agent);
 
         TrialOrder::create([
             'agent_id' => $agent->id,
-            'stockist_id' => $stockist->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',
@@ -84,14 +78,6 @@ class TrialOrderWorkflowTest extends TestCase
     {
         $agent = User::factory()->fieldAgent()->create();
         $accountant = User::factory()->accountant()->create();
-        $stockist = Stockist::factory()->create();
-
-        StockistStock::create([
-            'stockist_id' => $stockist->id,
-            'product_name' => 'Ora herbal mix',
-            'grammage' => 100,
-            'quantity' => 50,
-        ]);
 
         AgentStock::create([
             'user_id' => $agent->id,
@@ -102,7 +88,6 @@ class TrialOrderWorkflowTest extends TestCase
 
         $trialOrder = TrialOrder::create([
             'agent_id' => $agent->id,
-            'stockist_id' => $stockist->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',
@@ -131,14 +116,6 @@ class TrialOrderWorkflowTest extends TestCase
     {
         $agent = User::factory()->fieldAgent()->create();
         $accountant = User::factory()->accountant()->create();
-        $stockist = Stockist::factory()->create();
-
-        StockistStock::create([
-            'stockist_id' => $stockist->id,
-            'product_name' => 'Ora herbal mix',
-            'grammage' => 100,
-            'quantity' => 50,
-        ]);
 
         AgentStock::create([
             'user_id' => $agent->id,
@@ -149,7 +126,6 @@ class TrialOrderWorkflowTest extends TestCase
 
         $trialOrder = TrialOrder::create([
             'agent_id' => $agent->id,
-            'stockist_id' => $stockist->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',
@@ -167,7 +143,7 @@ class TrialOrderWorkflowTest extends TestCase
         $service = new TrialOrderService;
         $service->approveByAccountant($trialOrder, 'Approved');
 
-        $stock = StockistStock::where('stockist_id', $stockist->id)
+        $stock = AgentStock::where('user_id', $agent->id)
             ->where('product_name', 'Ora herbal mix')
             ->where('grammage', 100)
             ->first();
@@ -179,11 +155,9 @@ class TrialOrderWorkflowTest extends TestCase
     {
         $agent = User::factory()->fieldAgent()->create();
         $accountant = User::factory()->accountant()->create();
-        $stockist = Stockist::factory()->create();
 
         $trialOrder = TrialOrder::create([
             'agent_id' => $agent->id,
-            'stockist_id' => $stockist->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',
@@ -211,7 +185,6 @@ class TrialOrderWorkflowTest extends TestCase
     {
         $trialOrder = TrialOrder::create([
             'agent_id' => User::factory()->fieldAgent()->create()->id,
-            'stockist_id' => Stockist::factory()->create()->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',
@@ -233,14 +206,6 @@ class TrialOrderWorkflowTest extends TestCase
 
         $agent = User::factory()->fieldAgent()->create();
         $accountant = User::factory()->accountant()->create();
-        $stockist = Stockist::factory()->create();
-
-        StockistStock::create([
-            'stockist_id' => $stockist->id,
-            'product_name' => 'Ora herbal mix',
-            'grammage' => 100,
-            'quantity' => 50,
-        ]);
 
         AgentStock::create([
             'user_id' => $agent->id,
@@ -251,7 +216,6 @@ class TrialOrderWorkflowTest extends TestCase
 
         $trialOrder = TrialOrder::create([
             'agent_id' => $agent->id,
-            'stockist_id' => $stockist->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',

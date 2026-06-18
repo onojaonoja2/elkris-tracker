@@ -12,13 +12,12 @@ enum UserRole: string implements HasLabel
     case Lead = 'lead';
     case Rep = 'rep';
     case FieldAgent = 'field_agent';
-    case DirectSales = 'direct_sales';
+    case CommunitySalesRepresentative = 'community_sales_representative';
     case OpenMarket = 'open_market';
     case RetailMarket = 'retail_market';
     case Sales = 'sales';
     case WarehouseManager = 'warehouse_manager';
     case Accountant = 'accountant';
-    case Stockist = 'stockist';
 
     public function getLabel(): string
     {
@@ -27,15 +26,32 @@ enum UserRole: string implements HasLabel
             self::Manager => 'Manager',
             self::Supervisor => 'Supervisor',
             self::Lead => 'Team Lead',
-            self::Rep => 'Sales Rep',
+            self::Rep => 'Elkris Portfolio Agent',
             self::FieldAgent => 'Field Agent',
-            self::DirectSales => 'Direct Sales',
+            self::CommunitySalesRepresentative => 'Community Sales Rep',
             self::OpenMarket => 'Open Market',
             self::RetailMarket => 'Retail Market',
             self::Sales => 'Sales',
             self::WarehouseManager => 'Warehouse Manager',
             self::Accountant => 'Accountant',
-            self::Stockist => 'Stockist',
+        };
+    }
+
+    public function color(): ?string
+    {
+        return match ($this) {
+            self::Admin => 'danger',
+            self::Manager => 'primary',
+            self::Supervisor => 'info',
+            self::Lead => 'warning',
+            self::Rep => 'success',
+            self::FieldAgent => 'info',
+            self::CommunitySalesRepresentative => 'success',
+            self::OpenMarket => 'gray',
+            self::RetailMarket => 'gray',
+            self::Sales => 'warning',
+            self::WarehouseManager => 'info',
+            self::Accountant => 'primary',
         };
     }
 
@@ -43,7 +59,7 @@ enum UserRole: string implements HasLabel
     {
         return in_array($this, [
             self::FieldAgent,
-            self::DirectSales,
+            self::CommunitySalesRepresentative,
             self::OpenMarket,
             self::RetailMarket,
         ]);
@@ -55,5 +71,10 @@ enum UserRole: string implements HasLabel
             self::Admin,
             self::Manager,
         ]);
+    }
+
+    public function isCommunitySalesRep(): bool
+    {
+        return $this === self::CommunitySalesRepresentative;
     }
 }

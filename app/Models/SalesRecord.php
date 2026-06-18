@@ -17,8 +17,6 @@ class SalesRecord extends Model
         'receipt_path',
         'receipt_original_name',
         'status',
-        'stockist_id',
-        'stockist_balance',
         'accountant_verified_at',
         'accountant_verified_by',
         'supervisor_verified_at',
@@ -32,7 +30,6 @@ class SalesRecord extends Model
         return [
             'products' => 'array',
             'total_value' => 'decimal:2',
-            'stockist_balance' => 'decimal:2',
             'accountant_verified_at' => 'datetime',
             'supervisor_verified_at' => 'datetime',
         ];
@@ -46,11 +43,6 @@ class SalesRecord extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'agent_id');
-    }
-
-    public function stockist(): BelongsTo
-    {
-        return $this->belongsTo(Stockist::class);
     }
 
     public function accountantVerifier(): BelongsTo

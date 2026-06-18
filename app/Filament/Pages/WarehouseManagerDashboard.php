@@ -6,7 +6,6 @@ use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
 use App\Models\Inventory;
 use App\Models\ProductType;
-use App\Models\Stockist;
 use App\Models\StockTransaction;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
@@ -167,8 +166,9 @@ class WarehouseManagerDashboard extends BaseDashboard
                     Select::make('to_type')
                         ->label('Dispatch To')
                         ->options([
+                            'agent' => 'Agent',
                             'warehouse' => 'Another Warehouse',
-                            'stockist' => 'Stockist',
+                            'community_sales_representative' => 'Community Sales Representative',
                         ])
                         ->required()
                         ->live(),
@@ -178,12 +178,6 @@ class WarehouseManagerDashboard extends BaseDashboard
                         ->searchable()
                         ->visible(fn (callable $get) => $get('to_type') === 'warehouse')
                         ->required(fn (callable $get) => $get('to_type') === 'warehouse'),
-                    Select::make('to_stockist_id')
-                        ->label('Destination Stockist')
-                        ->options(fn () => Stockist::pluck('name', 'id'))
-                        ->searchable()
-                        ->visible(fn (callable $get) => $get('to_type') === 'stockist')
-                        ->required(fn (callable $get) => $get('to_type') === 'stockist'),
                     Repeater::make('items')
                         ->label('Stock Items')
                         ->schema([
@@ -237,8 +231,6 @@ class WarehouseManagerDashboard extends BaseDashboard
 
                     if (($data['to_type'] ?? null) === 'warehouse') {
                         $transferData['to_warehouse_id'] = $data['to_warehouse_id'];
-                    } else {
-                        $transferData['to_stockist_id'] = $data['to_stockist_id'];
                     }
 
                     $transfer = StockTransfer::create($transferData);

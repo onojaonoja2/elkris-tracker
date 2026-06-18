@@ -14,7 +14,7 @@ class ListSalesRecords extends ListRecords
     {
         return [
             CreateAction::make()
-                ->visible(fn () => in_array(auth()->user()->role, ['open_market', 'retail_market'])),
+                ->visible(fn () => in_array(auth()->user()->role, ['open_market', 'retail_market', 'community_sales_representative'])),
         ];
     }
 }

@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\AccountantDashboard;
 use App\Filament\Pages\AgentDashboard;
+use App\Filament\Pages\CsrDashboard;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\FieldAgentDashboard;
 use App\Filament\Pages\LeadDashboard;
@@ -13,7 +14,6 @@ use App\Filament\Pages\OrderSettings;
 use App\Filament\Pages\Profile;
 use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SalesOrdersDashboard;
-use App\Filament\Pages\StockistDashboard;
 use App\Filament\Pages\SupervisorDashboard;
 use App\Filament\Pages\SystemMaintenance;
 use App\Filament\Pages\WarehouseManagerDashboard;
@@ -55,13 +55,13 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 AgentDashboard::class,
+                CsrDashboard::class,
                 ManagerDashboard::class,
                 SupervisorDashboard::class,
                 LeadDashboard::class,
                 RepDashboard::class,
                 FieldAgentDashboard::class,
                 SalesOrdersDashboard::class,
-                StockistDashboard::class,
                 WarehouseManagerDashboard::class,
                 AccountantDashboard::class,
                 SystemMaintenance::class,
@@ -74,12 +74,11 @@ class AdminPanelProvider extends PanelProvider
                     'rep' => '/admin/rep-dashboard',
                     'sales' => '/admin/sales-orders-dashboard',
                     'field_agent' => '/admin/agent-dashboard',
-                    'direct_sales' => '/admin/agent-dashboard',
+                    'community_sales_representative' => '/admin/csr-dashboard',
                     'open_market' => '/admin/agent-dashboard',
                     'retail_market' => '/admin/agent-dashboard',
                     'warehouse_manager' => '/admin/warehouse-dashboard',
                     'accountant' => '/admin/accountant-dashboard',
-                    'stockist' => '/admin/stockist-dashboard',
                     'manager', 'admin' => '/admin/manager-dashboard',
                     default => '/admin',
                 }

@@ -29,7 +29,7 @@ class ManagerStockMovementsWidget extends TableWidget
         return $table
             ->query(
                 fn (): Builder => StockTransfer::query()
-                    ->with(['fromWarehouse', 'toWarehouse', 'fromStockist', 'toStockist', 'dispatcher', 'receiver', 'items.productType'])
+                    ->with(['fromWarehouse', 'toWarehouse', 'fromAgent', 'toAgent', 'dispatcher', 'receiver', 'items.productType'])
                     ->latest()
             )
             ->columns([
@@ -39,12 +39,12 @@ class ManagerStockMovementsWidget extends TableWidget
                 TextColumn::make('from_location')
                     ->label('From')
                     ->getStateUsing(fn (StockTransfer $record): string => $record->fromWarehouse?->name
-                        ?? $record->fromStockist?->name
+                        ?? $record->fromAgent?->name
                         ?? 'N/A'),
                 TextColumn::make('to_location')
                     ->label('To')
                     ->getStateUsing(fn (StockTransfer $record): string => $record->toWarehouse?->name
-                        ?? $record->toStockist?->name
+                        ?? $record->toAgent?->name
                         ?? 'N/A'),
                 TextColumn::make('status')
                     ->badge()

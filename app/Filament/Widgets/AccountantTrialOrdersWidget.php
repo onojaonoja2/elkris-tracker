@@ -5,8 +5,6 @@ namespace App\Filament\Widgets;
 use App\Enums\PaymentStatus;
 use App\Enums\TrialOrderStatus;
 use App\Models\AgentStock;
-use App\Models\StockistStock;
-use App\Models\StockistTransaction;
 use App\Models\TrialOrder;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -43,8 +41,8 @@ class AccountantTrialOrdersWidget extends TableWidget
                 TextColumn::make('agent.name')
                     ->label('Agent')
                     ->placeholder('-'),
-                TextColumn::make('stockist.name')
-                    ->label('Stockist')
+                TextColumn::make('agent.name')
+                    ->label('Agent')
                     ->placeholder('-'),
                 TextColumn::make('total_value')
                     ->label('Total (₦)')
@@ -83,26 +81,6 @@ class AccountantTrialOrdersWidget extends TableWidget
                                     continue;
                                 }
 
-                                if ($record->stockist_id) {
-                                    $stock = StockistStock::where('stockist_id', $record->stockist_id)
-                                        ->where('product_name', $productName)
-                                        ->where('grammage', $grammage)
-                                        ->lockForUpdate()
-                                        ->first();
-
-                                    if (! $stock || $stock->quantity < $quantity) {
-                                        Notification::make()
-                                            ->danger()
-                                            ->title('Insufficient stock')
-                                            ->body("Stockist doesn't have enough {$productName} ({$grammage}g). Available: ".($stock->quantity ?? 0))
-                                            ->send();
-
-                                        return;
-                                    }
-
-                                    $stock->decrement('quantity', $quantity);
-                                }
-
                                 if ($record->agent_id) {
                                     $agentStock = AgentStock::where('user_id', $record->agent_id)
                                         ->where('product_name', $productName)
@@ -122,21 +100,6 @@ class AccountantTrialOrdersWidget extends TableWidget
 
                                     $agentStock->decrement('quantity', $quantity);
                                 }
-                            }
-
-                            if ($record->stockist_id) {
-                                StockistTransaction::create([
-                                    'stockist_id' => $record->stockist_id,
-                                    'user_id' => auth()->id(),
-                                    'field_agent_id' => $record->agent_id,
-                                    'trial_order_id' => $record->id,
-                                    'type' => 'deducted',
-                                    'amount' => $record->total_value,
-                                    'description' => "Auto-deducted for trial order #{$record->id}",
-                                    'transaction_date' => now()->toDateString(),
-                                ]);
-
-                                $record->stockist?->decrement('stock_balance', $record->total_value);
                             }
 
                             if ($record->agent_id) {

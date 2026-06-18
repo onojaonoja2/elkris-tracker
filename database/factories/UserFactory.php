@@ -75,6 +75,13 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function communitySalesRepresentative(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::CommunitySalesRepresentative->value,
+        ]);
+    }
+
     public function accountant(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -86,13 +93,6 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::Sales->value,
-        ]);
-    }
-
-    public function stockist(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'role' => UserRole::Stockist->value,
         ]);
     }
 }

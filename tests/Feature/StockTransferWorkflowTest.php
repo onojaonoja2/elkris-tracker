@@ -3,9 +3,8 @@
 namespace Tests\Feature;
 
 use App\Enums\StockTransferStatus;
+use App\Models\AgentStock;
 use App\Models\ProductType;
-use App\Models\Stockist;
-use App\Models\StockistStock;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\User;
@@ -21,12 +20,12 @@ class StockTransferWorkflowTest extends TestCase
     public function test_stock_transfer_can_be_created(): void
     {
         $warehouse = Warehouse::factory()->create();
-        $stockist = Stockist::factory()->create();
+        $agent = User::factory()->communitySalesRepresentative()->create();
         $requester = User::factory()->fieldAgent()->create();
 
         $transfer = StockTransfer::create([
             'from_warehouse_id' => $warehouse->id,
-            'to_stockist_id' => $stockist->id,
+            'to_agent_id' => $agent->id,
             'requested_by' => $requester->id,
             'status' => StockTransferStatus::Requested,
             'notes' => 'Urgent stock request',
@@ -35,7 +34,7 @@ class StockTransferWorkflowTest extends TestCase
         $this->assertDatabaseHas('stock_transfers', [
             'id' => $transfer->id,
             'from_warehouse_id' => $warehouse->id,
-            'to_stockist_id' => $stockist->id,
+            'to_agent_id' => $agent->id,
             'status' => StockTransferStatus::Requested,
         ]);
     }
@@ -44,12 +43,12 @@ class StockTransferWorkflowTest extends TestCase
     {
         $supervisor = User::factory()->supervisor()->create();
         $warehouse = Warehouse::factory()->create();
-        $stockist = Stockist::factory()->create();
+        $agent = User::factory()->communitySalesRepresentative()->create();
         $requester = User::factory()->fieldAgent()->create();
 
         $transfer = StockTransfer::create([
             'from_warehouse_id' => $warehouse->id,
-            'to_stockist_id' => $stockist->id,
+            'to_agent_id' => $agent->id,
             'requested_by' => $requester->id,
             'status' => StockTransferStatus::Requested,
         ]);
@@ -68,12 +67,12 @@ class StockTransferWorkflowTest extends TestCase
     public function test_stock_transfer_can_be_dispatched(): void
     {
         $warehouse = Warehouse::factory()->create();
-        $stockist = Stockist::factory()->create();
+        $agent = User::factory()->communitySalesRepresentative()->create();
         $requester = User::factory()->fieldAgent()->create();
 
         $transfer = StockTransfer::create([
             'from_warehouse_id' => $warehouse->id,
-            'to_stockist_id' => $stockist->id,
+            'to_agent_id' => $agent->id,
             'requested_by' => $requester->id,
             'status' => StockTransferStatus::Approved,
         ]);
@@ -91,14 +90,13 @@ class StockTransferWorkflowTest extends TestCase
     public function test_stock_transfer_receive_updates_inventory(): void
     {
         $warehouse = Warehouse::factory()->create();
-        $stockist = Stockist::factory()->create();
+        $agent = User::factory()->communitySalesRepresentative()->create();
         $requester = User::factory()->fieldAgent()->create();
-        $receiver = User::factory()->stockist()->create();
         $productType = ProductType::factory()->create(['name' => 'Ora herbal mix']);
 
         $transfer = StockTransfer::create([
             'from_warehouse_id' => $warehouse->id,
-            'to_stockist_id' => $stockist->id,
+            'to_agent_id' => $agent->id,
             'requested_by' => $requester->id,
             'status' => StockTransferStatus::Dispatched,
         ]);
@@ -111,7 +109,7 @@ class StockTransferWorkflowTest extends TestCase
             'rejected_quantity' => 0,
         ]);
 
-        $this->actingAs($receiver);
+        $this->actingAs($agent);
 
         StockTransferService::receive($transfer, [
             [
@@ -121,7 +119,7 @@ class StockTransferWorkflowTest extends TestCase
             ],
         ]);
 
-        $stock = StockistStock::where('stockist_id', $stockist->id)
+        $stock = AgentStock::where('user_id', $agent->id)
             ->where('product_name', 'Ora herbal mix')
             ->where('grammage', 100)
             ->first();
@@ -136,13 +134,13 @@ class StockTransferWorkflowTest extends TestCase
     public function test_stock_transfer_rejection_records_reason(): void
     {
         $warehouse = Warehouse::factory()->create();
-        $stockist = Stockist::factory()->create();
+        $agent = User::factory()->communitySalesRepresentative()->create();
         $requester = User::factory()->fieldAgent()->create();
         $approver = User::factory()->supervisor()->create();
 
         $transfer = StockTransfer::create([
             'from_warehouse_id' => $warehouse->id,
-            'to_stockist_id' => $stockist->id,
+            'to_agent_id' => $agent->id,
             'requested_by' => $requester->id,
             'status' => StockTransferStatus::Requested,
         ]);

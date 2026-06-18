@@ -8,8 +8,6 @@ use App\Filament\Resources\CallLogs\CallLogResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
-use App\Filament\Resources\Stockists\StockistResource;
-use App\Filament\Resources\StockistTransactions\StockistTransactionResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
 use App\Filament\Resources\StockTransfers\StockTransferResource;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
@@ -20,9 +18,6 @@ use App\Models\Customer;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\SalesRecord;
-use App\Models\Stockist;
-use App\Models\StockistStock;
-use App\Models\StockistTransaction;
 use App\Models\StockTransfer;
 use App\Models\TrialOrder;
 use App\Models\User;
@@ -86,10 +81,6 @@ class ManagerStatsWidget extends BaseWidget
 
         $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
 
-        $stockTxns = StockistTransaction::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->count();
-
         $calls = CallLog::whereDate('called_at', '>=', $from)
             ->whereDate('called_at', '<=', $to)
             ->count();
@@ -106,14 +97,12 @@ class ManagerStatsWidget extends BaseWidget
 
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
-        $totalStockists = Stockist::count();
-        $totalAgents = User::whereIn('role', ['field_agent', 'direct_sales', 'open_market', 'retail_market'])->count();
+        $totalAgents = User::whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])->count();
         $totalTransfers = StockTransfer::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->count();
 
         $warehouseStockUnits = Inventory::sum('quantity');
-        $stockistStockUnits = StockistStock::sum('quantity');
         $agentStockUnits = AgentStock::sum('quantity');
 
         return [
@@ -132,11 +121,6 @@ class ManagerStatsWidget extends BaseWidget
                 ->icon('heroicon-o-shopping-cart')
                 ->color('info')
                 ->url(OrderResource::getUrl('index')),
-            Stat::make('Total Stockists', $totalStockists)
-                ->description('Registered stockists')
-                ->icon('heroicon-o-building-storefront')
-                ->color('warning')
-                ->url(StockistResource::getUrl('index')),
             Stat::make('Total Agents', $totalAgents)
                 ->description('Field agents & sales')
                 ->icon('heroicon-o-user-group')
@@ -162,21 +146,11 @@ class ManagerStatsWidget extends BaseWidget
                 ->icon('heroicon-o-arrows-right-left')
                 ->color('danger')
                 ->url(StockTransferResource::getUrl('index')),
-            Stat::make('Stockist Txns', $stockTxns)
-                ->description('Stockist transactions')
-                ->icon('heroicon-o-archive-box')
-                ->color('danger')
-                ->url(StockistTransactionResource::getUrl('index')),
             Stat::make('Warehouse Stock', number_format($warehouseStockUnits).' units')
                 ->description('Total inventory units')
                 ->icon('heroicon-o-cube')
                 ->color('info')
                 ->url(StockTransactionResource::getUrl('index')),
-            Stat::make('Stockist Stock', number_format($stockistStockUnits).' units')
-                ->description('Total stockist units')
-                ->icon('heroicon-o-building-office')
-                ->color('warning')
-                ->url(StockistResource::getUrl('index')),
             Stat::make('Agent Stock', number_format($agentStockUnits).' units')
                 ->description('Total agent units')
                 ->icon('heroicon-o-user-group')

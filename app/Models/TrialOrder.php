@@ -14,7 +14,6 @@ class TrialOrder extends Model
 
     protected $fillable = [
         'agent_id',
-        'stockist_id',
         'products',
         'receipt_path',
         'receipt_original_name',
@@ -22,7 +21,6 @@ class TrialOrder extends Model
         'status',
         'payment_status',
         'agent_balance',
-        'stockist_balance',
         'accountant_verified_at',
         'accountant_verified_by',
         'supervisor_verified_at',
@@ -40,7 +38,6 @@ class TrialOrder extends Model
             'products' => 'array',
             'total_value' => 'decimal:2',
             'agent_balance' => 'decimal:2',
-            'stockist_balance' => 'decimal:2',
             'accountant_verified_at' => 'datetime',
             'supervisor_verified_at' => 'datetime',
         ];
@@ -63,11 +60,6 @@ class TrialOrder extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    public function stockist(): BelongsTo
-    {
-        return $this->belongsTo(Stockist::class);
     }
 
     public function accountantVerifier(): BelongsTo

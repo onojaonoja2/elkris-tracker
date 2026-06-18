@@ -42,12 +42,12 @@ class TrialOrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales', 'stockist']);
+        return in_array(auth()->user()->role, ['accountant', 'sales', 'admin', 'field_agent']);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'admin', 'stockist']);
+        return in_array(auth()->user()->role, ['field_agent', 'admin']);
     }
 
     public static function canEditAny(): bool
@@ -72,7 +72,7 @@ class TrialOrderResource extends Resource
 
     public static function canViewRecord(TrialOrder $record): bool
     {
-        return in_array(auth()->user()->role, ['supervisor', 'accountant', 'sales', 'admin', 'field_agent', 'direct_sales', 'stockist']);
+        return in_array(auth()->user()->role, ['accountant', 'sales', 'admin', 'field_agent']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -80,12 +80,8 @@ class TrialOrderResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if (in_array($user->role, ['field_agent', 'direct_sales'])) {
+        if ($user->role === 'field_agent') {
             $query->where('agent_id', $user->id);
-        }
-
-        if ($user->role === 'stockist') {
-            $query->where('stockist_id', $user->stockist_id);
         }
 
         return $query;

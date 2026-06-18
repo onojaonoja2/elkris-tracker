@@ -40,8 +40,8 @@ class AccountantStockMovementsWidget extends TableWidget
                 TextColumn::make('toWarehouse.name')
                     ->label('To Warehouse')
                     ->placeholder('-'),
-                TextColumn::make('toStockist.name')
-                    ->label('To Stockist')
+                TextColumn::make('toAgent.name')
+                    ->label('To Agent')
                     ->placeholder('-'),
                 TextColumn::make('status')
                     ->badge(),

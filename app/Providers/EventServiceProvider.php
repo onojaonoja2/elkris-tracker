@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Events\CustomerAssigned;
+use App\Events\CustomerCreated;
 use App\Events\OrderCreated;
 use App\Events\OrderDelivered;
 use App\Events\TrialOrderApproved;
@@ -13,6 +14,7 @@ use App\Listeners\NotifyAgentOfTrialOrderOutcome;
 use App\Listeners\NotifyLeadOfNewCustomer;
 use App\Listeners\NotifyLeadOfNewOrder;
 use App\Listeners\NotifyLeadOfTrialOrderOutcome;
+use App\Listeners\NotifySupervisorOfCsrCustomer;
 use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
 
 class EventServiceProvider extends ServiceProvider
@@ -23,6 +25,7 @@ class EventServiceProvider extends ServiceProvider
         TrialOrderApproved::class => [NotifyLeadOfTrialOrderOutcome::class, NotifyAgentOfTrialOrderOutcome::class],
         TrialOrderRejected::class => [NotifyLeadOfTrialOrderOutcome::class, NotifyAgentOfTrialOrderOutcome::class],
         CustomerAssigned::class => [NotifyLeadOfNewCustomer::class, NotifyAdminsOfUnassignedCustomer::class],
+        CustomerCreated::class => [NotifySupervisorOfCsrCustomer::class],
     ];
 
     public function boot(): void {}

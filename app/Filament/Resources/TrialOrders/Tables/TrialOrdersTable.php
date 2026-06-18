@@ -5,13 +5,11 @@ namespace App\Filament\Resources\TrialOrders\Tables;
 use App\Enums\PaymentStatus;
 use App\Enums\TrialOrderStatus;
 use App\Filament\Exports\TrialOrderExporter;
-use App\Models\Stockist;
 use App\Models\TrialOrder;
 use App\Services\TrialOrderService;
 use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -25,15 +23,10 @@ class TrialOrdersTable
         return $table
             ->columns([
                 TextColumn::make('agent.name')
-                    ->label('Field Agent')
+                    ->label('Agent')
                     ->searchable()
                     ->sortable()
                     ->visible(fn ($record) => $record && $record->agent_id !== null),
-                TextColumn::make('stockist.name')
-                    ->label('Stockist')
-                    ->searchable()
-                    ->sortable()
-                    ->visible(fn ($record) => $record && $record->stockist_id !== null),
                 TextColumn::make('total_value')
                     ->label('Total Value (₦)')
                     ->money('NGN')
@@ -142,52 +135,19 @@ class TrialOrdersTable
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
 
-                // Confirm Payment (admin only, for legacy flows)
-                Action::make('confirmPayment')
-                    ->label('Confirm Payment')
+                // Attribute Sale (supervisor only)
+                Action::make('attributeSale')
+                    ->label('Attribute Sale')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('info')
-                    ->visible(fn ($record) => $record->payment_status === PaymentStatus::Pending && auth()->user()->role === 'admin')
-                    ->form([
-                        Select::make('payment_method')
-                            ->label('Payment Method')
-                            ->options([
-                                'cash' => 'Cash',
-                                'transfer' => 'Bank Transfer',
-                                'pos' => 'POS',
-                            ])
-                            ->required(),
-                        Select::make('balance_holder')
-                            ->label('Hold Balance With')
-                            ->options([
-                                'agent' => 'Field Agent',
-                                'stockist' => 'Stockist',
-                            ])
-                            ->default('agent')
-                            ->required()
-                            ->live(),
-                        Select::make('stockist_id')
-                            ->label('Select Stockist')
-                            ->options(function () {
-                                return Stockist::where('supervisor_id', auth()->id())
-                                    ->get()
-                                    ->mapWithKeys(fn ($stockist) => [
-                                        $stockist->id => $stockist->name.' ('.$stockist->city.')',
-                                    ])
-                                    ->toArray();
-                            })
-                            ->visible(fn ($get) => $get('balance_holder') === 'stockist')
-                            ->required(fn ($get) => $get('balance_holder') === 'stockist')
-                            ->live(),
-                    ])
-                    ->action(function ($record, array $data) {
-                        $service = app(TrialOrderService::class);
-                        $service->processPayment($record, $data);
-                    })
+                    ->visible(fn ($record) => $record->payment_status === PaymentStatus::Pending && auth()->user()->role === 'supervisor')
                     ->requiresConfirmation()
-                    ->modalHeading('Confirm Payment Received')
-                    ->modalDescription('This will confirm payment, deduct stock from the appropriate stockist, and lock the trial order.')
-                    ->modalButton('Confirm'),
+                    ->modalHeading('Attribute Sale')
+                    ->modalDescription('This will attribute the sale, deduct stock, and mark payment as completed.')
+                    ->action(function (TrialOrder $record) {
+                        $service = app(TrialOrderService::class);
+                        $service->attributeSale($record);
+                    }),
             ]);
     }
 }

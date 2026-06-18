@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Enums\StockTransferStatus;
 use App\Models\AgentStock;
 use App\Models\Inventory;
-use App\Models\StockistStock;
 use App\Models\StockTransfer;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
@@ -44,19 +43,20 @@ class StockTransferService
                         $inv->increment('quantity', $accepted);
                     }
 
-                    if ($record->to_stockist_id) {
-                        $stock = StockistStock::firstOrCreate(
+                    if ($record->to_agent_id) {
+                        $agentStock = AgentStock::firstOrCreate(
                             [
-                                'stockist_id' => $record->to_stockist_id,
+                                'user_id' => $record->to_agent_id,
+                                'product_type_id' => $item->product_type_id,
                                 'product_name' => $item->productType?->name ?? 'Unknown',
                                 'grammage' => $item->grammage,
                             ],
                             ['quantity' => 0]
                         );
-                        $stock->increment('quantity', $accepted);
+                        $agentStock->increment('quantity', $accepted);
                     }
 
-                    if ($record->requested_by) {
+                    if ($record->requested_by && $record->requested_by !== $record->to_agent_id) {
                         $agentStock = AgentStock::firstOrCreate(
                             [
                                 'user_id' => $record->requested_by,
@@ -84,10 +84,10 @@ class StockTransferService
                 }
             }
 
-            if ($record->from_stockist_id) {
+            if ($record->from_agent_id) {
                 foreach ($record->items as $item) {
-                    $stock = StockistStock::where([
-                        'stockist_id' => $record->from_stockist_id,
+                    $stock = AgentStock::where([
+                        'user_id' => $record->from_agent_id,
                         'product_name' => $item->productType?->name ?? 'Unknown',
                         'grammage' => $item->grammage,
                     ])->first();
@@ -101,7 +101,6 @@ class StockTransferService
                 'status' => StockTransferStatus::Received,
                 'received_by' => auth()->id(),
                 'received_at' => now(),
-                'stockist_accepted_at' => $record->to_stockist_id ? now() : $record->stockist_accepted_at,
             ]);
         });
     }

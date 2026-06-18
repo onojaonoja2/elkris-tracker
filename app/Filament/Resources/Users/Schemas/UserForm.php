@@ -3,12 +3,15 @@
 namespace App\Filament\Resources\Users\Schemas;
 
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
-use App\Models\Stockist;
+use App\Models\Lga;
+use App\Models\State;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class UserForm
@@ -35,9 +38,6 @@ class UserForm
                 TextInput::make('password')
                     ->password()
                     ->required(),
-                // TextInput::make('role')
-                //     ->required()
-                //     ->default('rep'),
                 TextInput::make('my_id')
                     ->label('Internal ID')
                     ->numeric()
@@ -48,15 +48,30 @@ class UserForm
                     ->label('User Role')
                     ->options(self::getRoleOptions())
                     ->required()
-                    ->default('direct_sales')
+                    ->default('community_sales_representative')
                     ->selectablePlaceholder(false)
+                    ->live(),
+
+                Select::make('state_id')
+                    ->label('State')
+                    ->options(fn () => State::pluck('name', 'id'))
+                    ->searchable()
+                    ->live(debounce: 300)
+                    ->afterStateUpdated(fn (Set $set) => $set('lga_id', null)),
+
+                Select::make('lga_id')
+                    ->label('Local Government Area')
+                    ->options(fn (Get $get) => $get('state_id')
+                        ? Lga::where('state_id', $get('state_id'))->pluck('name', 'id')
+                        : [])
+                    ->searchable()
                     ->live(),
 
                 TagsInput::make('assigned_cities')
                     ->label('Assigned Cities')
                     ->suggestions(fn () => collect(CustomerForm::getCityMapping())->pluck('city')->unique()->sort()->values()->toArray())
-                    ->visible(fn (callable $get) => in_array($get('role'), ['direct_sales', 'open_market', 'retail_market']))
-                    ->required(fn (callable $get) => in_array($get('role'), ['direct_sales', 'open_market', 'retail_market'])),
+                    ->visible(fn (callable $get) => in_array($get('role'), ['community_sales_representative', 'open_market', 'retail_market']))
+                    ->required(fn (callable $get) => in_array($get('role'), ['community_sales_representative', 'open_market', 'retail_market'])),
 
                 Select::make('lead_id')
                     ->label('Reports To')
@@ -65,21 +80,12 @@ class UserForm
                     ->required(fn (callable $get) => $get('role') === 'rep')
                     ->live(),
 
-                Select::make('stockist_id')
-                    ->label('Stockist')
-                    ->relationship('stockist', 'name')
+                Select::make('portfolio_agent_id')
+                    ->label('Portfolio Agent')
+                    ->relationship('portfolioAgent', 'name', fn ($query) => $query->where('role', 'rep'))
                     ->searchable()
-                    ->visible(fn (callable $get) => $get('role') === 'stockist')
-                    ->required(fn (callable $get) => $get('role') === 'stockist')
-                    ->live()
-                    ->afterStateUpdated(function (callable $set, $state) {
-                        if ($state) {
-                            $stockist = Stockist::find($state);
-                            if ($stockist) {
-                                $set('name', $stockist->name);
-                            }
-                        }
-                    }),
+                    ->visible(fn (callable $get) => $get('role') === 'community_sales_representative')
+                    ->live(),
             ]);
     }
 
@@ -89,10 +95,9 @@ class UserForm
 
         if ($role === 'supervisor') {
             return [
-                'direct_sales' => 'Direct Sales Agent',
+                'community_sales_representative' => 'Community Sales Representative',
                 'open_market' => 'Open Market Agent',
                 'retail_market' => 'Retail Market Agent',
-                'stockist' => 'Stockist',
             ];
         }
 
@@ -101,14 +106,13 @@ class UserForm
             'manager' => 'Manager',
             'supervisor' => 'Supervisor',
             'lead' => 'Team Lead',
-            'rep' => 'Representative',
-            'direct_sales' => 'Direct Sales Agent',
+            'rep' => 'Elkris Portfolio Agent',
+            'community_sales_representative' => 'Community Sales Representative',
             'open_market' => 'Open Market Agent',
             'retail_market' => 'Retail Market Agent',
             'sales' => 'Sales',
             'warehouse_manager' => 'Warehouse Manager',
             'accountant' => 'Accountant',
-            'stockist' => 'Stockist',
         ];
     }
 }

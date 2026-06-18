@@ -10,8 +10,6 @@ use App\Events\TrialOrderApproved;
 use App\Models\AgentStock;
 use App\Models\Customer;
 use App\Models\Order;
-use App\Models\Stockist;
-use App\Models\StockistStock;
 use App\Models\TrialOrder;
 use App\Models\User;
 use App\Services\TrialOrderService;
@@ -69,14 +67,6 @@ class NotificationFlowTest extends TestCase
     {
         $agent = User::factory()->fieldAgent()->create();
         $accountant = User::factory()->accountant()->create();
-        $stockist = Stockist::factory()->create();
-
-        StockistStock::create([
-            'stockist_id' => $stockist->id,
-            'product_name' => 'Ora herbal mix',
-            'grammage' => 100,
-            'quantity' => 50,
-        ]);
 
         AgentStock::create([
             'user_id' => $agent->id,
@@ -87,7 +77,6 @@ class NotificationFlowTest extends TestCase
 
         $trialOrder = TrialOrder::create([
             'agent_id' => $agent->id,
-            'stockist_id' => $stockist->id,
             'products' => [
                 [
                     'product_name' => 'Ora herbal mix',

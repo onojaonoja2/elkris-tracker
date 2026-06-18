@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Models\State;
-use App\Models\Stockist;
 use App\Models\User;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -14,7 +13,7 @@ use Livewire\Attributes\On;
 
 class ManagerPeopleByStateWidget extends TableWidget
 {
-    protected static ?string $heading = 'People & Stockists by State';
+    protected static ?string $heading = 'People by State';
 
     protected int|string|array $columnSpan = 'full';
 
@@ -30,18 +29,7 @@ class ManagerPeopleByStateWidget extends TableWidget
     {
         $stateIds = State::pluck('id', 'name');
 
-        $stockistCounts = Stockist::select('state_id', DB::raw('COUNT(*) as count'), DB::raw('GROUP_CONCAT(DISTINCT city ORDER BY city SEPARATOR ", ") as cities'))
-            ->whereNotNull('state_id')
-            ->groupBy('state_id')
-            ->pluck('count', 'state_id');
-
-        $stockistCities = Stockist::select('state_id', DB::raw('GROUP_CONCAT(DISTINCT city ORDER BY city SEPARATOR ", ") as cities'))
-            ->whereNotNull('state_id')
-            ->whereNotNull('city')
-            ->groupBy('state_id')
-            ->pluck('cities', 'state_id');
-
-        $userRoles = ['field_agent', 'direct_sales', 'open_market', 'retail_market'];
+        $userRoles = ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'];
         $agentCounts = User::select(DB::raw('s.id as state_id'), DB::raw('COUNT(*) as count'))
             ->join('lgas', 'users.lga_id', '=', 'lgas.id')
             ->join('states as s', 'lgas.state_id', '=', 's.id')
@@ -70,11 +58,6 @@ class ManagerPeopleByStateWidget extends TableWidget
                     ->label('State')
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('stockist_count')
-                    ->label('Stockists')
-                    ->getStateUsing(fn (State $record): int => $stockistCounts->get($record->id, 0))
-                    ->numeric()
-                    ->sortable(),
                 TextColumn::make('agent_count')
                     ->label('Agents')
                     ->getStateUsing(fn (State $record): int => $agentCounts->get($record->id, 0))
@@ -90,10 +73,6 @@ class ManagerPeopleByStateWidget extends TableWidget
                     ->getStateUsing(fn (State $record): int => $repCounts->get($record->id, 0))
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('stockist_cities')
-                    ->label('Stockist Cities')
-                    ->getStateUsing(fn (State $record): string => $stockistCities->get($record->id, '-'))
-                    ->limit(60),
             ])
             ->paginated(false);
     }

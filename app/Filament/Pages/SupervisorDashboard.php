@@ -2,20 +2,19 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Resources\Stockists\StockistResource;
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\SupervisorCsrListWidget;
+use App\Filament\Widgets\SupervisorSalesByGeoWidget;
+use App\Filament\Widgets\SupervisorSalesRecordsWidget;
 use App\Filament\Widgets\SupervisorStatsWidget;
 use App\Filament\Widgets\SupervisorStockWidget;
-use App\Models\Stockist;
-use App\Models\StockistStock;
-use App\Models\StockistTransaction;
+use App\Models\SalesRecord;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
-use Filament\Schemas\Components\Utilities\Get;
+use Illuminate\Support\Facades\Session;
 
 class SupervisorDashboard extends BaseDashboard
 {
@@ -42,6 +41,18 @@ class SupervisorDashboard extends BaseDashboard
         return 'Dashboard';
     }
 
+    public function mount()
+    {
+        if (! auth()->check() || auth()->user()->role !== 'supervisor') {
+            return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if (! Session::has('supervisor_date_from')) {
+            Session::put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
+            Session::put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        }
+    }
+
     protected function getHeaderWidgets(): array
     {
         return [
@@ -50,166 +61,96 @@ class SupervisorDashboard extends BaseDashboard
         ];
     }
 
-    public function mount()
+    public function getWidgets(): array
     {
-        if (! auth()->check() || auth()->user()->role !== 'supervisor') {
-            return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
-        }
+        return [
+            SupervisorCsrListWidget::class,
+            SupervisorSalesByGeoWidget::class,
+            SupervisorSalesRecordsWidget::class,
+        ];
     }
 
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('addStockist')
-                ->label('Add Stockist')
-                ->icon('heroicon-o-plus')
-                ->button()
-                ->url(StockistResource::getUrl('create')),
-
-            Action::make('addFieldAgent')
-                ->label('Add Field Agent')
+            Action::make('addCsr')
+                ->label('Add CSR')
                 ->icon('heroicon-o-user-plus')
                 ->button()
                 ->url(UserResource::getUrl('create')),
 
-            Action::make('receiveStock')
-                ->label('Receive Stock')
-                ->icon('heroicon-o-arrow-down-on-square')
+            Action::make('filterDates')
+                ->label('Filter')
+                ->icon('heroicon-o-funnel')
                 ->button()
                 ->form([
-                    Select::make('stockist_id')
-                        ->label('Select Stockist')
-                        ->options(fn () => Stockist::where('supervisor_id', auth()->id())
-                            ->pluck('name', 'id'))
+                    DatePicker::make('date_from')
+                        ->label('From')
+                        ->default(fn () => Session::get('supervisor_date_from', now()->startOfDay()))
                         ->required(),
-                    Repeater::make('products')
-                        ->label('Products')
-                        ->schema([
-                            Select::make('product_name')
-                                ->label('Product')
-                                ->options(self::getProductOptions())
-                                ->required()
-                                ->live(),
-                            Select::make('grammage')
-                                ->label('Grammage')
-                                ->options(fn (Get $get) => self::getGrammageOptions($get('product_name') ?? $get('products.product_name')))
-                                ->required(),
-                            TextInput::make('quantity')
-                                ->label('Quantity')
-                                ->numeric()
-                                ->minValue(1)
-                                ->required(),
-                        ])
-                        ->columns(3)
-                        ->minItems(1)
+                    DatePicker::make('date_to')
+                        ->label('To')
+                        ->default(fn () => Session::get('supervisor_date_to', now()->endOfDay()))
                         ->required(),
                 ])
                 ->action(function (array $data) {
-                    $stockist = Stockist::find($data['stockist_id']);
-                    if ($stockist) {
-                        foreach ($data['products'] as $product) {
-                            $stock = StockistStock::firstOrNew([
-                                'stockist_id' => $stockist->id,
-                                'product_name' => $product['product_name'],
-                                'grammage' => $product['grammage'],
-                            ]);
-
-                            $stock->quantity = ($stock->quantity ?? 0) + $product['quantity'];
-                            $stock->save();
-
-                            StockistTransaction::create([
-                                'stockist_id' => $stockist->id,
-                                'user_id' => auth()->id(),
-                                'type' => 'received',
-                                'amount' => 0,
-                                'description' => "Received {$product['quantity']}x {$product['product_name']} ({$product['grammage']}g)",
-                                'transaction_date' => now()->toDateString(),
-                            ]);
-                        }
-                    }
+                    Session::put('supervisor_date_from', $data['date_from']);
+                    Session::put('supervisor_date_to', $data['date_to']);
                     $this->dispatch('refresh-dashboard');
+                    Notification::make()->title('Filter applied')->success()->send();
                 })
-                ->modalHeading('Receive Stock')
-                ->modalButton('Receive')
-                ->successNotificationTitle('Stock received successfully'),
+                ->modalHeading('Filter by Date Range'),
+
+            Action::make('clearFilter')
+                ->label('Today')
+                ->icon('heroicon-o-x-mark')
+                ->color('gray')
+                ->action(function () {
+                    Session::put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
+                    Session::put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+                    $this->dispatch('refresh-dashboard');
+                }),
 
             Action::make('exportReport')
-                ->label('Export Report')
+                ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->button()
-                ->form([
-                    DatePicker::make('start_date')
-                        ->label('Start Date')
-                        ->required(),
-                    DatePicker::make('end_date')
-                        ->label('End Date')
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    return $this->exportReport($data['start_date'], $data['end_date']);
-                })
-                ->modalHeading('Export Activity Report')
-                ->modalButton('Export'),
+                ->action(fn () => $this->exportReport())
+                ->modalHeading('Export Sales Report'),
         ];
     }
 
-    protected function exportReport(string $startDate, string $endDate)
+    protected function exportReport()
     {
-        $transactions = StockistTransaction::whereHas('stockist', fn ($q) => $q->where('supervisor_id', auth()->id()))
-            ->whereBetween('transaction_date', [$startDate, $endDate])
-            ->orderBy('transaction_date', 'asc')
+        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
+        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+
+        $csrIds = User::where('role', 'community_sales_representative')->pluck('id');
+
+        $records = SalesRecord::whereIn('agent_id', $csrIds)
+            ->whereBetween('created_at', [$from, $to])
+            ->with('agent')
+            ->orderBy('created_at', 'asc')
             ->get();
 
-        $filename = 'supervisor_report_'.date('Y_m_d_H_i_s').'.csv';
+        $filename = 'csr_sales_report_'.date('Y_m_d_H_i_s').'.csv';
 
-        return response()->streamDownload(function () use ($transactions) {
+        return response()->streamDownload(function () use ($records) {
             $handle = fopen('php://output', 'w');
             fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
-            fputcsv($handle, ['Date', 'Stockist', 'Type', 'Amount', 'Field Agent', 'Description']);
+            fputcsv($handle, ['Date', 'Agent', 'Products', 'Value', 'Status']);
 
-            foreach ($transactions as $t) {
+            foreach ($records as $r) {
+                $products = collect($r->products)->map(fn ($p) => "{$p['quantity']}x {$p['product_name']}")->implode('; ');
                 fputcsv($handle, [
-                    $t->transaction_date->format('d/m/Y'),
-                    $t->stockist->name ?? 'N/A',
-                    $t->type,
-                    $t->amount,
-                    $t->fieldAgent->name ?? 'N/A',
-                    $t->description,
+                    $r->created_at->format('d/m/Y H:i'),
+                    $r->agent->name ?? 'N/A',
+                    $products,
+                    $r->total_value,
+                    $r->status,
                 ]);
             }
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv']);
-    }
-
-    public static function getProductOptions(): array
-    {
-        return [
-            'Elkris Oat Flour' => 'Elkris Oat Flour',
-            'Elkris Plantain' => 'Elkris Plantain',
-            'Elkris Poundo Yam' => 'Elkris Poundo Yam',
-        ];
-    }
-
-    public static function getGrammageOptions(?string $product): array
-    {
-        if (! $product) {
-            return [];
-        }
-
-        return match ($product) {
-            'Elkris Oat Flour' => [
-                '5000' => '5000g',
-                '1300' => '1300g',
-                '650' => '650g',
-            ],
-            'Elkris Plantain' => [
-                '1800' => '1800g',
-                '900' => '900g',
-            ],
-            'Elkris Poundo Yam' => [
-                '1800' => '1800g',
-            ],
-            default => [],
-        };
     }
 }

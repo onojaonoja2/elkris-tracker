@@ -29,11 +29,8 @@ class StockTransferResource extends Resource
         $user = auth()->user();
         $count = StockTransfer::whereIn('status', ['requested', 'approved']);
 
-        if ($user->role === 'supervisor') {
-            $count->where(function (Builder $q) use ($user) {
-                $q->whereHas('toStockist', fn (Builder $sq) => $sq->where('supervisor_id', $user->id))
-                    ->orWhere('requested_by', $user->id);
-            });
+        if ($user->role === 'accountant') {
+            $count->where('status', 'requested');
         }
 
         if ($user->role === 'warehouse_manager') {
@@ -46,9 +43,9 @@ class StockTransferResource extends Resource
             $count->whereIn('from_warehouse_id', $warehouseIds);
         }
 
-        if ($user->role === 'stockist') {
+        if ($user->role === 'community_sales_representative') {
             $count->where(function (Builder $q) use ($user) {
-                $q->where('to_stockist_id', $user->stockist_id)
+                $q->where('to_agent_id', $user->id)
                     ->orWhere('requested_by', $user->id);
             });
         }
@@ -77,14 +74,14 @@ class StockTransferResource extends Resource
     {
         return in_array(auth()->user()->role, [
             'admin', 'warehouse_manager', 'manager', 'supervisor',
-            'accountant', 'sales', 'direct_sales', 'open_market',
-            'retail_market', 'stockist',
+            'accountant', 'sales', 'community_sales_representative', 'open_market',
+            'retail_market',
         ]);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor', 'direct_sales', 'open_market', 'retail_market', 'stockist']);
+        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor', 'community_sales_representative', 'open_market', 'retail_market']);
     }
 
     public static function canEditAny(): bool
@@ -110,27 +107,13 @@ class StockTransferResource extends Resource
             });
         }
 
-        if ($user->role === 'supervisor') {
-            $query->where(function (Builder $q) use ($user) {
-                $q->whereHas('toStockist', fn (Builder $sq) => $sq->where('supervisor_id', $user->id))
-                    ->orWhere('requested_by', $user->id);
-            });
-        }
-
-        if (in_array($user->role, ['direct_sales', 'open_market', 'retail_market'])) {
+        if (in_array($user->role, ['community_sales_representative', 'open_market', 'retail_market'])) {
             $query->where('requested_by', $user->id);
         }
 
         if ($user->role === 'sales') {
             $warehouseIds = $user->salesWarehouses()->pluck('id');
             $query->whereIn('from_warehouse_id', $warehouseIds);
-        }
-
-        if ($user->role === 'stockist') {
-            $query->where(function (Builder $q) use ($user) {
-                $q->where('to_stockist_id', $user->stockist_id)
-                    ->orWhere('requested_by', $user->id);
-            });
         }
 
         return $query;

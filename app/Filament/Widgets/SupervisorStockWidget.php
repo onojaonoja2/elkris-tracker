@@ -2,8 +2,8 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Stockist;
-use App\Models\StockistStock;
+use App\Models\AgentStock;
+use App\Models\User;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -11,7 +11,9 @@ use Livewire\Attributes\On;
 
 class SupervisorStockWidget extends TableWidget
 {
-    protected static ?string $heading = 'Stock Breakdown by Product';
+    protected static ?int $sort = 1;
+
+    protected static ?string $heading = 'CSR Stock Levels';
 
     protected int|string|array $columnSpan = 'full';
 
@@ -20,18 +22,18 @@ class SupervisorStockWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $user = auth()->user();
-        $stockistIds = Stockist::where('supervisor_id', $user->id)->pluck('id');
+        $agentIds = User::where('role', 'community_sales_representative')->pluck('id');
 
         return $table
             ->query(
-                fn () => StockistStock::whereIn('stockist_id', $stockistIds)
+                fn () => AgentStock::whereIn('user_id', $agentIds)
+                    ->with('agent')
                     ->orderBy('product_name')
                     ->orderBy('grammage')
             )
             ->columns([
-                TextColumn::make('stockist.name')
-                    ->label('Stockist')
+                TextColumn::make('agent.name')
+                    ->label('Agent')
                     ->searchable()
                     ->sortable(),
 
@@ -50,8 +52,6 @@ class SupervisorStockWidget extends TableWidget
                     ->sortable()
                     ->color(fn ($state) => $state > 0 ? 'success' : 'danger'),
             ])
-            ->filters([
-                //
-            ]);
+            ->defaultSort('product_name');
     }
 }

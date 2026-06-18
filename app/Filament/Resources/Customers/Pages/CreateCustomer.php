@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Customers\Pages;
 
+use App\Events\CustomerCreated;
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Models\User;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
@@ -28,7 +30,7 @@ class CreateCustomer extends CreateRecord
             $payload['agent_id'] = $user->id;
             $payload['lead_id'] = $user->id;
             $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$user->id]));
-        } elseif ($user && in_array($user->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
+        } elseif ($user && in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             $payload['agent_id'] = $user->id;
         }
 
@@ -66,6 +68,15 @@ class CreateCustomer extends CreateRecord
         if ($user && $user->role === 'lead') {
             $this->record->leads()->syncWithoutDetaching([$user->id]);
         }
+
+        // Notify supervisor when CSR creates a customer
+        if ($user && $user->role === 'community_sales_representative' && $user->portfolio_agent_id) {
+            $portfolioAgent = User::find($user->portfolio_agent_id);
+            if ($portfolioAgent) {
+                CustomerCreated::dispatch($this->record, $user);
+            }
+        }
+
         $this->dispatch('refresh-dashboard');
     }
 

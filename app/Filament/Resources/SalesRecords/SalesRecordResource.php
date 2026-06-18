@@ -39,14 +39,14 @@ class SalesRecordResource extends Resource
     public static function canViewAny(): bool
     {
         return in_array(auth()->user()->role, [
-            'open_market', 'retail_market',
+            'open_market', 'retail_market', 'community_sales_representative',
             'supervisor', 'accountant', 'admin', 'manager',
         ]);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['open_market', 'retail_market', 'admin']);
+        return in_array(auth()->user()->role, ['open_market', 'retail_market', 'community_sales_representative', 'admin']);
     }
 
     public static function canEditAny(): bool
@@ -74,7 +74,7 @@ class SalesRecordResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if (in_array($user->role, ['open_market', 'retail_market'])) {
+        if (in_array($user->role, ['open_market', 'retail_market', 'community_sales_representative'])) {
             $query->where('agent_id', $user->id);
         }
 

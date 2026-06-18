@@ -22,7 +22,7 @@ class Dashboard extends BaseDashboard
     public static function canViewNavigation(): bool
     {
         // Only show in navigation for roles that need it
-        return ! in_array(auth()->user()->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market', 'sales', 'supervisor', 'stockist', 'warehouse_manager', 'accountant']);
+        return ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market', 'sales', 'supervisor', 'warehouse_manager', 'accountant']);
     }
 
     public static function getNavigationLabel(): string
@@ -42,7 +42,11 @@ class Dashboard extends BaseDashboard
             return redirect()->to(SupervisorDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
-        if (in_array($role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
+        if (in_array($role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
+            if ($role === 'community_sales_representative') {
+                return redirect()->to(CsrDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+            }
+
             return redirect()->to(AgentDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
@@ -65,10 +69,6 @@ class Dashboard extends BaseDashboard
             return redirect()->to(RepDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
-        if ($role === 'stockist') {
-            return redirect()->to(StockistDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
-        }
-
         if ($role === 'warehouse_manager') {
             return redirect()->to(WarehouseManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
@@ -87,7 +87,7 @@ class Dashboard extends BaseDashboard
         $role = auth()->user()->role ?? 'guest';
 
         return match ($role) {
-            'field_agent', 'direct_sales', 'open_market', 'retail_market' => [
+            'field_agent', 'community_sales_representative', 'open_market', 'retail_market' => [
                 UpcomingFollowUps::class,
             ],
             'lead' => [

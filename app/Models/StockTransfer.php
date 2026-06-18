@@ -13,7 +13,7 @@ class StockTransfer extends Model
     use HasFactory;
 
     protected $fillable = [
-        'from_warehouse_id', 'from_stockist_id', 'to_warehouse_id', 'to_stockist_id',
+        'from_warehouse_id', 'from_agent_id', 'to_warehouse_id', 'to_agent_id',
         'dispatched_by', 'received_by', 'received_at',
         'status', 'notes',
         'requested_by', 'approved_by', 'approved_at', 'rejection_reason',
@@ -33,9 +33,9 @@ class StockTransfer extends Model
         return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
     }
 
-    public function fromStockist(): BelongsTo
+    public function fromAgent(): BelongsTo
     {
-        return $this->belongsTo(Stockist::class, 'from_stockist_id');
+        return $this->belongsTo(User::class, 'from_agent_id');
     }
 
     public function toWarehouse(): BelongsTo
@@ -43,9 +43,9 @@ class StockTransfer extends Model
         return $this->belongsTo(Warehouse::class, 'to_warehouse_id');
     }
 
-    public function toStockist(): BelongsTo
+    public function toAgent(): BelongsTo
     {
-        return $this->belongsTo(Stockist::class, 'to_stockist_id');
+        return $this->belongsTo(User::class, 'to_agent_id');
     }
 
     public function dispatcher(): BelongsTo

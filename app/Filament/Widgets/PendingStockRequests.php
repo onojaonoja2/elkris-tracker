@@ -18,7 +18,7 @@ class PendingStockRequests extends BaseWidget
     {
         return in_array(auth()->user()->role, [
             'admin', 'supervisor', 'warehouse_manager',
-            'accountant', 'sales', 'manager', 'stockist',
+            'accountant', 'sales', 'manager', 'community_sales_representative',
         ]);
     }
 
@@ -31,7 +31,7 @@ class PendingStockRequests extends BaseWidget
 
                 if ($user->role === 'supervisor') {
                     $query->where(function (Builder $q) use ($user) {
-                        $q->whereHas('toStockist', fn (Builder $sq) => $sq->where('supervisor_id', $user->id))
+                        $q->whereHas('toAgent', fn (Builder $sq) => $sq->where('role', 'community_sales_representative'))
                             ->orWhere('requested_by', $user->id);
                     });
                 }
@@ -46,9 +46,9 @@ class PendingStockRequests extends BaseWidget
                     $query->whereIn('from_warehouse_id', $warehouseIds);
                 }
 
-                if ($user->role === 'stockist') {
+                if ($user->role === 'community_sales_representative') {
                     $query->where(function (Builder $q) use ($user) {
-                        $q->where('to_stockist_id', $user->stockist_id)
+                        $q->where('to_agent_id', $user->id)
                             ->orWhere('requested_by', $user->id);
                     });
                 }
@@ -60,8 +60,8 @@ class PendingStockRequests extends BaseWidget
                     ->label('Request #'),
                 TextColumn::make('fromWarehouse.name')
                     ->label('From'),
-                TextColumn::make('toStockist.name')
-                    ->label('For Stockist'),
+                TextColumn::make('toAgent.name')
+                    ->label('For Agent'),
                 TextColumn::make('status')
                     ->badge(),
                 TextColumn::make('requester.name')

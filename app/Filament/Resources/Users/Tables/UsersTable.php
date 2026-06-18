@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Tables;
 
+use App\Enums\UserRole;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -27,6 +28,7 @@ class UsersTable
                     ->toggleable(),
                 TextColumn::make('role')
                     ->searchable()
+                    ->color(fn (string $state): ?string => UserRole::tryFrom($state)?->color())
                     ->toggleable(),
                 TextColumn::make('my_id')
                     ->label('ID')

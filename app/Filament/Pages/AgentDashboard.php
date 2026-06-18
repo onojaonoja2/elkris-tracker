@@ -10,7 +10,6 @@ use App\Filament\Widgets\UpcomingFollowUps;
 use App\Models\Inventory;
 use App\Models\Lga;
 use App\Models\ProductType;
-use App\Models\Stockist;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
 use Filament\Actions\Action;
@@ -33,12 +32,12 @@ class AgentDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['direct_sales', 'open_market', 'retail_market']);
+        return auth()->check() && in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['direct_sales', 'open_market', 'retail_market']);
+        return auth()->check() && in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
     }
 
     public function getHeaderWidgets(): array
@@ -55,7 +54,7 @@ class AgentDashboard extends BaseDashboard
 
         $base = [UpcomingFollowUps::class];
 
-        if ($role === 'direct_sales') {
+        if ($role === 'community_sales_representative') {
             array_unshift($base, FieldAgentReplaceCustomersWidget::class);
         }
 
@@ -69,7 +68,7 @@ class AgentDashboard extends BaseDashboard
         $role = auth()->user()->role;
         $actions = [];
 
-        if ($role === 'direct_sales') {
+        if ($role === 'community_sales_representative') {
             $actions[] = Action::make('newTrialOrder')
                 ->label('New Trial Order')
                 ->icon('heroicon-o-plus-circle')
@@ -101,7 +100,6 @@ class AgentDashboard extends BaseDashboard
                     ->label('Source Type')
                     ->options([
                         'warehouse' => 'From Warehouse',
-                        'stockist' => 'From Stockist',
                     ])
                     ->default('warehouse')
                     ->required()
@@ -113,14 +111,6 @@ class AgentDashboard extends BaseDashboard
                     ->searchable()
                     ->required()
                     ->visible(fn (callable $get) => $get('source_type') === 'warehouse')
-                    ->live(),
-
-                Select::make('from_stockist_id')
-                    ->label('From Stockist')
-                    ->options(fn () => $this->getStockistOptions())
-                    ->searchable()
-                    ->required()
-                    ->visible(fn (callable $get) => $get('source_type') === 'stockist')
                     ->live(),
 
                 Repeater::make('items')
@@ -197,13 +187,6 @@ class AgentDashboard extends BaseDashboard
                         'status' => 'requested',
                         'notes' => $data['notes'] ?? null,
                     ]);
-                } else {
-                    $transfer = StockTransfer::create([
-                        'from_stockist_id' => $data['from_stockist_id'],
-                        'requested_by' => auth()->id(),
-                        'status' => 'requested',
-                        'notes' => $data['notes'] ?? null,
-                    ]);
                 }
 
                 foreach ($data['items'] as $item) {
@@ -231,10 +214,6 @@ class AgentDashboard extends BaseDashboard
             $stateId = $lga?->state_id;
         }
 
-        if ($user->role === 'direct_sales' && $user->stockist) {
-            $stateId = $user->stockist->state_id;
-        }
-
         return Warehouse::where(function ($q) use ($stateId) {
             $q->where('name', 'like', '%Central Lagos%')
                 ->orWhere('name', 'like', '%Abuja%');
@@ -247,27 +226,5 @@ class AgentDashboard extends BaseDashboard
             ->pluck('name', 'id')
             ->unique()
             ->toArray();
-    }
-
-    private function getStockistOptions(): array
-    {
-        $user = auth()->user();
-
-        $stateId = null;
-
-        if ($user->lga_id) {
-            $lga = Lga::find($user->lga_id);
-            $stateId = $lga?->state_id;
-        }
-
-        if ($user->role === 'direct_sales' && $user->stockist) {
-            $stateId = $user->stockist->state_id;
-        }
-
-        if (! $stateId) {
-            return Stockist::pluck('name', 'id')->toArray();
-        }
-
-        return Stockist::where('state_id', $stateId)->pluck('name', 'id')->toArray();
     }
 }

@@ -6,14 +6,12 @@ use App\Enums\OrderStatus;
 use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
-use App\Filament\Resources\Stockists\StockistResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\SalesRecord;
-use App\Models\StockistStock;
 use App\Models\TrialOrder;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -44,8 +42,6 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
         $totalWarehouseStock = Inventory::sum('quantity');
 
-        $totalStockistStock = StockistStock::sum('quantity');
-
         $totalAgentStock = AgentStock::sum('quantity');
 
         $totalChannelValue = $totalTrialOrdersValue + $totalSalesRecordsValue;
@@ -75,11 +71,6 @@ class AccountantStatsOverviewWidget extends BaseWidget
                 ->icon('heroicon-o-building-storefront')
                 ->color('primary')
                 ->url(StockTransactionResource::getUrl('index')),
-            Stat::make('Stockist Stock', number_format($totalStockistStock))
-                ->description('Total units with stockists')
-                ->icon('heroicon-o-archive-box')
-                ->color('gray')
-                ->url(StockistResource::getUrl('index')),
             Stat::make('Agent Stock', number_format($totalAgentStock))
                 ->description('Total units with agents')
                 ->icon('heroicon-o-users')

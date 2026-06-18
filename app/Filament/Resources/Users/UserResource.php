@@ -34,7 +34,7 @@ class UserResource extends Resource
         $user = auth()->user();
 
         if ($user->role === 'supervisor') {
-            return $query->whereIn('role', ['field_agent', 'direct_sales', 'open_market', 'retail_market', 'stockist']);
+            return $query->whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']);
         }
 
         if ($user->role === 'lead') {

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\StockTransfers\Schemas;
 
 use App\Models\ProductType;
-use App\Models\Stockist;
+use App\Models\User;
 use App\Models\Warehouse;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -22,7 +22,7 @@ class StockTransferForm
                     ->label('From Warehouse')
                     ->options(fn () => Warehouse::pluck('name', 'id'))
                     ->searchable()
-                    ->required()
+                    ->nullable()
                     ->live(),
 
                 Select::make('to_warehouse_id')
@@ -32,9 +32,9 @@ class StockTransferForm
                     ->nullable()
                     ->live(),
 
-                Select::make('to_stockist_id')
-                    ->label('To Stockist')
-                    ->options(fn () => Stockist::pluck('name', 'id'))
+                Select::make('to_agent_id')
+                    ->label('To Community Sales Rep')
+                    ->options(fn () => User::where('role', 'community_sales_representative')->where('is_active', true)->pluck('name', 'id'))
                     ->searchable()
                     ->nullable()
                     ->live()

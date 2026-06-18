@@ -4,7 +4,6 @@
     @php
         $totals = (object) [
             'warehouse' => 0,
-            'stockist' => 0,
             'agent' => 0,
             'all' => 0,
         ];
@@ -25,7 +24,6 @@
                 @forelse($this->getStockLevels() as $row)
                     @php
                         if ($row->type === 'Warehouse') $totals->warehouse += $row->quantity;
-                        elseif ($row->type === 'Stockist') $totals->stockist += $row->quantity;
                         elseif ($row->type === 'Agent') $totals->agent += $row->quantity;
                         $totals->all += $row->quantity;
                     @endphp
@@ -56,10 +54,6 @@
                 <tr class="border-t-2 border-gray-300 dark:border-gray-600 font-semibold">
                     <td colspan="4" class="px-3 py-3 text-right text-gray-700 dark:text-gray-300">Warehouse Total:</td>
                     <td class="px-3 py-3 text-right font-mono">{{ number_format($totals->warehouse) }}</td>
-                </tr>
-                <tr class="font-semibold">
-                    <td colspan="4" class="px-3 py-1 text-right text-gray-700 dark:text-gray-300">Stockist Total:</td>
-                    <td class="px-3 py-1 text-right font-mono">{{ number_format($totals->stockist) }}</td>
                 </tr>
                 <tr class="font-semibold">
                     <td colspan="4" class="px-3 py-1 text-right text-gray-700 dark:text-gray-300">Agent Total:</td>

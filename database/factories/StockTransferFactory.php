@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Stockist;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -19,7 +18,7 @@ class StockTransferFactory extends Factory
     {
         return [
             'from_warehouse_id' => Warehouse::factory(),
-            'to_stockist_id' => Stockist::factory(),
+            'to_agent_id' => User::factory()->communitySalesRepresentative(),
             'status' => 'draft',
             'requested_by' => User::factory(),
         ];

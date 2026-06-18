@@ -42,8 +42,16 @@ class CustomerPolicy
         }
 
         // Field agents can update their own
-        if (in_array($user->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
+        if (in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             return $customer->agent_id === $user->id;
+        }
+
+        // Portfolio Agents can update customers from their paired CSRs
+        if ($user->role === 'rep') {
+            $pairedCsrIds = User::where('portfolio_agent_id', $user->id)->pluck('id');
+            if ($pairedCsrIds->contains($customer->agent_id)) {
+                return true;
+            }
         }
 
         // Reps cannot update until they accept the assignment
@@ -71,7 +79,7 @@ class CustomerPolicy
      */
     public function delete(User $user, Customer $customer): bool
     {
-        if (in_array($user->role, ['rep', 'field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
+        if (in_array($user->role, ['rep', 'field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             return false;
         } // Reps and Field Agents can't delete
         if (in_array($user->role, ['admin', 'manager'])) {

@@ -21,7 +21,7 @@ class NotificationBellWidget extends Widget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role ?? null, ['admin', 'manager', 'lead', 'rep', 'sales', 'supervisor', 'field_agent', 'direct_sales', 'open_market', 'retail_market']);
+        return in_array(auth()->user()->role ?? null, ['admin', 'manager', 'lead', 'rep', 'sales', 'supervisor', 'field_agent', 'community_sales_representative', 'open_market', 'retail_market']);
     }
 
     public function markAsRead(string $notificationId): void

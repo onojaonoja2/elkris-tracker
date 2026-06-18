@@ -19,7 +19,7 @@ class User extends Authenticatable implements FilamentUser
     /** @use HasFactory<UserFactory> */
     use HasCopilotChat, HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'stockist_id', 'assigned_cities', 'is_active', 'sms_notifications'];
+    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'portfolio_agent_id', 'state_id', 'lga_id', 'assigned_cities', 'is_active', 'sms_notifications'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -32,7 +32,7 @@ class User extends Authenticatable implements FilamentUser
     {
         return in_array($this->role, [
             UserRole::FieldAgent->value,
-            UserRole::DirectSales->value,
+            UserRole::CommunitySalesRepresentative->value,
             UserRole::OpenMarket->value,
             UserRole::RetailMarket->value,
         ]);
@@ -49,6 +49,11 @@ class User extends Authenticatable implements FilamentUser
     public function isWarehouseManager(): bool
     {
         return $this->role === UserRole::WarehouseManager->value;
+    }
+
+    public function isCommunitySalesRep(): bool
+    {
+        return $this->role === UserRole::CommunitySalesRepresentative->value;
     }
 
     public function hasRole(string $role): bool
@@ -113,9 +118,25 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(User::class, 'lead_id');
     }
 
-    public function stockist(): BelongsTo
+    /**
+     * Get the Elkris Portfolio Agent paired to this CSR.
+     */
+    public function portfolioAgent(): BelongsTo
     {
-        return $this->belongsTo(Stockist::class, 'stockist_id');
+        return $this->belongsTo(User::class, 'portfolio_agent_id');
+    }
+
+    /**
+     * Get the CSRs paired to this Portfolio Agent.
+     */
+    public function pairedCsrs(): HasMany
+    {
+        return $this->hasMany(User::class, 'portfolio_agent_id');
+    }
+
+    public function state(): BelongsTo
+    {
+        return $this->belongsTo(State::class, 'state_id');
     }
 
     public function lga(): BelongsTo

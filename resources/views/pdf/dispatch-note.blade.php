@@ -33,9 +33,9 @@
             @if($transfer->toWarehouse)
             <tr><td>To (Warehouse):</td><td>{{ $transfer->toWarehouse->name }}</td></tr>
             @endif
-            @if($transfer->toStockist)
-            <tr><td>To (Stockist):</td><td>{{ $transfer->toStockist->name }}</td></tr>
-            <tr><td>Stockist Location:</td><td>{{ $transfer->toStockist->city }}, {{ $transfer->toStockist->state }}</td></tr>
+            @if($transfer->toAgent)
+            <tr><td>To (Agent):</td><td>{{ $transfer->toAgent->name }}</td></tr>
+            <tr><td>Agent Location:</td><td>{{ $transfer->toAgent->city }}, {{ $transfer->toAgent->state }}</td></tr>
             @endif
             <tr><td>Dispatched By:</td><td>{{ $transfer->dispatcher?->name ?? 'N/A' }}</td></tr>
             <tr><td>Notes:</td><td>{{ $transfer->notes ?? 'N/A' }}</td></tr>

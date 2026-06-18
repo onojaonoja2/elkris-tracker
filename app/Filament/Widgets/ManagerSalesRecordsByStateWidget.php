@@ -28,19 +28,17 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
     public function table(Table $table): Table
     {
         $aggregates = SalesRecord::select(
-            DB::raw('COALESCE(s.name, lga_state.name) as state_name'),
+            DB::raw('lga_state.name as state_name'),
             DB::raw('COUNT(*) as total'),
             DB::raw("SUM(CASE WHEN status = 'receipt_uploaded' THEN 1 ELSE 0 END) as pending"),
             DB::raw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved"),
             DB::raw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected"),
             DB::raw('COALESCE(SUM(total_value), 0) as total_value'),
         )
-            ->leftJoin('stockists', 'sales_records.stockist_id', '=', 'stockists.id')
-            ->leftJoin('states as s', 'stockists.state_id', '=', 's.id')
             ->leftJoin('users', 'sales_records.agent_id', '=', 'users.id')
             ->leftJoin('lgas', 'users.lga_id', '=', 'lgas.id')
             ->leftJoin('states as lga_state', 'lgas.state_id', '=', 'lga_state.id')
-            ->groupBy(DB::raw('COALESCE(s.name, lga_state.name)'))
+            ->groupBy('lga_state.name')
             ->orderBy('state_name')
             ->get()
             ->keyBy('state_name');

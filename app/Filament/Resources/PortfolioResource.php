@@ -120,9 +120,18 @@ class PortfolioResource extends Resource
         $user = auth()->user();
 
         if ($user->role === 'rep') {
+            // Portfolio Agent sees: own customers + customers from paired CSRs
+            $pairedCsrIds = User::where('portfolio_agent_id', $user->id)->pluck('id');
+
             return parent::getEloquentQuery()
-                ->where('rep_acceptance_status', 'accepted')
-                ->where('rep_id', $user->id);
+                ->where(function (Builder $q) use ($user, $pairedCsrIds) {
+                    $q->where(function (Builder $sub) use ($user) {
+                        $sub->where('rep_acceptance_status', 'accepted')
+                            ->where('rep_id', $user->id);
+                    })->orWhere(function (Builder $sub) use ($pairedCsrIds) {
+                        $sub->whereIn('agent_id', $pairedCsrIds);
+                    });
+                });
         } elseif ($user->role === 'lead') {
             $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
 

@@ -81,7 +81,7 @@ class CustomerResource extends Resource implements CopilotResource
         }
 
         // Field agents see only theirs
-        if (in_array($user->role, ['field_agent', 'direct_sales', 'open_market', 'retail_market'])) {
+        if (in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             return parent::getEloquentQuery()->where('agent_id', $user->id);
         }
 
