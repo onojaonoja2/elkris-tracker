@@ -35,19 +35,29 @@ class WarehousesTable
                 TextColumn::make('salesPerson.name')
                     ->label('Sales Person'),
 
+                TextColumn::make('is_active')
+                    ->label('Active')
+                    ->badge()
+                    ->color(fn (bool $state) => $state ? 'success' : 'danger')
+                    ->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No')
+                    ->visible(fn () => auth()->user()->role !== 'admin'),
+
                 ToggleColumn::make('is_active')
-                    ->label('Active'),
+                    ->label('Active')
+                    ->visible(fn () => auth()->user()->role === 'admin'),
             ])
             ->filters([
                 //
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->role === 'admin'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()->role === 'admin'),
                 ]),
             ]);
     }

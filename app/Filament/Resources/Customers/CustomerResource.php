@@ -28,7 +28,7 @@ class CustomerResource extends Resource implements CopilotResource
 
     public static function canCreate(): bool
     {
-        return ! in_array(auth()->user()->role, ['sales', 'supervisor', 'accountant']);
+        return ! in_array(auth()->user()->role, ['sales', 'supervisor', 'accountant', 'warehouse_manager']);
     }
 
     public static function shouldRegisterNavigation(): bool

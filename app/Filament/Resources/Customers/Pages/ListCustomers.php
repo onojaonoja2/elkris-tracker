@@ -15,7 +15,7 @@ class ListCustomers extends ListRecords
     {
         return [
             CreateAction::make()
-                ->hidden(fn () => in_array(auth()->user()->role, ['sales', 'accountant'])),
+                ->hidden(fn () => in_array(auth()->user()->role, ['sales', 'accountant', 'warehouse_manager'])),
             Action::make('import')
                 ->label('Import Customers')
                 ->icon('heroicon-o-arrow-up-tray')

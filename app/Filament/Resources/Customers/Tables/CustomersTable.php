@@ -335,11 +335,12 @@ class CustomersTable
 
                 ViewAction::make(),
                 EditAction::make()
-                    ->visible(fn () => auth()->user()->role !== 'sales'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['sales', 'warehouse_manager'])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => ! in_array(auth()->user()->role, ['sales', 'warehouse_manager'])),
                 ]),
             ]);
     }

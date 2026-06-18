@@ -47,17 +47,17 @@ class WarehouseResource extends Resource
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager']);
+        return in_array(auth()->user()->role, ['admin']);
     }
 
     public static function canEditAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return in_array(auth()->user()->role, ['admin']);
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return in_array(auth()->user()->role, ['admin']);
     }
 
     public static function getPages(): array
