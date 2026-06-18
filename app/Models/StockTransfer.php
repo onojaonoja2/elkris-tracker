@@ -17,6 +17,7 @@ class StockTransfer extends Model
         'dispatched_by', 'received_by', 'received_at',
         'status', 'notes',
         'requested_by', 'approved_by', 'approved_at', 'rejection_reason',
+        'source_type', 'source_name', 'dispatch_papers_path', 'requires_approval',
     ];
 
     protected function casts(): array

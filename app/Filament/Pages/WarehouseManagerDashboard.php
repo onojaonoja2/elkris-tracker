@@ -6,11 +6,12 @@ use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
 use App\Models\Inventory;
 use App\Models\ProductType;
-use App\Models\StockTransaction;
 use App\Models\StockTransfer;
+use App\Models\User;
 use App\Models\Warehouse;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -69,9 +70,36 @@ class WarehouseManagerDashboard extends BaseDashboard
                 ->form([
                     Select::make('warehouse_id')
                         ->label('Warehouse')
-                        ->options(fn () => Warehouse::where('manager_id', auth()->id())->pluck('name', 'id'))
+                        ->options(fn () => Warehouse::pluck('name', 'id'))
                         ->searchable()
                         ->required(),
+                    Select::make('source_type')
+                        ->label('Stock Source')
+                        ->options([
+                            'warehouse' => 'From Warehouse',
+                            'other' => 'Other',
+                        ])
+                        ->default('warehouse')
+                        ->required()
+                        ->live(),
+                    Select::make('source_warehouse_id')
+                        ->label('Source Warehouse')
+                        ->options(fn () => Warehouse::pluck('name', 'id'))
+                        ->searchable()
+                        ->visible(fn (callable $get) => $get('source_type') === 'warehouse')
+                        ->required(fn (callable $get) => $get('source_type') === 'warehouse'),
+                    TextInput::make('source_name')
+                        ->label('Source Name')
+                        ->placeholder('e.g. Supplier ABC, Company XYZ')
+                        ->visible(fn (callable $get) => $get('source_type') === 'other')
+                        ->required(fn (callable $get) => $get('source_type') === 'other'),
+                    FileUpload::make('dispatch_papers')
+                        ->label('Dispatch Papers')
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+                        ->maxSize(10240)
+                        ->directory('dispatch-papers')
+                        ->multiple()
+                        ->visible(fn (callable $get) => $get('source_type') === 'other'),
                     Repeater::make('items')
                         ->label('Stock Items')
                         ->schema([
@@ -106,49 +134,59 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 ->integer()
                                 ->minValue(1)
                                 ->required(),
-                            TextInput::make('supplier')
-                                ->label('Supplier / Source'),
                         ])
                         ->addActionLabel('Add Item')
                         ->defaultItems(1)
                         ->minItems(1)
                         ->required(),
+                    Textarea::make('notes')
+                        ->label('Notes'),
                 ])
                 ->action(function (array $data) {
                     $user = auth()->user();
-                    $warehouse = Warehouse::find($data['warehouse_id']);
+                    $sourceType = $data['source_type'] ?? 'warehouse';
 
-                    foreach ($data['items'] as $item) {
-                        $transaction = StockTransaction::create([
-                            'type' => 'received',
-                            'product_name' => ProductType::find($item['product_type_id'])?->name ?? 'Unknown',
-                            'grammage' => $item['grammage'],
-                            'quantity' => $item['quantity'],
-                            'user_id' => $user->id,
-                            'transaction_date' => now()->toDateString(),
-                            'disbursed_to' => $item['supplier'] ?? null,
-                        ]);
-
-                        $inv = Inventory::firstOrCreate(
-                            [
-                                'warehouse_id' => $warehouse->id,
-                                'product_type_id' => $item['product_type_id'],
-                                'grammage' => $item['grammage'],
-                            ],
-                            ['quantity' => 0]
-                        );
-                        $inv->increment('quantity', $item['quantity']);
-
-                        $pdf = Pdf::loadView('pdf.goods-received-note', [
-                            'transaction' => $transaction,
-                            'warehouse' => $warehouse,
-                        ]);
-
-                        $pdfPath = storage_path('app/public/grn-'.$transaction->id.'.pdf');
-                        $pdf->save($pdfPath);
+                    // Store dispatch papers if uploaded
+                    $papersPath = null;
+                    if ($sourceType === 'other' && ! empty($data['dispatch_papers'])) {
+                        $papers = $data['dispatch_papers'];
+                        if (is_array($papers)) {
+                            $paths = [];
+                            foreach ($papers as $paper) {
+                                $paths[] = $paper->store('dispatch-papers', 'public');
+                            }
+                            $papersPath = json_encode($paths);
+                        } else {
+                            $papersPath = $papers->store('dispatch-papers', 'public');
+                        }
                     }
 
-                    Notification::make()->title('Stock received successfully')->success()->send();
+                    $transfer = StockTransfer::create([
+                        'from_warehouse_id' => $sourceType === 'warehouse' ? ($data['source_warehouse_id'] ?? null) : null,
+                        'to_warehouse_id' => $data['warehouse_id'],
+                        'dispatched_by' => $user->id,
+                        'requested_by' => $user->id,
+                        'status' => 'requested',
+                        'source_type' => $sourceType,
+                        'source_name' => $sourceType === 'other' ? ($data['source_name'] ?? null) : null,
+                        'dispatch_papers_path' => $papersPath,
+                        'requires_approval' => true,
+                        'notes' => $data['notes'] ?? null,
+                    ]);
+
+                    foreach ($data['items'] as $item) {
+                        $transfer->items()->create([
+                            'product_type_id' => $item['product_type_id'],
+                            'grammage' => $item['grammage'],
+                            'quantity' => $item['quantity'],
+                        ]);
+                    }
+
+                    Notification::make()
+                        ->title('Stock receive request submitted')
+                        ->body('Awaiting accountant approval before stock is added to inventory.')
+                        ->success()
+                        ->send();
                 }),
 
             Action::make('dispatchStock')
@@ -178,6 +216,14 @@ class WarehouseManagerDashboard extends BaseDashboard
                         ->searchable()
                         ->visible(fn (callable $get) => $get('to_type') === 'warehouse')
                         ->required(fn (callable $get) => $get('to_type') === 'warehouse'),
+                    Select::make('to_agent_id')
+                        ->label('Select CSR')
+                        ->options(fn () => User::where('role', 'community_sales_representative')
+                            ->where('is_active', true)
+                            ->pluck('name', 'id'))
+                        ->searchable()
+                        ->visible(fn (callable $get) => $get('to_type') === 'community_sales_representative')
+                        ->required(fn (callable $get) => $get('to_type') === 'community_sales_representative'),
                     Repeater::make('items')
                         ->label('Stock Items')
                         ->schema([
@@ -231,6 +277,10 @@ class WarehouseManagerDashboard extends BaseDashboard
 
                     if (($data['to_type'] ?? null) === 'warehouse') {
                         $transferData['to_warehouse_id'] = $data['to_warehouse_id'];
+                    }
+
+                    if (($data['to_type'] ?? null) === 'community_sales_representative') {
+                        $transferData['to_agent_id'] = $data['to_agent_id'];
                     }
 
                     $transfer = StockTransfer::create($transferData);

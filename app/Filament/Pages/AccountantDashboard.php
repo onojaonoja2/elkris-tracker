@@ -8,6 +8,7 @@ use App\Filament\Widgets\AccountantSalesRecordsWidget;
 use App\Filament\Widgets\AccountantStatsOverviewWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
+use App\Filament\Widgets\AccountantStockReceiveRequestsWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class AccountantDashboard extends BaseDashboard
@@ -47,6 +48,7 @@ class AccountantDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            AccountantStockReceiveRequestsWidget::class,
             AccountantCustomersWidget::class,
             AccountantSalesRecordsWidget::class,
             AccountantRepSalesWidget::class,
