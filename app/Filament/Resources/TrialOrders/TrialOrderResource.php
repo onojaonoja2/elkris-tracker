@@ -42,7 +42,7 @@ class TrialOrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'sales', 'admin', 'field_agent']);
+        return in_array(auth()->user()->role, ['sales', 'admin', 'field_agent']);
     }
 
     public static function canCreate(): bool
@@ -72,7 +72,7 @@ class TrialOrderResource extends Resource
 
     public static function canViewRecord(TrialOrder $record): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'sales', 'admin', 'field_agent']);
+        return in_array(auth()->user()->role, ['sales', 'admin', 'field_agent']);
     }
 
     public static function getEloquentQuery(): Builder

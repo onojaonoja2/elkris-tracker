@@ -4,10 +4,13 @@ namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
 use App\Models\SalesRecord;
+use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Support\Facades\DB;
@@ -27,14 +30,27 @@ class AccountantSalesRecordsWidget extends TableWidget
         return auth()->user()->role === 'accountant';
     }
 
+    protected function getFilteredQuery()
+    {
+        $query = SalesRecord::where('status', 'receipt_uploaded')
+            ->orderBy('created_at', 'desc');
+
+        $filters = $this->tableFilters['date_range'] ?? [];
+
+        if ($filters['from'] ?? null) {
+            $query->whereDate('created_at', '>=', $filters['from']);
+        }
+        if ($filters['until'] ?? null) {
+            $query->whereDate('created_at', '<=', $filters['until']);
+        }
+
+        return $query;
+    }
+
     public function table(Table $table): Table
     {
         return $table
-            ->query(
-                SalesRecord::where('status', 'receipt_uploaded')
-                    ->orderBy('created_at', 'desc')
-                    ->limit(20)
-            )
+            ->query(fn () => $this->getFilteredQuery())
             ->columns([
                 TextColumn::make('agent.name')
                     ->label('Agent'),
@@ -57,6 +73,36 @@ class AccountantSalesRecordsWidget extends TableWidget
                 TextColumn::make('created_at')
                     ->label('Submitted')
                     ->dateTime(),
+            ])
+            ->filters([
+                Filter::make('date_range')
+                    ->label('Date Range')
+                    ->form([
+                        DatePicker::make('from')
+                            ->label('From Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                        DatePicker::make('until')
+                            ->label('Until Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['from'] ?? null) {
+                            $indicators[] = 'From '.Carbon::parse($data['from'])->toFormattedDateString();
+                        }
+                        if ($data['until'] ?? null) {
+                            $indicators[] = 'Until '.Carbon::parse($data['until'])->toFormattedDateString();
+                        }
+
+                        return $indicators;
+                    }),
             ])
             ->recordActions([
                 Action::make('approveByAccountant')
@@ -150,6 +196,39 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
             ])
-            ->paginated(false);
+            ->headerActions([
+                Action::make('export')
+                    ->label('Export to Excel')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(function () {
+                        $records = $this->getFilteredQuery()->get();
+                        $data = [];
+                        foreach ($records as $record) {
+                            $data[] = [
+                                $record->agent?->name ?? 'N/A',
+                                $record->agent_type,
+                                $record->total_value,
+                                $record->vendor_name ?? '-',
+                                $record->business_name ?? '-',
+                                $record->status,
+                                $record->created_at->format('d/m/Y H:i'),
+                            ];
+                        }
+
+                        return response()->streamDownload(function () use ($data) {
+                            $file = fopen('php://output', 'w');
+                            fputcsv($file, ['Agent', 'Type', 'Total Value (₦)', 'Vendor', 'Business', 'Status', 'Submitted']);
+                            foreach ($data as $row) {
+                                fputcsv($file, $row);
+                            }
+                            fclose($file);
+                        }, 'sales_records_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                            'Content-Type' => 'text/csv',
+                            'Content-Disposition' => 'attachment',
+                        ]);
+                    }),
+            ])
+            ->paginated(20);
     }
 }

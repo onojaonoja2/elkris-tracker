@@ -28,7 +28,7 @@ class CustomerResource extends Resource implements CopilotResource
 
     public static function canCreate(): bool
     {
-        return ! in_array(auth()->user()->role, ['sales', 'supervisor']);
+        return ! in_array(auth()->user()->role, ['sales', 'supervisor', 'accountant']);
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -66,7 +66,7 @@ class CustomerResource extends Resource implements CopilotResource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (in_array($user->role, ['admin', 'manager'])) {
+        if (in_array($user->role, ['admin', 'manager', 'accountant'])) {
             return parent::getEloquentQuery();
         }
 

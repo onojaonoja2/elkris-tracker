@@ -2,12 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AccountantCustomersWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
 use App\Filament\Widgets\AccountantSalesRecordsWidget;
 use App\Filament\Widgets\AccountantStatsOverviewWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
-use App\Filament\Widgets\AccountantTrialOrdersWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class AccountantDashboard extends BaseDashboard
@@ -47,8 +47,8 @@ class AccountantDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            AccountantCustomersWidget::class,
             AccountantSalesRecordsWidget::class,
-            AccountantTrialOrdersWidget::class,
             AccountantRepSalesWidget::class,
             AccountantStockLevelsWidget::class,
             AccountantStockMovementsWidget::class,

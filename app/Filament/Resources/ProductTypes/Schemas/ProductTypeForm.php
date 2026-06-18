@@ -27,8 +27,14 @@ class ProductTypeForm
                             ->integer()
                             ->minValue(1)
                             ->required(),
+                        TextInput::make('carton_quantity')
+                            ->label('Pieces per Carton')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->required(),
                     ])
-                    ->itemLabel(fn (array $state): ?string => $state['grammage'] ?? null)
+                    ->itemLabel(fn (array $state): ?string => isset($state['grammage']) ? "{$state['grammage']}g ({$state['carton_quantity']} pcs/carton)" : null)
                     ->addActionLabel('Add Weight')
                     ->defaultItems(1)
                     ->minItems(1)

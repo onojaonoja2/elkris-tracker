@@ -3,16 +3,13 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\OrderStatus;
-use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
-use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\SalesRecord;
-use App\Models\TrialOrder;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
@@ -24,14 +21,7 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $pendingTrialOrders = TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)
-            ->whereNotNull('agent_id')
-            ->count();
-
         $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
-
-        $totalTrialOrdersValue = TrialOrder::where('status', TrialOrderStatus::Approved)
-            ->sum('total_value');
 
         $totalSalesRecordsValue = SalesRecord::where('status', 'approved')
             ->sum('total_value');
@@ -44,21 +34,16 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
         $totalAgentStock = AgentStock::sum('quantity');
 
-        $totalChannelValue = $totalTrialOrdersValue + $totalSalesRecordsValue;
+        $totalChannelValue = $totalSalesRecordsValue;
 
         return [
-            Stat::make('Pending Trial Orders', $pendingTrialOrders)
-                ->description('Pending accountant verification')
-                ->icon('heroicon-o-document-text')
-                ->color('warning')
-                ->url(TrialOrderResource::getUrl('index')),
             Stat::make('Pending Sales Records', $pendingSalesRecords)
                 ->description('Pending accountant verification')
                 ->icon('heroicon-o-receipt-percent')
                 ->color('warning')
                 ->url(SalesRecordResource::getUrl('index')),
             Stat::make('Channel Sales Value', self::formatCurrency($totalChannelValue))
-                ->description('Approved trial orders + sales records')
+                ->description('Sales records')
                 ->icon('heroicon-o-banknotes')
                 ->color('success'),
             Stat::make('Rep Sales Value', self::formatCurrency($repSalesValue))
