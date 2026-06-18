@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
+use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomersWidget;
 use App\Filament\Widgets\ManagerPeopleByStateWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
@@ -64,6 +65,7 @@ class ManagerDashboard extends BaseDashboard
             ManagerPeopleByStateWidget::class,
             ManagerTrialOrdersByStateWidget::class,
             ManagerSalesRecordsByStateWidget::class,
+            ManagerCreditSalesWidget::class,
             ManagerStockLevelsOverviewWidget::class,
             ManagerStockMovementsWidget::class,
             ManagerCustomersWidget::class,

@@ -20,6 +20,12 @@ class CsrStatsWidget extends StatsOverviewWidget
         $totalSalesRecords = SalesRecord::where('agent_id', $user->id)->count();
         $pairedAgent = $user->portfolioAgent?->name ?? 'Not paired';
 
+        $creditPending = SalesRecord::where('agent_id', $user->id)
+            ->where('is_credit', true)
+            ->where('status', 'approved')
+            ->where('credit_status', 'pending_payment')
+            ->sum('total_value');
+
         return [
             Stat::make('Stock Quantity', number_format($stockQuantity))
                 ->description('Current stock on hand')
@@ -33,6 +39,10 @@ class CsrStatsWidget extends StatsOverviewWidget
                 ->description('Total sales records')
                 ->color('warning')
                 ->descriptionIcon('heroicon-o-document-text'),
+            Stat::make('Credit Pending', '₦'.number_format($creditPending))
+                ->description('Outstanding credit collections')
+                ->color('danger')
+                ->descriptionIcon('heroicon-o-clock'),
             Stat::make('Portfolio Agent', $pairedAgent)
                 ->description('Your paired Elkris Portfolio Agent')
                 ->color('primary')

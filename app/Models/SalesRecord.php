@@ -23,6 +23,14 @@ class SalesRecord extends Model
         'supervisor_verified_by',
         'accountant_notes',
         'supervisor_notes',
+        'is_credit',
+        'customer_name',
+        'customer_phone',
+        'expected_collection_date',
+        'credit_status',
+        'collected_at',
+        'collected_by',
+        'credit_notes',
     ];
 
     protected function casts(): array
@@ -32,6 +40,9 @@ class SalesRecord extends Model
             'total_value' => 'decimal:2',
             'accountant_verified_at' => 'datetime',
             'supervisor_verified_at' => 'datetime',
+            'is_credit' => 'boolean',
+            'expected_collection_date' => 'date',
+            'collected_at' => 'datetime',
         ];
     }
 
@@ -53,5 +64,10 @@ class SalesRecord extends Model
     public function supervisorVerifier(): BelongsTo
     {
         return $this->belongsTo(User::class, 'supervisor_verified_by');
+    }
+
+    public function collector(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collected_by');
     }
 }

@@ -33,6 +33,12 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             ->count();
         $stockUnits = AgentStock::whereIn('user_id', $csrIds)->sum('quantity');
 
+        $creditOutstanding = SalesRecord::whereIn('agent_id', $csrIds)
+            ->where('is_credit', true)
+            ->where('status', 'approved')
+            ->where('credit_status', 'pending_payment')
+            ->sum('total_value');
+
         return [
             Stat::make('CSRs', number_format($csrCount))
                 ->description('Active CSRs')
@@ -54,6 +60,11 @@ class SupervisorStatsWidget extends StatsOverviewWidget
                 ->description('Awaiting approval')
                 ->icon('heroicon-o-clock')
                 ->color('warning'),
+
+            Stat::make('Credit Outstanding', '₦'.number_format($creditOutstanding))
+                ->description('Pending credit collection')
+                ->icon('heroicon-o-clock')
+                ->color('danger'),
 
             Stat::make('Stock Units', number_format($stockUnits))
                 ->description('Total CSR stock on hand')

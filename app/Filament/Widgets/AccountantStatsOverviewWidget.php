@@ -36,12 +36,21 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
         $totalChannelValue = $totalSalesRecordsValue;
 
+        $creditSalesOutstanding = SalesRecord::where('is_credit', true)
+            ->where('status', 'approved')
+            ->where('credit_status', 'pending_payment')
+            ->sum('total_value');
+
         return [
             Stat::make('Pending Sales Records', $pendingSalesRecords)
                 ->description('Pending accountant verification')
                 ->icon('heroicon-o-receipt-percent')
                 ->color('warning')
                 ->url(SalesRecordResource::getUrl('index')),
+            Stat::make('Credit Sales Outstanding', self::formatCurrency($creditSalesOutstanding))
+                ->description('Pending credit collection')
+                ->icon('heroicon-o-clock')
+                ->color('danger'),
             Stat::make('Channel Sales Value', self::formatCurrency($totalChannelValue))
                 ->description('Sales records')
                 ->icon('heroicon-o-banknotes')

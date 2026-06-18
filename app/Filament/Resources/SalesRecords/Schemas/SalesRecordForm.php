@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\SalesRecords\Schemas;
 
 use App\Models\ProductType;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -29,6 +31,35 @@ class SalesRecordForm
                     ->visible(fn () => auth()->user()->role === 'retail_market')
                     ->required(fn () => auth()->user()->role === 'retail_market')
                     ->maxLength(255),
+
+                Toggle::make('is_credit')
+                    ->label('Credit Sale?')
+                    ->helperText('Toggle on if the customer will pay later')
+                    ->default(false)
+                    ->live()
+                    ->columnSpanFull(),
+
+                Section::make('Credit Sale Details')
+                    ->description('Customer information for credit sales.')
+                    ->schema([
+                        TextInput::make('customer_name')
+                            ->label('Customer Name')
+                            ->required()
+                            ->maxLength(255),
+
+                        TextInput::make('customer_phone')
+                            ->label('Customer Phone')
+                            ->maxLength(50),
+
+                        DatePicker::make('expected_collection_date')
+                            ->label('Expected Collection Date')
+                            ->required()
+                            ->native(false)
+                            ->minDate(now()->toDateString()),
+                    ])
+                    ->columns(3)
+                    ->visible(fn (Get $get) => (bool) $get('is_credit'))
+                    ->columnSpanFull(),
 
                 Section::make('Products Sold')
                     ->description('Add the products sold in this transaction.')
@@ -103,6 +134,8 @@ class SalesRecordForm
                     ->directory('receipts/sales-records')
                     ->visibility('private')
                     ->imageEditor()
+                    ->required(fn (Get $get) => ! (bool) $get('is_credit'))
+                    ->visible(fn (Get $get) => ! (bool) $get('is_credit'))
                     ->columnSpanFull(),
 
                 TextInput::make('total_value')

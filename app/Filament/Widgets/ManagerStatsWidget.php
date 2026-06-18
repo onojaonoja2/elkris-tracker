@@ -105,6 +105,11 @@ class ManagerStatsWidget extends BaseWidget
         $warehouseStockUnits = Inventory::sum('quantity');
         $agentStockUnits = AgentStock::sum('quantity');
 
+        $creditSalesOutstanding = SalesRecord::where('is_credit', true)
+            ->where('status', 'approved')
+            ->where('credit_status', 'pending_payment')
+            ->sum('total_value');
+
         return [
             Stat::make('Total Customers', $totalCustomers)
                 ->description($conversionRate.'% conversion rate')
@@ -156,6 +161,10 @@ class ManagerStatsWidget extends BaseWidget
                 ->icon('heroicon-o-user-group')
                 ->color('success')
                 ->url(StockTransactionResource::getUrl('index')),
+            Stat::make('Credit Sales', self::formatCurrency($creditSalesOutstanding))
+                ->description('Pending credit collection')
+                ->icon('heroicon-o-clock')
+                ->color('danger'),
         ];
     }
 

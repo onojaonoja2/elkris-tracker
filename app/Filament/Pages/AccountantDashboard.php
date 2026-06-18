@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AccountantCreditSalesWidget;
 use App\Filament\Widgets\AccountantCustomersWidget;
 use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
@@ -53,6 +54,7 @@ class AccountantDashboard extends BaseDashboard
             AccountantStockReceiveRequestsWidget::class,
             AccountantDamagedReturnsWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            AccountantCreditSalesWidget::class,
             AccountantCustomersWidget::class,
             AccountantSalesRecordsWidget::class,
             AccountantRepSalesWidget::class,

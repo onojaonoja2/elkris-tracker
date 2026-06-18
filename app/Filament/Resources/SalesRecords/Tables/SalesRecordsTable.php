@@ -6,6 +6,7 @@ use App\Models\AgentStock;
 use App\Models\SalesRecord;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -37,6 +38,15 @@ class SalesRecordsTable
                         'retail_market' => 'info',
                         default => 'gray',
                     }),
+                TextColumn::make('is_credit')
+                    ->label('Sale Type')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Credit' : 'Paid')
+                    ->color(fn (bool $state): string => $state ? 'warning' : 'success'),
+                TextColumn::make('customer_name')
+                    ->label('Customer')
+                    ->placeholder('-')
+                    ->searchable(),
                 TextColumn::make('vendor_name')
                     ->label('Market / Vendor')
                     ->placeholder('-'),
@@ -52,6 +62,21 @@ class SalesRecordsTable
                     ->formatStateUsing(fn ($products) => collect($products)->map(fn ($p) => "{$p['quantity']}x {$p['product_name']}")->implode(', '))
                     ->limit(50)
                     ->toggleable(),
+                TextColumn::make('expected_collection_date')
+                    ->label('Expected Date')
+                    ->date()
+                    ->placeholder('-'),
+                TextColumn::make('credit_status')
+                    ->label('Credit Status')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => str_replace('_', ' ', ucfirst($state ?? '')))
+                    ->color(fn (?string $state): string => match ($state) {
+                        'pending_payment' => 'warning',
+                        'collected' => 'success',
+                        'overdue' => 'danger',
+                        default => 'gray',
+                    })
+                    ->placeholder('-'),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -93,6 +118,49 @@ class SalesRecordsTable
                                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     }),
+
+                Filter::make('is_credit')
+                    ->label('Sale Type')
+                    ->form([
+                        Select::make('sale_type')
+                            ->label('Type')
+                            ->options([
+                                'paid' => 'Paid',
+                                'credit' => 'Credit',
+                            ])
+                            ->placeholder('All'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                ($data['sale_type'] ?? null) === 'paid',
+                                fn (Builder $query) => $query->where('is_credit', false),
+                            )
+                            ->when(
+                                ($data['sale_type'] ?? null) === 'credit',
+                                fn (Builder $query) => $query->where('is_credit', true),
+                            );
+                    }),
+
+                Filter::make('credit_status')
+                    ->label('Credit Status')
+                    ->form([
+                        Select::make('credit_status_filter')
+                            ->label('Status')
+                            ->options([
+                                'pending_payment' => 'Pending Payment',
+                                'collected' => 'Collected',
+                                'overdue' => 'Overdue',
+                            ])
+                            ->placeholder('All'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                ($data['credit_status_filter'] ?? null) !== null && ($data['credit_status_filter'] ?? null) !== '',
+                                fn (Builder $query) => $query->where('credit_status', $data['credit_status_filter']),
+                            );
+                    }),
             ])
             ->recordActions([
 
@@ -101,7 +169,7 @@ class SalesRecordsTable
                     ->label('Approve (Accountant)')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (SalesRecord $record) => $record->status === 'receipt_uploaded' && auth()->user()->role === 'accountant')
+                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->role === 'accountant')
                     ->form(function () {
                         return [
                             Textarea::make('accountant_notes')
@@ -142,7 +210,7 @@ class SalesRecordsTable
                                 }
                             }
 
-                            if ($record->agent_id) {
+                            if (! $record->is_credit && $record->agent_id) {
                                 $record->agent?->increment('stock_balance', $record->total_value);
                             }
 
@@ -165,7 +233,7 @@ class SalesRecordsTable
                     ->label('Reject (Accountant)')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (SalesRecord $record) => $record->status === 'receipt_uploaded' && auth()->user()->role === 'accountant')
+                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->role === 'accountant')
                     ->form([
                         Textarea::make('accountant_notes')
                             ->label('Reason for Rejection')
@@ -181,6 +249,37 @@ class SalesRecordsTable
                         Notification::make()->title('Sales record rejected')->danger()->send();
                     })
                     ->requiresConfirmation(),
+
+                // ACCOUNTANT: Mark Credit Sale as Collected
+                Action::make('markCollected')
+                    ->label('Mark as Collected')
+                    ->icon('heroicon-o-banknotes')
+                    ->color('success')
+                    ->visible(fn (SalesRecord $record) => $record->is_credit
+                        && $record->status === 'approved'
+                        && $record->credit_status === 'pending_payment'
+                        && auth()->user()->role === 'accountant')
+                    ->form([
+                        Textarea::make('credit_notes')
+                            ->label('Collection Notes'),
+                    ])
+                    ->action(function (SalesRecord $record, array $data) {
+                        if ($record->agent_id) {
+                            $record->agent?->increment('stock_balance', $record->total_value);
+                        }
+
+                        $record->update([
+                            'credit_status' => 'collected',
+                            'collected_at' => now(),
+                            'collected_by' => auth()->id(),
+                            'credit_notes' => $data['credit_notes'] ?? null,
+                        ]);
+
+                        Notification::make()->title('Credit sale marked as collected')->success()->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark Credit as Collected')
+                    ->modalDescription('Confirm payment has been received. The agent\'s stock balance will be credited.'),
 
                 // View Receipt
                 Action::make('viewReceipt')

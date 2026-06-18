@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AgentCreditSalesWidget;
 use App\Filament\Widgets\CsrPendingDispatchesWidget;
 use App\Filament\Widgets\CsrSalesRecordsWidget;
 use App\Filament\Widgets\CsrStatsWidget;
@@ -52,6 +53,7 @@ class CsrDashboard extends BaseDashboard
         return [
             CsrPendingDispatchesWidget::class,
             CsrSalesRecordsWidget::class,
+            AgentCreditSalesWidget::class,
             DamagedStockReturnFormWidget::class,
         ];
     }

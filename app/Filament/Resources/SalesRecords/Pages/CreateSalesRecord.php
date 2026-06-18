@@ -43,7 +43,12 @@ class CreateSalesRecord extends CreateRecord
             }
         }
 
-        $data['status'] = 'receipt_uploaded';
+        if (! empty($data['is_credit'])) {
+            $data['status'] = 'pending';
+            $data['credit_status'] = 'pending_payment';
+        } else {
+            $data['status'] = 'receipt_uploaded';
+        }
 
         return $data;
     }
