@@ -70,8 +70,10 @@ class WarehouseManagerDashboard extends BaseDashboard
                 ->form([
                     Select::make('warehouse_id')
                         ->label('Warehouse')
-                        ->options(fn () => Warehouse::pluck('name', 'id'))
-                        ->searchable()
+                        ->options(fn () => Warehouse::where('manager_id', auth()->id())->pluck('name', 'id'))
+                        ->default(fn () => Warehouse::where('manager_id', auth()->id())->value('id'))
+                        ->disabled()
+                        ->dehydrated()
                         ->required(),
                     Select::make('source_type')
                         ->label('Stock Source')
@@ -151,13 +153,9 @@ class WarehouseManagerDashboard extends BaseDashboard
                     if ($sourceType === 'other' && ! empty($data['dispatch_papers'])) {
                         $papers = $data['dispatch_papers'];
                         if (is_array($papers)) {
-                            $paths = [];
-                            foreach ($papers as $paper) {
-                                $paths[] = $paper->store('dispatch-papers', 'public');
-                            }
-                            $papersPath = json_encode($paths);
+                            $papersPath = json_encode($papers);
                         } else {
-                            $papersPath = $papers->store('dispatch-papers', 'public');
+                            $papersPath = $papers;
                         }
                     }
 
