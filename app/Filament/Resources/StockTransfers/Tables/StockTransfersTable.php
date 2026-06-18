@@ -9,16 +9,19 @@ use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\StockTransferService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
@@ -45,7 +48,7 @@ class StockTransfersTable
                 TextColumn::make('items')
                     ->label('Items')
                     ->formatStateUsing(fn ($record): string => $record->items->map(
-                        fn ($item) => ($item->productType?->name ?? '').' x'.$item->quantity
+                        fn ($item) => ($item->productType?->name ?? '')." {$item->grammage}g x".$item->quantity
                     )->implode(', '))
                     ->limit(60),
 
@@ -78,6 +81,34 @@ class StockTransfersTable
                     ->date(),
             ])
             ->filters([
+                Filter::make('date_range')
+                    ->label('Date Range')
+                    ->form([
+                        DatePicker::make('from')
+                            ->label('From Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                        DatePicker::make('until')
+                            ->label('Until Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        return $query
+                            ->when($data['from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['from'] ?? null) {
+                            $indicators[] = 'From '.Carbon::parse($data['from'])->toFormattedDateString();
+                        }
+                        if ($data['until'] ?? null) {
+                            $indicators[] = 'Until '.Carbon::parse($data['until'])->toFormattedDateString();
+                        }
+
+                        return $indicators;
+                    }),
                 SelectFilter::make('status')
                     ->options(StockTransferStatus::class),
             ])

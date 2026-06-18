@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\WarehouseManagerStatsWidget;
+use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
 use App\Models\Inventory;
 use App\Models\ProductType;
@@ -56,6 +57,7 @@ class WarehouseManagerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            WarehouseManagerStockBreakdownWidget::class,
             WarehouseRecentMovementsWidget::class,
         ];
     }

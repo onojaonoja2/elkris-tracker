@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\AgentStockBalanceWidget;
 use App\Filament\Widgets\AgentStockCardsWidget;
+use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Filament\Widgets\FieldAgentDailySubmissionsWidget;
 use App\Filament\Widgets\FieldAgentReplaceCustomersWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
@@ -59,6 +60,7 @@ class AgentDashboard extends BaseDashboard
         }
 
         $base[] = AgentStockBalanceWidget::class;
+        $base[] = DamagedStockReturnFormWidget::class;
 
         return $base;
     }

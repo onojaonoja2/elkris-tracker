@@ -6,6 +6,7 @@ use App\Filament\Widgets\CsrPendingDispatchesWidget;
 use App\Filament\Widgets\CsrSalesRecordsWidget;
 use App\Filament\Widgets\CsrStatsWidget;
 use App\Filament\Widgets\CsrStocksWidget;
+use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Models\ProductType;
 use App\Models\StockTransfer;
 use App\Models\User;
@@ -51,6 +52,7 @@ class CsrDashboard extends BaseDashboard
         return [
             CsrPendingDispatchesWidget::class,
             CsrSalesRecordsWidget::class,
+            DamagedStockReturnFormWidget::class,
         ];
     }
 

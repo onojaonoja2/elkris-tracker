@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\SupervisorCsrListWidget;
 use App\Filament\Widgets\SupervisorSalesByGeoWidget;
 use App\Filament\Widgets\SupervisorSalesRecordsWidget;
@@ -67,6 +68,7 @@ class SupervisorDashboard extends BaseDashboard
             SupervisorCsrListWidget::class,
             SupervisorSalesByGeoWidget::class,
             SupervisorSalesRecordsWidget::class,
+            DamagedReturnsBreakdownWidget::class,
         ];
     }
 
