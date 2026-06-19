@@ -3,7 +3,6 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Customer;
-use App\Models\User;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -16,9 +15,9 @@ use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\On;
 
-class LeadPortfolioWidget extends TableWidget
+class LeadPersonalPortfolioWidget extends TableWidget
 {
-    protected static ?string $heading = 'Team Portfolio';
+    protected static ?string $heading = 'My Personal Portfolio';
 
     protected int|string|array $columnSpan = 'full';
 
@@ -33,12 +32,9 @@ class LeadPortfolioWidget extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(function (): Builder {
-                $leadId = auth()->id();
-
-                return Customer::query()
-                    ->whereHas('leads', fn ($q) => $q->where('users.id', $leadId));
-            })
+            ->query(fn (): Builder => Customer::query()
+                ->where('rep_id', auth()->id())
+                ->where('rep_acceptance_status', 'accepted'))
             ->columns([
                 TextColumn::make('customer_name')
                     ->label('Customer Name')
@@ -46,18 +42,22 @@ class LeadPortfolioWidget extends TableWidget
                 TextColumn::make('phone_number')
                     ->label('Phone')
                     ->searchable(),
-                TextColumn::make('rep.name')
-                    ->label('Assigned Rep')
-                    ->searchable(),
                 TextColumn::make('address')
                     ->label('Address')
                     ->searchable()
                     ->limit(30),
+                TextColumn::make('city')
+                    ->label('City')
+                    ->searchable(),
                 TextColumn::make('total_purchases')
                     ->label('Purchases')
                     ->getStateUsing(fn ($record): int => $record->orders()->where('status', 'delivered')->count())
                     ->sortable()
                     ->color(fn ($state): string => $state > 0 ? 'success' : 'danger'),
+                TextColumn::make('last_called')
+                    ->label('Last Called')
+                    ->getStateUsing(fn ($record): string => $record->callLogs()->latest('called_at')->first()?->called_at?->diffForHumans() ?? 'Never')
+                    ->color(fn ($record): string => $record->callLogs()->latest('called_at')->first()?->called_at?->isPast() ? 'danger' : 'success'),
                 TextColumn::make('created_at')
                     ->label('Date Added')
                     ->date('d/m/Y'),
@@ -99,30 +99,23 @@ class LeadPortfolioWidget extends TableWidget
                         return $query;
                     }),
                 Filter::make('created_at')
+                    ->label('Date Range')
                     ->form([
                         DatePicker::make('created_from')
                             ->label('From Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
                             ->closeOnDateSelection(),
                         DatePicker::make('created_until')
                             ->label('To Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
                             ->closeOnDateSelection(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when($data['created_from'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
                             ->when($data['created_until'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
-                    }),
-                Filter::make('rep_filter')
-                    ->label('Filter by Rep')
-                    ->form([
-                        Select::make('rep_id')
-                            ->label('Select Rep')
-                            ->options(fn () => User::where('lead_id', auth()->id())->where('role', 'rep')->pluck('name', 'id'))
-                            ->searchable()
-                            ->placeholder('All Reps'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query->when($data['rep_id'], fn ($q) => $q->where('rep_id', $data['rep_id']));
                     }),
             ])
             ->headerActions([
@@ -131,10 +124,9 @@ class LeadPortfolioWidget extends TableWidget
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
                     ->action(function () {
-                        $leadId = auth()->id();
                         $customers = Customer::query()
-                            ->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
-                            ->with('rep')
+                            ->where('rep_id', auth()->id())
+                            ->where('rep_acceptance_status', 'accepted')
                             ->get();
 
                         $data = [];
@@ -142,8 +134,8 @@ class LeadPortfolioWidget extends TableWidget
                             $data[] = [
                                 $customer->customer_name,
                                 $customer->phone_number,
-                                $customer->rep?->name ?? 'Unassigned',
                                 $customer->address,
+                                $customer->city,
                                 $customer->created_at->format('d/m/Y'),
                                 $customer->orders()->where('status', 'delivered')->count(),
                                 $customer->orders()->exists() ? 'Yes' : 'No',
@@ -152,12 +144,12 @@ class LeadPortfolioWidget extends TableWidget
 
                         return response()->streamDownload(function () use ($data) {
                             $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Customer Name', 'Phone', 'Assigned Rep', 'Address', 'Date Added', 'Total Purchases', 'Converted']);
+                            fputcsv($file, ['Customer Name', 'Phone', 'Address', 'City', 'Date Added', 'Total Purchases', 'Converted']);
                             foreach ($data as $row) {
                                 fputcsv($file, $row);
                             }
                             fclose($file);
-                        }, 'portfolio_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                        }, 'lead_personal_portfolio_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
                             'Content-Type' => 'text/csv',
                             'Content-Disposition' => 'attachment',
                         ]);

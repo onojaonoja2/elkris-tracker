@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\CsrOverviewWidget;
 use App\Filament\Widgets\RepPendingAssignmentsWidget;
 use App\Filament\Widgets\RepPortfolioWidget;
 use App\Filament\Widgets\RepStatsWidget;
@@ -52,6 +53,7 @@ class RepDashboard extends BaseDashboard
         return [
             RepPendingAssignmentsWidget::class,
             RepPortfolioWidget::class,
+            CsrOverviewWidget::class,
             UpcomingFollowUps::class,
         ];
     }
