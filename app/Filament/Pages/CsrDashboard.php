@@ -44,6 +44,7 @@ class CsrDashboard extends BaseDashboard
     {
         return [
             CsrStatsWidget::class,
+            AgentCreditSalesWidget::class,
             CsrStocksWidget::class,
         ];
     }
@@ -53,7 +54,6 @@ class CsrDashboard extends BaseDashboard
         return [
             CsrPendingDispatchesWidget::class,
             CsrSalesRecordsWidget::class,
-            AgentCreditSalesWidget::class,
             DamagedStockReturnFormWidget::class,
         ];
     }

@@ -60,8 +60,8 @@ class AgentDashboard extends BaseDashboard
             array_unshift($base, FieldAgentReplaceCustomersWidget::class);
         }
 
-        $base[] = AgentStockBalanceWidget::class;
         $base[] = AgentCreditSalesWidget::class;
+        $base[] = AgentStockBalanceWidget::class;
         $base[] = DamagedStockReturnFormWidget::class;
 
         return $base;

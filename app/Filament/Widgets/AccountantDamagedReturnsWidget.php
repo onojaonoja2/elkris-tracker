@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
 use App\Models\Inventory;
 use Filament\Actions\Action;
@@ -72,6 +73,15 @@ class AccountantDamagedReturnsWidget extends TableWidget
                                 ['quantity' => 0]
                             );
                             $inv->increment('quantity', $record->quantity);
+
+                            $agentStock = AgentStock::where('user_id', $record->user_id)
+                                ->where('product_type_id', $record->product_type_id)
+                                ->where('grammage', $record->grammage)
+                                ->first();
+
+                            if ($agentStock) {
+                                $agentStock->decrement('quantity', $record->quantity);
+                            }
 
                             $record->update([
                                 'status' => 'approved',

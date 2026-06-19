@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
 use App\Models\Inventory;
 use App\Models\ProductType;
@@ -115,13 +116,22 @@ class DamagedStockReturnFormWidget extends TableWidget
                     ])
                     ->action(function (array $data) {
                         $userId = auth()->id();
+                        $user = auth()->user();
+                        $agentRoles = ['community_sales_representative', 'open_market', 'retail_market'];
 
-                        $warehouseIds = Warehouse::where('sales_person_id', $userId)->pluck('id');
+                        if (in_array($user->role, $agentRoles)) {
+                            $availableStock = AgentStock::where('user_id', $userId)
+                                ->where('product_type_id', $data['product_type_id'])
+                                ->where('grammage', $data['grammage'])
+                                ->sum('quantity');
+                        } else {
+                            $warehouseIds = Warehouse::where('sales_person_id', $userId)->pluck('id');
 
-                        $availableStock = Inventory::where('product_type_id', $data['product_type_id'])
-                            ->where('grammage', $data['grammage'])
-                            ->whereIn('warehouse_id', $warehouseIds)
-                            ->sum('quantity');
+                            $availableStock = Inventory::where('product_type_id', $data['product_type_id'])
+                                ->where('grammage', $data['grammage'])
+                                ->whereIn('warehouse_id', $warehouseIds)
+                                ->sum('quantity');
+                        }
 
                         if ($data['quantity'] > $availableStock) {
                             Notification::make()
