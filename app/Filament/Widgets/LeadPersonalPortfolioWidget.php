@@ -33,8 +33,14 @@ class LeadPersonalPortfolioWidget extends TableWidget
     {
         return $table
             ->query(fn (): Builder => Customer::query()
-                ->where('rep_id', auth()->id())
-                ->where('rep_acceptance_status', 'accepted'))
+                ->where('rep_acceptance_status', 'accepted')
+                ->where(function ($q) {
+                    $q->where('rep_id', auth()->id())
+                        ->orWhere(function ($sub) {
+                            $sub->where('lead_id', auth()->id())
+                                ->whereNull('rep_id');
+                        });
+                }))
             ->columns([
                 TextColumn::make('customer_name')
                     ->label('Customer Name')
@@ -125,8 +131,14 @@ class LeadPersonalPortfolioWidget extends TableWidget
                     ->color('info')
                     ->action(function () {
                         $customers = Customer::query()
-                            ->where('rep_id', auth()->id())
                             ->where('rep_acceptance_status', 'accepted')
+                            ->where(function ($q) {
+                                $q->where('rep_id', auth()->id())
+                                    ->orWhere(function ($sub) {
+                                        $sub->where('lead_id', auth()->id())
+                                            ->whereNull('rep_id');
+                                    });
+                            })
                             ->get();
 
                         $data = [];

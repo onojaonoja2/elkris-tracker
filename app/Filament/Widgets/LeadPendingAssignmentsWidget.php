@@ -59,10 +59,12 @@ class LeadPendingAssignmentsWidget extends TableWidget
                         $lead = auth()->user();
 
                         $record->update([
+                            'rep_id' => $lead->id,
                             'rep_acceptance_status' => 'accepted',
                             'rejection_note' => null,
                         ]);
 
+                        $record->reps()->syncWithoutDetaching([$lead->id]);
                         $record->leads()->syncWithoutDetaching([$lead->id]);
                         $this->dispatch('refresh-dashboard');
                     }),
@@ -79,12 +81,14 @@ class LeadPendingAssignmentsWidget extends TableWidget
                     ->action(function ($record, array $data) {
                         $record->update([
                             'rep_id' => null,
+                            'lead_id' => null,
                             'rep_acceptance_status' => 'rejected',
                             'rejected_at' => now(),
                             'rejected_by' => auth()->id(),
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
+                        $record->leads()->detach();
                         $this->dispatch('refresh-dashboard');
                     }),
             ])

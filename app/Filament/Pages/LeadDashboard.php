@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\CreatedPerRepChart;
 use App\Filament\Widgets\CsrOverviewWidget;
 use App\Filament\Widgets\LeadAgentSubmissionsWidget;
 use App\Filament\Widgets\LeadCsrSubmissionsWidget;
@@ -67,7 +66,6 @@ class LeadDashboard extends BaseDashboard
         return [
             LeadPersonalPortfolioWidget::class,
             CsrOverviewWidget::class,
-            CreatedPerRepChart::class,
             UpcomingFollowUps::class,
         ];
     }

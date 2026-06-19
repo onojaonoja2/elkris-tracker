@@ -68,11 +68,15 @@ class LeadCsrSubmissionsWidget extends TableWidget
                     ->color('success')
                     ->icon('heroicon-o-check')
                     ->action(function ($record) {
+                        $lead = auth()->user();
+
                         $record->update([
+                            'rep_id' => $lead->id,
                             'rep_acceptance_status' => 'accepted',
                             'rejection_note' => null,
                         ]);
-                        $record->leads()->syncWithoutDetaching([auth()->id()]);
+                        $record->reps()->syncWithoutDetaching([$lead->id]);
+                        $record->leads()->syncWithoutDetaching([$lead->id]);
                         $this->dispatch('refresh-dashboard');
                     }),
                 Action::make('reject')
@@ -95,6 +99,7 @@ class LeadCsrSubmissionsWidget extends TableWidget
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->leads()->detach();
+                        $record->reps()->detach();
                         $this->dispatch('refresh-dashboard');
                     }),
             ])
