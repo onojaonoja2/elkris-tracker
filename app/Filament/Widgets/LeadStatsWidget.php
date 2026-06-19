@@ -24,7 +24,7 @@ class LeadStatsWidget extends StatsOverviewWidget
 
         $portfolioCustomers = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId));
         $totalPortfolio = $portfolioCustomers->count();
-        $convertedPortfolio = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId))->whereHas('orders')->count();
+        $convertedPortfolio = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId))->whereHas('orders', fn ($q) => $q->where('is_migrated_order', false))->count();
         $conversionRate = $totalPortfolio > 0 ? round(($convertedPortfolio / $totalPortfolio) * 100, 1) : 0;
 
         $customersCount = Customer::whereIn('rep_id', $repIds)

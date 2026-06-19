@@ -55,6 +55,23 @@ class Customer extends Model
         'sort',
     ];
 
+    public function setPhoneNumberAttribute(?string $value): void
+    {
+        if ($value === null) {
+            $this->attributes['phone_number'] = null;
+
+            return;
+        }
+
+        $digits = preg_replace('/[^0-9]/', '', $value);
+
+        if (strlen($digits) === 10) {
+            $digits = '0'.$digits;
+        }
+
+        $this->attributes['phone_number'] = $digits;
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $customer) {

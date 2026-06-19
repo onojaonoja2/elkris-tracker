@@ -57,7 +57,7 @@ class LeadPersonalPortfolioWidget extends TableWidget
                     ->searchable(),
                 TextColumn::make('total_purchases')
                     ->label('Purchases')
-                    ->getStateUsing(fn ($record): int => $record->orders()->where('status', 'delivered')->count())
+                    ->getStateUsing(fn ($record): int => $record->orders()->where('status', 'delivered')->where('is_migrated_order', false)->count())
                     ->sortable()
                     ->color(fn ($state): string => $state > 0 ? 'success' : 'danger'),
                 TextColumn::make('last_called')
@@ -69,7 +69,7 @@ class LeadPersonalPortfolioWidget extends TableWidget
                     ->date('d/m/Y'),
                 BadgeColumn::make('conversion_status')
                     ->label('Conversion')
-                    ->getStateUsing(fn (Customer $record): string => $record->orders()->exists() ? 'Converted' : 'Pending')
+                    ->getStateUsing(fn (Customer $record): string => $record->orders()->where('is_migrated_order', false)->exists() ? 'Converted' : 'Pending')
                     ->colors([
                         'success' => 'Converted',
                         'warning' => 'Pending',
@@ -149,8 +149,8 @@ class LeadPersonalPortfolioWidget extends TableWidget
                                 $customer->address,
                                 $customer->city,
                                 $customer->created_at->format('d/m/Y'),
-                                $customer->orders()->where('status', 'delivered')->count(),
-                                $customer->orders()->exists() ? 'Yes' : 'No',
+                                $customer->orders()->where('status', 'delivered')->where('is_migrated_order', false)->count(),
+                                $customer->orders()->where('is_migrated_order', false)->exists() ? 'Yes' : 'No',
                             ];
                         }
 

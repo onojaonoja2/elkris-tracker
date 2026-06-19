@@ -27,6 +27,7 @@ class AccountantStatsOverviewWidget extends BaseWidget
             ->sum('total_value');
 
         $repSalesValue = Order::where('status', OrderStatus::Delivered)
+            ->where('is_migrated_order', false)
             ->whereHas('customer', fn ($q) => $q->whereNotNull('rep_id'))
             ->sum('total_price');
 

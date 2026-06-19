@@ -66,7 +66,7 @@ class ManagerStatsWidget extends BaseWidget
 
         $convertedCustomers = Customer::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled))
+            ->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))
             ->count();
 
         $trialOrders = TrialOrder::whereDate('created_at', '>=', $from)
@@ -88,11 +88,13 @@ class ManagerStatsWidget extends BaseWidget
         $orders = Order::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->where('status', '!=', OrderStatus::Cancelled)
+            ->where('is_migrated_order', false)
             ->count();
 
         $revenue = Order::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->where('status', '!=', OrderStatus::Cancelled)
+            ->where('is_migrated_order', false)
             ->sum('total_price');
 
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;

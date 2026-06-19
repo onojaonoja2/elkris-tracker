@@ -20,12 +20,12 @@ class LeadOrdersStatsWidget extends StatsOverviewWidget
         $repIds = User::where('lead_id', $leadId)->where('role', 'rep')->pluck('id')->toArray();
         $allUserIds = array_merge([$leadId], $repIds);
 
-        $leadTotal = Order::where('user_id', $leadId)->where('status', 'delivered')->sum('total_price');
-        $repTotal = Order::whereIn('user_id', $repIds)->where('status', 'delivered')->sum('total_price');
+        $leadTotal = Order::where('user_id', $leadId)->where('status', 'delivered')->where('is_migrated_order', false)->sum('total_price');
+        $repTotal = Order::whereIn('user_id', $repIds)->where('status', 'delivered')->where('is_migrated_order', false)->sum('total_price');
         $teamTotal = $leadTotal + $repTotal;
 
-        $leadOrders = Order::where('user_id', $leadId)->count();
-        $repOrders = Order::whereIn('user_id', $repIds)->count();
+        $leadOrders = Order::where('user_id', $leadId)->where('is_migrated_order', false)->count();
+        $repOrders = Order::whereIn('user_id', $repIds)->where('is_migrated_order', false)->count();
         $teamOrders = $leadOrders + $repOrders;
 
         return [

@@ -53,11 +53,11 @@ class GeneralManagerStatsWidget extends BaseWidget
         }
 
         $totalCustomers = Customer::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->count();
-        $convertedCustomers = Customer::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled))->count();
+        $convertedCustomers = Customer::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))->count();
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
-        $revenue = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->sum('total_price');
-        $orders = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->count();
+        $revenue = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
+        $orders = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
         $totalUsers = User::count();
         $pendingTrialOrders = TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)->count();
         $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();

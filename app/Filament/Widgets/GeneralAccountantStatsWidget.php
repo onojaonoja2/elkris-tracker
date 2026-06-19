@@ -24,11 +24,11 @@ class GeneralAccountantStatsWidget extends BaseWidget
     protected function getStats(): array
     {
         $totalCustomers = Customer::count();
-        $convertedCustomers = Customer::whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled))->count();
+        $convertedCustomers = Customer::whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))->count();
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
-        $orders = Order::where('status', '!=', OrderStatus::Cancelled)->count();
-        $revenue = Order::where('status', '!=', OrderStatus::Cancelled)->sum('total_price');
+        $orders = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
+        $revenue = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
 
         $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
         $creditSalesOutstanding = SalesRecord::where('is_credit', true)

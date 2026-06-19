@@ -94,6 +94,7 @@ class ImportCustomers extends Page
                             ->label('Phone Number *')
                             ->options(fn (): array => array_combine($this->fileHeaders, $this->fileHeaders))
                             ->placeholder('-- Select column --')
+                            ->helperText('Excel may strip leading zeros from phone numbers. Format the column as Text before saving. The system will auto-restore the leading zero.')
                             ->required(),
                         Select::make('mapping.address')
                             ->label('Address')
@@ -280,6 +281,10 @@ class ImportCustomers extends Page
             }
 
             $customerData['phone_number'] = preg_replace('/[^0-9]/', '', $customerData['phone_number']);
+
+            if (strlen($customerData['phone_number']) === 10) {
+                $customerData['phone_number'] = '0'.$customerData['phone_number'];
+            }
 
             $validator = Validator::make($customerData, [
                 'customer_name' => ['required', 'string', 'max:255'],

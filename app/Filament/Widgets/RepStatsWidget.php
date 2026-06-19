@@ -30,13 +30,14 @@ class RepStatsWidget extends StatsOverviewWidget
 
         $convertedCount = Customer::where('rep_id', $repId)
             ->where('rep_acceptance_status', 'accepted')
-            ->whereHas('orders')
+            ->whereHas('orders', fn ($q) => $q->where('is_migrated_order', false))
             ->count();
 
         $conversionRate = $portfolioCount > 0 ? round(($convertedCount / $portfolioCount) * 100, 1) : 0;
 
         $ordersTodayQuery = Order::where('user_id', $repId)
-            ->whereDate('created_at', Carbon::today());
+            ->whereDate('created_at', Carbon::today())
+            ->where('is_migrated_order', false);
 
         $ordersToday = $ordersTodayQuery->count();
         $ordersTodayValue = number_format($ordersTodayQuery->sum('total_price'), 2);
