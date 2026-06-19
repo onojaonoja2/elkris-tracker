@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\CreatedPerRepChart;
 use App\Filament\Widgets\LeadAgentSubmissionsWidget;
+use App\Filament\Widgets\LeadCsrSubmissionsWidget;
 use App\Filament\Widgets\LeadOrdersStatsWidget;
 use App\Filament\Widgets\LeadOrdersWidget;
 use App\Filament\Widgets\LeadPendingAssignmentsWidget;
@@ -49,6 +50,7 @@ class LeadDashboard extends BaseDashboard
     {
         return [
             LeadAgentSubmissionsWidget::class,
+            LeadCsrSubmissionsWidget::class,
             LeadPendingAssignmentsWidget::class,
             LeadRejectedCustomersWidget::class,
             LeadPortfolioWidget::class,

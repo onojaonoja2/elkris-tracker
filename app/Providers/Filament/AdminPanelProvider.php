@@ -8,6 +8,8 @@ use App\Filament\Pages\AgentDashboard;
 use App\Filament\Pages\CsrDashboard;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\FieldAgentDashboard;
+use App\Filament\Pages\GeneralAccountantDashboard;
+use App\Filament\Pages\GeneralManagerDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\OrderSettings;
@@ -64,6 +66,8 @@ class AdminPanelProvider extends PanelProvider
                 SalesOrdersDashboard::class,
                 WarehouseManagerDashboard::class,
                 AccountantDashboard::class,
+                GeneralAccountantDashboard::class,
+                GeneralManagerDashboard::class,
                 SystemMaintenance::class,
                 OrderSettings::class,
             ])
@@ -80,6 +84,8 @@ class AdminPanelProvider extends PanelProvider
                     'warehouse_manager' => '/admin/warehouse-dashboard',
                     'accountant' => '/admin/accountant-dashboard',
                     'manager', 'admin' => '/admin/manager-dashboard',
+                    'general_accountant' => '/admin/general-accountant-dashboard',
+                    'general_manager' => '/admin/general-manager-dashboard',
                     default => '/admin',
                 }
                 : url('/admin'))

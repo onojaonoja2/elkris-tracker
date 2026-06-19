@@ -90,7 +90,7 @@ class CsrDashboard extends BaseDashboard
                     ->label('Source Type')
                     ->options([
                         'warehouse' => 'From Warehouse',
-                        'csr_peer' => 'From CSR Peer (Same LGA)',
+                        'csr_peer' => 'From CSR Peer',
                     ])
                     ->default('warehouse')
                     ->required()
@@ -104,9 +104,21 @@ class CsrDashboard extends BaseDashboard
                     ->visible(fn (callable $get) => $get('source_type') === 'warehouse')
                     ->live(),
 
+                Select::make('peer_scope')
+                    ->label('Request From')
+                    ->options([
+                        'lga' => 'Same LGA',
+                        'state' => 'Same State',
+                        'country' => 'Country Wide',
+                    ])
+                    ->default('lga')
+                    ->required()
+                    ->visible(fn (callable $get) => $get('source_type') === 'csr_peer')
+                    ->live(),
+
                 Select::make('from_agent_id')
-                    ->label('From CSR Peer')
-                    ->options(fn () => $this->getCsrPeerOptions())
+                    ->label('Select CSR')
+                    ->options(fn (callable $get) => $this->getCsrPeerOptions($get('peer_scope')))
                     ->searchable()
                     ->required()
                     ->visible(fn (callable $get) => $get('source_type') === 'csr_peer')
@@ -194,18 +206,20 @@ class CsrDashboard extends BaseDashboard
         return Warehouse::orderBy('name')->pluck('name', 'id')->toArray();
     }
 
-    private function getCsrPeerOptions(): array
+    private function getCsrPeerOptions(string $scope = 'lga'): array
     {
         $user = auth()->user();
 
-        return User::where('role', 'community_sales_representative')
-            ->where('id', '!=', $user->id)
-            ->where(function ($q) use ($user) {
-                if ($user->lga_id) {
-                    $q->where('lga_id', $user->lga_id);
-                }
-            })
-            ->pluck('name', 'id')
-            ->toArray();
+        $query = User::where('role', 'community_sales_representative')
+            ->where('id', '!=', $user->id);
+
+        match ($scope) {
+            'lga' => $query->where('lga_id', $user->lga_id),
+            'state' => $query->where('state_id', $user->state_id),
+            'country' => null,
+            default => null,
+        };
+
+        return $query->pluck('name', 'id')->toArray();
     }
 }

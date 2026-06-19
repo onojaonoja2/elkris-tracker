@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
+use App\Filament\Widgets\GeneralManagerStatsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomerSubmissionsWidget;
@@ -10,22 +11,19 @@ use App\Filament\Widgets\ManagerCustomersWidget;
 use App\Filament\Widgets\ManagerPeopleByStateWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerSalesRecordsByStateWidget;
-use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
 use App\Filament\Widgets\ManagerTrialOrdersByStateWidget;
-use App\Filament\Widgets\OrdersPerCityChart;
-use App\Filament\Widgets\TrialOrdersByStateChart;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Support\Facades\Session;
 
-class ManagerDashboard extends BaseDashboard
+class GeneralManagerDashboard extends BaseDashboard
 {
-    protected static string $routePath = '/manager-dashboard';
+    protected static string $routePath = '/general-manager-dashboard';
 
-    protected static ?string $slug = 'manager-dashboard';
+    protected static ?string $slug = 'general-manager-dashboard';
 
     protected static ?string $navigationLabel = 'Dashboard';
 
@@ -33,22 +31,17 @@ class ManagerDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['manager', 'admin']);
+        return auth()->check() && auth()->user()->role === 'general_manager';
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['manager', 'admin']);
-    }
-
-    public static function getNavigationLabel(): string
-    {
-        return 'Dashboard';
+        return auth()->check() && auth()->user()->role === 'general_manager';
     }
 
     public function mount()
     {
-        if (! auth()->check() || ! in_array(auth()->user()->role, ['manager', 'admin'])) {
+        if (! auth()->check() || auth()->user()->role !== 'general_manager') {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
@@ -56,7 +49,7 @@ class ManagerDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
-            ManagerStatsWidget::class,
+            GeneralManagerStatsWidget::class,
             ManagerCustomerSubmissionsWidget::class,
         ];
     }
@@ -74,8 +67,6 @@ class ManagerDashboard extends BaseDashboard
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             DamagedReturnsBreakdownWidget::class,
-            OrdersPerCityChart::class,
-            TrialOrdersByStateChart::class,
         ];
     }
 

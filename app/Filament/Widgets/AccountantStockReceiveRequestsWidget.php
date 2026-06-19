@@ -24,7 +24,7 @@ class AccountantStockReceiveRequestsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'accountant';
+        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
     }
 
     public function table(Table $table): Table

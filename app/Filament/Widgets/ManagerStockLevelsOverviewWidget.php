@@ -20,7 +20,7 @@ class ManagerStockLevelsOverviewWidget extends Widget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['manager', 'admin']);
+        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
     }
 
     protected function makeAgentRow(AgentStock $item): object

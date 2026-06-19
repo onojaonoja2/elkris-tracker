@@ -21,7 +21,7 @@ class DamagedReturnsBreakdownWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager', 'supervisor', 'accountant']);
+        return in_array(auth()->user()->role, ['admin', 'manager', 'supervisor', 'accountant', 'general_manager', 'general_accountant']);
     }
 
     public function table(Table $table): Table

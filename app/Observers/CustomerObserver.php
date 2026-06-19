@@ -9,7 +9,8 @@ class CustomerObserver
 {
     public function created(Customer $customer): void
     {
-        CustomerAssigned::dispatch($customer, $customer->lead);
+        $assignedTo = $customer->lead ?? $customer->rep ?? null;
+        CustomerAssigned::dispatch($customer, $assignedTo);
     }
 
     public function updated(Customer $customer): void

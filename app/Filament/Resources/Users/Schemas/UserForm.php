@@ -74,15 +74,18 @@ class UserForm
                     ->required(fn (callable $get) => in_array($get('role'), ['community_sales_representative', 'open_market', 'retail_market'])),
 
                 Select::make('lead_id')
-                    ->label('Reports To')
-                    ->relationship('lead', 'name', fn ($query) => $query->where('role', 'lead'))
-                    ->visible(fn (callable $get) => $get('role') === 'rep')
-                    ->required(fn (callable $get) => $get('role') === 'rep')
+                    ->label(fn (callable $get) => in_array($get('role'), ['open_market', 'retail_market']) ? 'Managing Manager' : 'Reports To')
+                    ->relationship('lead', 'name', fn ($query, callable $get) => in_array($get('role'), ['open_market', 'retail_market'])
+                        ? $query->whereIn('role', ['manager', 'admin', 'general_manager'])
+                        : $query->where('role', 'lead'))
+                    ->visible(fn (callable $get) => in_array($get('role'), ['rep', 'open_market', 'retail_market']))
+                    ->required(fn (callable $get) => in_array($get('role'), ['open_market', 'retail_market']))
+                    ->searchable()
                     ->live(),
 
                 Select::make('portfolio_agent_id')
-                    ->label('Portfolio Agent')
-                    ->relationship('portfolioAgent', 'name', fn ($query) => $query->where('role', 'rep'))
+                    ->label('Paired Agent (Rep or Lead)')
+                    ->relationship('portfolioAgent', 'name', fn ($query) => $query->whereIn('role', ['rep', 'lead']))
                     ->searchable()
                     ->visible(fn (callable $get) => $get('role') === 'community_sales_representative')
                     ->live(),
@@ -101,9 +104,25 @@ class UserForm
             ];
         }
 
+        if ($role === 'manager') {
+            return [
+                'open_market' => 'Open Market Agent',
+                'retail_market' => 'Retail Market Agent',
+            ];
+        }
+
+        if ($role === 'general_accountant') {
+            return [
+                'accountant' => 'Accountant',
+                'warehouse_manager' => 'Warehouse Manager',
+            ];
+        }
+
         return [
             'admin' => 'Administrator',
             'manager' => 'Manager',
+            'general_manager' => 'General Manager',
+            'general_accountant' => 'General Accountant',
             'supervisor' => 'Supervisor',
             'lead' => 'Team Lead',
             'rep' => 'Elkris Portfolio Agent',

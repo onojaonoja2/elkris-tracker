@@ -18,6 +18,8 @@ enum UserRole: string implements HasLabel
     case Sales = 'sales';
     case WarehouseManager = 'warehouse_manager';
     case Accountant = 'accountant';
+    case GeneralAccountant = 'general_accountant';
+    case GeneralManager = 'general_manager';
 
     public function getLabel(): string
     {
@@ -34,6 +36,8 @@ enum UserRole: string implements HasLabel
             self::Sales => 'Sales',
             self::WarehouseManager => 'Warehouse Manager',
             self::Accountant => 'Accountant',
+            self::GeneralAccountant => 'General Accountant',
+            self::GeneralManager => 'General Manager',
         };
     }
 
@@ -52,6 +56,8 @@ enum UserRole: string implements HasLabel
             self::Sales => 'warning',
             self::WarehouseManager => 'info',
             self::Accountant => 'primary',
+            self::GeneralAccountant => 'primary',
+            self::GeneralManager => 'danger',
         };
     }
 
@@ -70,11 +76,22 @@ enum UserRole: string implements HasLabel
         return in_array($this, [
             self::Admin,
             self::Manager,
+            self::GeneralManager,
         ]);
     }
 
     public function isCommunitySalesRep(): bool
     {
         return $this === self::CommunitySalesRepresentative;
+    }
+
+    public function isGeneralAccountant(): bool
+    {
+        return $this === self::GeneralAccountant;
+    }
+
+    public function isGeneralManager(): bool
+    {
+        return $this === self::GeneralManager;
     }
 }

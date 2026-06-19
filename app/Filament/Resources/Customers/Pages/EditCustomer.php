@@ -44,6 +44,15 @@ class EditCustomer extends EditRecord
         } elseif ($user && $user->role === 'lead') {
             $payload['lead_id'] = $user->id;
             $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$user->id]));
+        } elseif ($user && in_array($user->role, ['manager', 'admin', 'general_manager'])) {
+            // Manager assigns from retail/open_market submissions
+            if (! empty($data['rep_id'])) {
+                $payload['submission_target_type'] = 'rep';
+                $data['reps'] = array_unique(array_merge($data['reps'] ?? [], [$data['rep_id']]));
+            } elseif (! empty($data['lead_id']) && $data['lead_id'] != $user->id) {
+                $payload['submission_target_type'] = 'lead';
+                $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$data['lead_id']]));
+            }
         }
 
         if (empty($payload['lead_id']) && array_key_exists('leads', $data) && ! empty($data['leads'])) {

@@ -43,6 +43,7 @@ class User extends Authenticatable implements FilamentUser
         return in_array($this->role, [
             UserRole::Admin->value,
             UserRole::Manager->value,
+            UserRole::GeneralManager->value,
         ]);
     }
 
@@ -54,6 +55,16 @@ class User extends Authenticatable implements FilamentUser
     public function isCommunitySalesRep(): bool
     {
         return $this->role === UserRole::CommunitySalesRepresentative->value;
+    }
+
+    public function isGeneralAccountant(): bool
+    {
+        return $this->role === UserRole::GeneralAccountant->value;
+    }
+
+    public function isGeneralManager(): bool
+    {
+        return $this->role === UserRole::GeneralManager->value;
     }
 
     public function hasRole(string $role): bool
@@ -127,11 +138,27 @@ class User extends Authenticatable implements FilamentUser
     }
 
     /**
-     * Get the CSRs paired to this Portfolio Agent.
+     * Get the CSRs paired to this Portfolio Agent or Lead.
      */
     public function pairedCsrs(): HasMany
     {
         return $this->hasMany(User::class, 'portfolio_agent_id');
+    }
+
+    /**
+     * Get the agents (retail/open_market) managed by this user via lead_id.
+     */
+    public function managedAgents(): HasMany
+    {
+        return $this->hasMany(User::class, 'lead_id');
+    }
+
+    /**
+     * Get the manager who manages this agent.
+     */
+    public function managedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'lead_id');
     }
 
     public function state(): BelongsTo

@@ -28,12 +28,12 @@ class CustomerResource extends Resource implements CopilotResource
 
     public static function canCreate(): bool
     {
-        return ! in_array(auth()->user()->role, ['sales', 'supervisor', 'accountant', 'warehouse_manager']);
+        return ! in_array(auth()->user()->role, ['sales', 'supervisor', 'accountant', 'warehouse_manager', 'general_accountant']);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return ! in_array(auth()->user()->role, ['manager', 'admin', 'sales']);
+        return ! in_array(auth()->user()->role, ['manager', 'admin', 'sales', 'general_manager']);
     }
 
     public static function form(Schema $schema): Schema
@@ -66,7 +66,7 @@ class CustomerResource extends Resource implements CopilotResource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (in_array($user->role, ['admin', 'manager', 'accountant'])) {
+        if (in_array($user->role, ['admin', 'manager', 'accountant', 'general_manager', 'general_accountant'])) {
             return parent::getEloquentQuery();
         }
 

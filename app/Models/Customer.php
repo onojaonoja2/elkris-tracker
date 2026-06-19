@@ -18,6 +18,7 @@ class Customer extends Model
         'lead_id',
         'rep_id',
         'agent_id',
+        'submission_target_type',
         'customer_name',
         'phone_number',
         'age',
@@ -250,5 +251,36 @@ class Customer extends Model
         }
 
         return $dates;
+    }
+
+    /**
+     * Get customers submitted to a manager (retail/open_market agents).
+     */
+    public function scopeSubmittedToManager($query, int $managerId)
+    {
+        return $query->where('submission_target_type', 'manager')
+            ->where('lead_id', $managerId)
+            ->whereNull('rep_id');
+    }
+
+    /**
+     * Get customers submitted by CSR to this lead (via portfolio_agent_id).
+     */
+    public function scopeSubmittedToLead($query, int $leadId)
+    {
+        return $query->where('submission_target_type', 'lead')
+            ->where('lead_id', $leadId)
+            ->where('rep_acceptance_status', 'pending')
+            ->whereNull('rep_id');
+    }
+
+    /**
+     * Get customers submitted by CSR to this rep (via portfolio_agent_id).
+     */
+    public function scopeSubmittedToRep($query, int $repId)
+    {
+        return $query->where('submission_target_type', 'rep')
+            ->where('rep_id', $repId)
+            ->where('rep_acceptance_status', 'pending');
     }
 }

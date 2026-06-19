@@ -16,7 +16,7 @@ class NotifyAdminsOfUnassignedCustomer
         NotificationService::notifyAdmins(
             'new_customer',
             'New Customer Submission',
-            "New customer {$event->customer->name} requires assignment",
+            "New customer {$event->customer->customer_name} requires assignment",
             $event->customer->id,
             'customer'
         );

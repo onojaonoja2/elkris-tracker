@@ -20,7 +20,7 @@ class NotifyLeadOfNewCustomer
             $assignedTo->id,
             'customer_assigned',
             'New Customer Assigned',
-            "{$event->customer->name} has been assigned to you",
+            "{$event->customer->customer_name} has been assigned to you",
             $event->customer->id,
             'customer'
         );

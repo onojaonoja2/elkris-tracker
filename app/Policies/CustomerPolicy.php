@@ -28,8 +28,7 @@ class CustomerPolicy
      */
     public function create(User $user): bool
     {
-        // Supervisors and Sales explicitly cannot create new customers organically.
-        return ! in_array($user->role, ['sales', 'supervisor']);
+        return ! in_array($user->role, ['sales', 'supervisor', 'accountant', 'warehouse_manager', 'general_accountant']);
     }
 
     /**
@@ -37,7 +36,7 @@ class CustomerPolicy
      */
     public function update(User $user, Customer $customer): bool
     {
-        if (in_array($user->role, ['admin', 'manager'])) {
+        if (in_array($user->role, ['admin', 'manager', 'general_manager', 'general_accountant'])) {
             return true;
         }
 
@@ -46,17 +45,22 @@ class CustomerPolicy
             return $customer->agent_id === $user->id;
         }
 
+        // Leads can update customers submitted to them
+        if ($user->role === 'lead' && ($customer->lead_id ?? null) === $user->id) {
+            return true;
+        }
+
         // Portfolio Agents can update customers from their paired CSRs
         if ($user->role === 'rep') {
             $pairedCsrIds = User::where('portfolio_agent_id', $user->id)->pluck('id');
             if ($pairedCsrIds->contains($customer->agent_id)) {
                 return true;
             }
-        }
 
-        // Reps cannot update until they accept the assignment
-        if ($user->role === 'rep' && $customer->rep_acceptance_status === 'pending') {
-            return false;
+            // Reps cannot update until they accept the assignment
+            if ($customer->rep_acceptance_status === 'pending') {
+                return false;
+            }
         }
 
         // Check many-to-many pivots if present, fall back to scalar columns
@@ -81,8 +85,8 @@ class CustomerPolicy
     {
         if (in_array($user->role, ['rep', 'field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             return false;
-        } // Reps and Field Agents can't delete
-        if (in_array($user->role, ['admin', 'manager'])) {
+        }
+        if (in_array($user->role, ['admin', 'manager', 'general_manager'])) {
             return true;
         }
 
@@ -90,7 +94,7 @@ class CustomerPolicy
             return $customer->leads->contains($user->id);
         }
 
-        return ($customer->lead_id ?? null) === $user->id; // Leads can delete their own
+        return ($customer->lead_id ?? null) === $user->id;
     }
 
     /**

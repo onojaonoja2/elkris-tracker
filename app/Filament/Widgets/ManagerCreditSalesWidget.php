@@ -4,10 +4,11 @@ namespace App\Filament\Widgets;
 
 use App\Models\SalesRecord;
 use App\Models\State;
-use App\Models\User;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
 
@@ -22,7 +23,7 @@ class ManagerCreditSalesWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['manager', 'admin']);
+        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
     }
 
     public function table(Table $table): Table
@@ -30,68 +31,67 @@ class ManagerCreditSalesWidget extends TableWidget
         $preset = Session::get('manager_date_preset', 'today');
         $dateRange = self::getDateRange($preset);
 
-        $agentIds = User::whereNotNull('state_id')
-            ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market'])
-            ->pluck('id');
-
-        $creditData = SalesRecord::whereIn('agent_id', $agentIds)
+        $aggregates = SalesRecord::select(
+            DB::raw('lga_state.name as state_name'),
+            DB::raw('COALESCE(SUM(total_value), 0) as total_credit_value'),
+            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN 1 ELSE 0 END) as pending_count"),
+            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN total_value ELSE 0 END) as pending_value"),
+            DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN 1 ELSE 0 END) as collected_count"),
+            DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN total_value ELSE 0 END) as collected_value"),
+            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
+            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
+        )
+            ->leftJoin('users', 'sales_records.agent_id', '=', 'users.id')
+            ->leftJoin('lgas', 'users.lga_id', '=', 'lgas.id')
+            ->leftJoin('states as lga_state', 'lgas.state_id', '=', 'lga_state.id')
             ->where('is_credit', true)
             ->where('status', 'approved')
-            ->when($dateRange, fn ($q, $range) => $q->whereBetween('created_at', $range))
-            ->with('agent.state')
+            ->when($dateRange, fn ($q, $range) => $q->whereBetween('sales_records.created_at', $range))
+            ->groupBy('lga_state.name')
+            ->orderByDesc('total_credit_value')
             ->get()
-            ->groupBy(fn ($r) => $r->agent->state_id ?? 'unknown')
-            ->map(function ($records, $stateId) {
-                $state = State::find($stateId);
-                $pending = $records->where('credit_status', 'pending_payment');
-                $collected = $records->where('credit_status', 'collected');
-                $overdue = $pending->filter(fn ($r) => $r->expected_collection_date && $r->expected_collection_date->isPast());
-
-                return [
-                    'state_name' => $state?->name ?? 'Unknown',
-                    'total_credit_value' => $records->sum('total_value'),
-                    'pending_count' => $pending->count(),
-                    'pending_value' => $pending->sum('total_value'),
-                    'collected_count' => $collected->count(),
-                    'collected_value' => $collected->sum('total_value'),
-                    'overdue_count' => $overdue->count(),
-                    'overdue_value' => $overdue->sum('total_value'),
-                ];
-            })
-            ->values();
+            ->keyBy('state_name');
 
         return $table
-            ->query(fn () => State::whereRaw('1=0'))
+            ->query(fn (): Builder => State::query()->orderBy('name'))
             ->columns([
-                TextColumn::make('state_name')
+                TextColumn::make('name')
                     ->label('State')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('total_credit_value')
                     ->label('Total Credit (₦)')
+                    ->getStateUsing(fn ($record): float => $aggregates->get($record->name)?->total_credit_value ?? 0)
                     ->money('NGN')
                     ->sortable(),
                 TextColumn::make('pending_count')
                     ->label('Pending')
+                    ->getStateUsing(fn ($record): int => $aggregates->get($record->name)?->pending_count ?? 0)
+                    ->numeric()
                     ->sortable(),
                 TextColumn::make('pending_value')
                     ->label('Pending Value (₦)')
+                    ->getStateUsing(fn ($record): float => $aggregates->get($record->name)?->pending_value ?? 0)
                     ->money('NGN'),
                 TextColumn::make('collected_count')
                     ->label('Collected')
+                    ->getStateUsing(fn ($record): int => $aggregates->get($record->name)?->collected_count ?? 0)
+                    ->numeric()
                     ->sortable(),
                 TextColumn::make('collected_value')
                     ->label('Collected Value (₦)')
+                    ->getStateUsing(fn ($record): float => $aggregates->get($record->name)?->collected_value ?? 0)
                     ->money('NGN'),
                 TextColumn::make('overdue_count')
                     ->label('Overdue')
-                    ->sortable()
+                    ->getStateUsing(fn ($record): int => $aggregates->get($record->name)?->overdue_count ?? 0)
+                    ->numeric()
                     ->color(fn ($state) => $state > 0 ? 'danger' : 'success'),
                 TextColumn::make('overdue_value')
                     ->label('Overdue Value (₦)')
+                    ->getStateUsing(fn ($record): float => $aggregates->get($record->name)?->overdue_value ?? 0)
                     ->money('NGN'),
             ])
-            ->record(fn () => $creditData->toArray())
-            ->defaultSort('total_credit_value', 'desc')
             ->paginated(false);
     }
 
