@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
+use App\Filament\Widgets\ManagerAgentManagementWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomerSubmissionsWidget;
@@ -68,6 +69,7 @@ class ManagerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            ManagerAgentManagementWidget::class,
             ManagerPeopleByStateWidget::class,
             ManagerSalesRecordsByStateWidget::class,
             ManagerCreditSalesWidget::class,
