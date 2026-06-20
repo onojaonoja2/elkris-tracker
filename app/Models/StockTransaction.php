@@ -16,6 +16,7 @@ class StockTransaction extends Model
         'quantity',
         'disbursed_to',
         'user_id',
+        'warehouse_id',
     ];
 
     protected function casts(): array
@@ -30,5 +31,10 @@ class StockTransaction extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
     }
 }

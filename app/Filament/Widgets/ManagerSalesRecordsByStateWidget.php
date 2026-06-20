@@ -15,7 +15,7 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
 {
     protected static ?string $heading = 'Sales Records by State';
 
-    protected int|string|array $columnSpan = 6;
+    protected int|string|array $columnSpan = 'full';
 
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}

@@ -30,7 +30,21 @@ class StockTransactionResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'sales']);
+        return in_array(auth()->user()->role, ['admin', 'sales', 'warehouse_manager']);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user = auth()->user();
+
+        if ($user->role === 'warehouse_manager') {
+            $warehouseIds = $user->managedWarehouses()->pluck('id');
+
+            return $query->whereIn('stock_transactions.warehouse_id', $warehouseIds);
+        }
+
+        return $query;
     }
 
     public static function form(Schema $schema): Schema
@@ -75,6 +89,10 @@ class StockTransactionResource extends Resource
                 TextColumn::make('disbursed_to')
                     ->searchable()
                     ->label('Recipient / Notes'),
+                TextColumn::make('warehouse.name')
+                    ->label('Warehouse')
+                    ->sortable()
+                    ->toggleable(),
             ])
             ->filters([
                 SelectFilter::make('product_name')

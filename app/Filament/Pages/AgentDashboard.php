@@ -211,6 +211,12 @@ class AgentDashboard extends BaseDashboard
     {
         $user = auth()->user();
 
+        if (in_array($user->role, ['open_market', 'retail_market'])) {
+            return Warehouse::orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
         $stateId = null;
 
         if ($user->lga_id) {

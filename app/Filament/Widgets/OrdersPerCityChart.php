@@ -11,7 +11,7 @@ class OrdersPerCityChart extends ChartWidget
 {
     protected ?string $heading = 'Total Orders Per City';
 
-    protected int|string|array $columnSpan = 6;
+    protected int|string|array $columnSpan = 'full';
 
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}

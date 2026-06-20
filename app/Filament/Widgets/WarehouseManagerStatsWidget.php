@@ -25,7 +25,7 @@ class WarehouseManagerStatsWidget extends StatsOverviewWidget
         $pendingDispatches = StockTransfer::whereIn('from_warehouse_id', $warehouseIds)
             ->where('status', 'approved')
             ->count();
-        $recentReceives = StockTransaction::where('user_id', $user->id)
+        $recentReceives = StockTransaction::whereIn('warehouse_id', $warehouseIds)
             ->where('type', 'received')
             ->whereDate('created_at', today())
             ->count();
