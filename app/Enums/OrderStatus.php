@@ -10,6 +10,7 @@ enum OrderStatus: string implements HasLabel
     case Dispatched = 'dispatched';
     case Delivered = 'delivered';
     case Cancelled = 'cancelled';
+    case Assigned = 'assigned';
 
     public function getLabel(): string
     {
@@ -18,6 +19,7 @@ enum OrderStatus: string implements HasLabel
             self::Dispatched => 'Dispatched',
             self::Delivered => 'Delivered',
             self::Cancelled => 'Cancelled',
+            self::Assigned => 'Assigned',
         };
     }
 
@@ -28,6 +30,7 @@ enum OrderStatus: string implements HasLabel
             self::Dispatched => 'info',
             self::Delivered => 'success',
             self::Cancelled => 'danger',
+            self::Assigned => 'info',
         };
     }
 }

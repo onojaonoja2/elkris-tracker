@@ -2,8 +2,12 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\OrdersPerCityChart;
-use App\Filament\Widgets\UpcomingFollowUps;
+use App\Filament\Widgets\SalesAssignedOrdersWidget;
+use App\Filament\Widgets\SalesCsrOverviewWidget;
+use App\Filament\Widgets\SalesDamagedReturnWidget;
+use App\Filament\Widgets\SalesInventoryStatsWidget;
+use App\Filament\Widgets\SalesPendingOrdersWidget;
+use App\Filament\Widgets\SalesStockRequestWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class SalesOrdersDashboard extends BaseDashboard
@@ -38,11 +42,21 @@ class SalesOrdersDashboard extends BaseDashboard
         }
     }
 
+    public function getHeaderWidgets(): array
+    {
+        return [
+            SalesInventoryStatsWidget::class,
+        ];
+    }
+
     public function getWidgets(): array
     {
         return [
-            OrdersPerCityChart::class,
-            UpcomingFollowUps::class,
+            SalesStockRequestWidget::class,
+            SalesPendingOrdersWidget::class,
+            SalesAssignedOrdersWidget::class,
+            SalesCsrOverviewWidget::class,
+            SalesDamagedReturnWidget::class,
         ];
     }
 }

@@ -99,7 +99,7 @@ class StockTransferResource extends Resource
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor', 'community_sales_representative', 'open_market', 'retail_market']);
+        return in_array(auth()->user()->role, ['admin', 'warehouse_manager', 'supervisor', 'sales', 'community_sales_representative', 'open_market', 'retail_market']);
     }
 
     public static function canEditAny(): bool
@@ -131,7 +131,11 @@ class StockTransferResource extends Resource
 
         if ($user->role === 'sales') {
             $warehouseIds = $user->salesWarehouses()->pluck('id');
-            $query->whereIn('from_warehouse_id', $warehouseIds);
+            $query->where(function (Builder $q) use ($warehouseIds, $user) {
+                $q->whereIn('from_warehouse_id', $warehouseIds)
+                    ->orWhere('to_agent_id', $user->id)
+                    ->orWhere('requested_by', $user->id);
+            });
         }
 
         if ($user->role === 'supervisor') {

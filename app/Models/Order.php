@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,11 @@ class Order extends Model
         'preferred_payment_option',
         'preferred_delivery_date',
         'delivery_details',
+        'assigned_to',
+        'assigned_by',
+        'assigned_at',
+        'assignment_status',
+        'assignment_notes',
     ];
 
     protected function casts(): array
@@ -30,6 +36,8 @@ class Order extends Model
         return [
             'status' => OrderStatus::class,
             'expected_delivery_date' => 'date',
+            'assigned_at' => 'datetime',
+            'assignment_status' => AssignmentStatus::class,
         ];
     }
 
@@ -43,9 +51,43 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function isAssigned(): bool
+    {
+        return $this->assignment_status !== AssignmentStatus::None && $this->assigned_to !== null;
+    }
+
+    public function isBeingProcessedBySales(): bool
+    {
+        return $this->assigned_to !== null
+            && $this->assignedTo?->role === 'sales'
+            && $this->assignment_status === AssignmentStatus::Accepted;
+    }
+
+    public function isBeingProcessedByCsr(): bool
+    {
+        return $this->assigned_to !== null
+            && $this->assignedTo?->role === 'community_sales_representative'
+            && $this->assignment_status === AssignmentStatus::Accepted;
+    }
+
+    public function getProcessor(): ?User
+    {
+        return $this->assignedTo ?? $this->user;
     }
 
     protected static function booted(): void

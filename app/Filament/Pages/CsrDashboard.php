@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\AgentCreditSalesWidget;
+use App\Filament\Widgets\CsrAssignedOrdersWidget;
 use App\Filament\Widgets\CsrPendingDispatchesWidget;
 use App\Filament\Widgets\CsrSalesRecordsWidget;
 use App\Filament\Widgets\CsrStatsWidget;
@@ -52,6 +53,7 @@ class CsrDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            CsrAssignedOrdersWidget::class,
             CsrPendingDispatchesWidget::class,
             CsrSalesRecordsWidget::class,
             DamagedStockReturnFormWidget::class,
