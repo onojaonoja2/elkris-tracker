@@ -27,7 +27,7 @@ class SupervisorCreditSalesWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $csrIds = User::where('role', 'community_sales_representative')->pluck('id');
+        $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
 
         $aggregates = SalesRecord::select(
             'agent_id',

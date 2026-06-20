@@ -26,7 +26,7 @@ class SupervisorSalesRecordsWidget extends TableWidget
         $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
         $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
 
-        $csrIds = User::where('role', 'community_sales_representative')->pluck('id');
+        $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
 
         return $table
             ->query(

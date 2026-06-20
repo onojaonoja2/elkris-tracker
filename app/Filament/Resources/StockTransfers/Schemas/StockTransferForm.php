@@ -25,6 +25,30 @@ class StockTransferForm
                     ->nullable()
                     ->live(),
 
+                Select::make('from_agent_id')
+                    ->label('Collect From Agent')
+                    ->options(function () {
+                        $user = auth()->user();
+
+                        $query = User::where('is_active', true)
+                            ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
+
+                        if ($user->role === 'supervisor') {
+                            $query->where(function ($q) use ($user) {
+                                $q->where('lead_id', $user->id)
+                                    ->orWhere('portfolio_agent_id', $user->id);
+                            });
+                        }
+
+                        return $query->pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->nullable()
+                    ->live()
+                    ->afterStateUpdated(fn ($set, $state) => $state
+                        ? $set('from_warehouse_id', null)
+                        : null),
+
                 Select::make('to_warehouse_id')
                     ->label('To Warehouse')
                     ->options(fn () => Warehouse::pluck('name', 'id'))
@@ -33,8 +57,22 @@ class StockTransferForm
                     ->live(),
 
                 Select::make('to_agent_id')
-                    ->label('To Community Sales Rep')
-                    ->options(fn () => User::where('role', 'community_sales_representative')->where('is_active', true)->pluck('name', 'id'))
+                    ->label('To Agent')
+                    ->options(function () {
+                        $user = auth()->user();
+
+                        $query = User::where('is_active', true)
+                            ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
+
+                        if ($user->role === 'supervisor') {
+                            $query->where(function ($q) use ($user) {
+                                $q->where('lead_id', $user->id)
+                                    ->orWhere('portfolio_agent_id', $user->id);
+                            });
+                        }
+
+                        return $query->pluck('name', 'id');
+                    })
                     ->searchable()
                     ->nullable()
                     ->live()

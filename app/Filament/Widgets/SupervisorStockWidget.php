@@ -22,7 +22,7 @@ class SupervisorStockWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $agentIds = User::where('role', 'community_sales_representative')->pluck('id');
+        $agentIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
 
         return $table
             ->query(

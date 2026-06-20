@@ -19,7 +19,7 @@ class User extends Authenticatable implements FilamentUser
     /** @use HasFactory<UserFactory> */
     use HasCopilotChat, HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'portfolio_agent_id', 'state_id', 'lga_id', 'assigned_cities', 'is_active', 'sms_notifications'];
+    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'portfolio_agent_id', 'state_id', 'lga_id', 'assigned_cities', 'is_active', 'sms_notifications', 'suspended_at', 'suspension_reason'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -77,6 +77,46 @@ class User extends Authenticatable implements FilamentUser
         return in_array($this->role, $roles);
     }
 
+    public function isSuspended(): bool
+    {
+        return ! $this->is_active;
+    }
+
+    public function suspend(?string $reason = null): void
+    {
+        $this->update([
+            'is_active' => false,
+            'suspended_at' => now(),
+            'suspension_reason' => $reason,
+        ]);
+    }
+
+    public function reactivate(): void
+    {
+        $this->update([
+            'is_active' => true,
+            'suspended_at' => null,
+            'suspension_reason' => null,
+        ]);
+    }
+
+    public function canBeManagedBy(User $manager): bool
+    {
+        if ($manager->role === 'admin' || $manager->role === 'general_manager') {
+            return true;
+        }
+
+        if ($manager->role === 'manager' && $this->isFieldAgent()) {
+            return true;
+        }
+
+        if ($manager->role === 'supervisor' && in_array($this->role, ['community_sales_representative', 'open_market', 'retail_market'])) {
+            return $this->lead_id === $manager->id || $this->portfolio_agent_id === $manager->id;
+        }
+
+        return false;
+    }
+
     /**
      * Boot up the model to hook into lifecycle events natively.
      */
@@ -110,6 +150,7 @@ class User extends Authenticatable implements FilamentUser
             'assigned_cities' => 'array',
             'is_active' => 'boolean',
             'sms_notifications' => 'boolean',
+            'suspended_at' => 'datetime',
         ];
     }
 

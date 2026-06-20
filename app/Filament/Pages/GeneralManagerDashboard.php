@@ -6,14 +6,13 @@ use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\GeneralManagerStatsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerCreditSalesWidget;
-use App\Filament\Widgets\ManagerCustomerSubmissionsWidget;
 use App\Filament\Widgets\ManagerCustomersWidget;
 use App\Filament\Widgets\ManagerPeopleByStateWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerSalesRecordsByStateWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
-use App\Filament\Widgets\ManagerTrialOrdersByStateWidget;
+use App\Filament\Widgets\OrdersPerCityChart;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -50,7 +49,6 @@ class GeneralManagerDashboard extends BaseDashboard
     {
         return [
             GeneralManagerStatsWidget::class,
-            ManagerCustomerSubmissionsWidget::class,
         ];
     }
 
@@ -58,7 +56,6 @@ class GeneralManagerDashboard extends BaseDashboard
     {
         return [
             ManagerPeopleByStateWidget::class,
-            ManagerTrialOrdersByStateWidget::class,
             ManagerSalesRecordsByStateWidget::class,
             ManagerCreditSalesWidget::class,
             ManagerStockLevelsOverviewWidget::class,
@@ -67,6 +64,7 @@ class GeneralManagerDashboard extends BaseDashboard
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            OrdersPerCityChart::class,
         ];
     }
 

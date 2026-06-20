@@ -99,7 +99,7 @@ class ManagerStatsWidget extends BaseWidget
 
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
-        $totalAgents = User::whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])->count();
+        $totalAgents = User::whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])->active()->count();
         $totalTransfers = StockTransfer::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->count();

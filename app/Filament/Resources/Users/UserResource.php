@@ -25,7 +25,7 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant']);
+        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -35,6 +35,10 @@ class UserResource extends Resource
 
         if ($user->role === 'supervisor') {
             return $query->whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']);
+        }
+
+        if ($user->role === 'manager') {
+            return $query->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
         }
 
         if ($user->role === 'general_accountant') {
@@ -54,7 +58,7 @@ class UserResource extends Resource
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant']);
+        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
     }
 
     public static function form(Schema $schema): Schema

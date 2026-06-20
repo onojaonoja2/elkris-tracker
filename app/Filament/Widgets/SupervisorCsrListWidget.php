@@ -5,6 +5,10 @@ namespace App\Filament\Widgets;
 use App\Models\AgentStock;
 use App\Models\SalesRecord;
 use App\Models\User;
+use App\Notifications\AccountStatusNotification;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -27,7 +31,9 @@ class SupervisorCsrListWidget extends TableWidget
         $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
         $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
 
-        $csrIds = User::where('role', 'community_sales_representative')->pluck('id');
+        $csrIds = User::where('role', 'community_sales_representative')
+            ->active()
+            ->pluck('id');
 
         $stockCounts = AgentStock::whereIn('user_id', $csrIds)
             ->selectRaw('user_id, SUM(quantity) as total_qty')
@@ -44,6 +50,7 @@ class SupervisorCsrListWidget extends TableWidget
         return $table
             ->query(
                 fn () => User::where('role', 'community_sales_representative')
+                    ->active()
                     ->with(['state', 'lga'])
                     ->orderBy('name')
             )
@@ -61,6 +68,12 @@ class SupervisorCsrListWidget extends TableWidget
                     ->label('State')
                     ->searchable(),
 
+                TextColumn::make('is_active')
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Active' : 'Suspended'),
+
                 TextColumn::make('stock_units')
                     ->label('Stock Units')
                     ->getStateUsing(fn (User $record): int => $stockCounts->get($record->id, 0))
@@ -76,6 +89,67 @@ class SupervisorCsrListWidget extends TableWidget
                     ->getStateUsing(fn (User $record): string => '₦'.number_format($salesCounts->get($record->id)?->total_value ?? 0, 2))
                     ->money('NGN')
                     ->sortable(),
+            ])
+            ->recordActions([
+                Action::make('suspend')
+                    ->label('Suspend')
+                    ->icon('heroicon-o-no-symbol')
+                    ->color('danger')
+                    ->size('sm')
+                    ->visible(fn (User $record): bool => $record->is_active)
+                    ->requiresConfirmation()
+                    ->modalHeading('Suspend CSR')
+                    ->modalDescription(fn (User $record): string => "Are you sure you want to suspend {$record->name}?")
+                    ->form([
+                        Textarea::make('reason')
+                            ->label('Reason')
+                            ->required(),
+                    ])
+                    ->action(function (User $record, array $data) {
+                        $manager = auth()->user();
+                        $record->suspend($data['reason']);
+
+                        $record->notify(new AccountStatusNotification(
+                            action: 'suspended',
+                            managerName: $manager->name,
+                            reason: $data['reason'],
+                        ));
+
+                        Notification::make()
+                            ->title('CSR Suspended')
+                            ->body("{$record->name}'s account has been suspended.")
+                            ->success()
+                            ->send();
+
+                        $this->dispatch('refresh-dashboard');
+                    }),
+
+                Action::make('reactivate')
+                    ->label('Reactivate')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->size('sm')
+                    ->visible(fn (User $record): bool => ! $record->is_active)
+                    ->requiresConfirmation()
+                    ->modalHeading('Reactivate CSR')
+                    ->modalDescription(fn (User $record): string => "Are you sure you want to reactivate {$record->name}?")
+                    ->action(function (User $record) {
+                        $manager = auth()->user();
+                        $record->reactivate();
+
+                        $record->notify(new AccountStatusNotification(
+                            action: 'reactivated',
+                            managerName: $manager->name,
+                        ));
+
+                        Notification::make()
+                            ->title('CSR Reactivated')
+                            ->body("{$record->name}'s account has been reactivated.")
+                            ->success()
+                            ->send();
+
+                        $this->dispatch('refresh-dashboard');
+                    }),
             ])
             ->defaultSort('name')
             ->paginated([10, 25, 50, -1]);

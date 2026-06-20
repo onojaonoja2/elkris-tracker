@@ -12,6 +12,7 @@ enum StockTransferStatus: string implements HasLabel
     case Dispatched = 'dispatched';
     case Received = 'received';
     case Cancelled = 'cancelled';
+    case Collected = 'collected';
 
     public function getLabel(): string
     {
@@ -22,6 +23,7 @@ enum StockTransferStatus: string implements HasLabel
             self::Dispatched => 'Dispatched',
             self::Received => 'Received',
             self::Cancelled => 'Cancelled',
+            self::Collected => 'Collected',
         };
     }
 
@@ -34,6 +36,7 @@ enum StockTransferStatus: string implements HasLabel
             self::Dispatched => 'warning',
             self::Received => 'success',
             self::Cancelled => 'danger',
+            self::Collected => 'warning',
         };
     }
 }

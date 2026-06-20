@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\StockTransferStatus;
 use App\Models\AgentStock;
 use App\Models\Inventory;
+use App\Models\StockTransaction;
 use App\Models\StockTransfer;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
@@ -151,6 +152,113 @@ class StockTransferService
             $record->update([
                 'status' => StockTransferStatus::Cancelled,
                 'rejection_reason' => $reason,
+            ]);
+        });
+    }
+
+    public static function collect(StockTransfer $record, array $items): void
+    {
+        DB::transaction(function () use ($record, $items) {
+            $record->update([
+                'status' => StockTransferStatus::Collected,
+                'collected_by' => auth()->id(),
+                'collected_at' => now(),
+                'source_type' => 'agent_collection',
+            ]);
+
+            foreach ($items as $itemData) {
+                $record->items()->create([
+                    'product_type_id' => $itemData['product_type_id'],
+                    'grammage' => $itemData['grammage'],
+                    'quantity' => $itemData['quantity'],
+                ]);
+            }
+        });
+    }
+
+    public static function reassign(StockTransfer $record, array $data): void
+    {
+        DB::transaction(function () use ($record, $data) {
+            $toWarehouseId = $data['to_warehouse_id'] ?? null;
+            $toAgentId = $data['to_agent_id'] ?? null;
+
+            if ($record->from_agent_id) {
+                foreach ($record->items as $item) {
+                    $stock = AgentStock::where([
+                        'user_id' => $record->from_agent_id,
+                        'product_name' => $item->productType?->name ?? 'Unknown',
+                        'grammage' => $item->grammage,
+                    ])->first();
+
+                    if ($stock) {
+                        $stock->decrement('quantity', $item->quantity);
+                    }
+
+                    StockTransaction::create([
+                        'type' => 'disbursed',
+                        'transaction_date' => now()->toDateString(),
+                        'product_type_id' => $item->product_type_id,
+                        'product_name' => $item->productType?->name ?? 'Unknown',
+                        'grammage' => $item->grammage,
+                        'quantity' => $item->quantity,
+                        'disbursed_to' => $toWarehouseId
+                            ? 'Warehouse #'.$toWarehouseId
+                            : ($toAgentId ? 'Agent #'.$toAgentId : 'Unknown'),
+                        'user_id' => $record->from_agent_id,
+                        'warehouse_id' => $toWarehouseId,
+                    ]);
+                }
+            }
+
+            foreach ($record->items as $item) {
+                $accepted = $item->quantity;
+
+                if ($accepted > 0) {
+                    if ($toWarehouseId) {
+                        $inv = Inventory::firstOrCreate(
+                            [
+                                'warehouse_id' => $toWarehouseId,
+                                'product_type_id' => $item->product_type_id,
+                                'grammage' => $item->grammage,
+                            ],
+                            ['quantity' => 0]
+                        );
+                        $inv->increment('quantity', $accepted);
+
+                        StockTransaction::create([
+                            'type' => 'received',
+                            'transaction_date' => now()->toDateString(),
+                            'product_type_id' => $item->product_type_id,
+                            'product_name' => $item->productType?->name ?? 'Unknown',
+                            'grammage' => $item->grammage,
+                            'quantity' => $accepted,
+                            'disbursed_to' => 'Collected from Agent #'.$record->from_agent_id,
+                            'user_id' => auth()->id(),
+                            'warehouse_id' => $toWarehouseId,
+                        ]);
+                    }
+
+                    if ($toAgentId) {
+                        $agentStock = AgentStock::firstOrCreate(
+                            [
+                                'user_id' => $toAgentId,
+                                'product_type_id' => $item->product_type_id,
+                                'product_name' => $item->productType?->name ?? 'Unknown',
+                                'grammage' => $item->grammage,
+                            ],
+                            ['quantity' => 0]
+                        );
+                        $agentStock->increment('quantity', $accepted);
+                    }
+                }
+            }
+
+            $record->update([
+                'status' => StockTransferStatus::Received,
+                'received_by' => auth()->id(),
+                'received_at' => now(),
+                'to_warehouse_id' => $toWarehouseId ?? $record->to_warehouse_id,
+                'to_agent_id' => $toAgentId ?? $record->to_agent_id,
             ]);
         });
     }

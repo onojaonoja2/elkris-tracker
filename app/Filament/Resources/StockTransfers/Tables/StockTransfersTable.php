@@ -43,7 +43,11 @@ class StockTransfersTable
                     ->label('To Warehouse'),
 
                 TextColumn::make('toAgent.name')
-                    ->label('To CSR'),
+                    ->label('To Agent'),
+
+                TextColumn::make('collector.name')
+                    ->label('Collected By')
+                    ->placeholder('-'),
 
                 TextColumn::make('items')
                     ->label('Items')
@@ -276,6 +280,145 @@ class StockTransfersTable
                         }
 
                         Notification::make()->title('Stock request sent to CSR peer')->success()->send();
+                    }),
+
+                // === STOCK COLLECTION ACTIONS ===
+
+                Action::make('collectFromAgent')
+                    ->label('Collect from Agent')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('warning')
+                    ->visible(fn () => in_array(auth()->user()->role, ['supervisor', 'manager', 'admin']))
+                    ->form([
+                        Select::make('from_agent_id')
+                            ->label('Agent')
+                            ->options(function () {
+                                $user = auth()->user();
+
+                                $query = User::where('is_active', true)
+                                    ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
+
+                                if ($user->role === 'supervisor') {
+                                    $query->where(function ($q) use ($user) {
+                                        $q->where('lead_id', $user->id)
+                                            ->orWhere('portfolio_agent_id', $user->id);
+                                    });
+                                }
+
+                                return $query->pluck('name', 'id');
+                            })
+                            ->searchable()
+                            ->required()
+                            ->live(),
+                        Repeater::make('items')
+                            ->label('Stock Items to Collect')
+                            ->schema([
+                                Select::make('product_type_id')
+                                    ->label('Product')
+                                    ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(fn ($set) => $set('grammage', null)),
+                                Select::make('grammage')
+                                    ->label('Weight (g)')
+                                    ->options(function (callable $get) {
+                                        $ptId = $get('product_type_id');
+                                        if (! $ptId) {
+                                            return [];
+                                        }
+                                        $pt = ProductType::find($ptId);
+                                        if (! $pt) {
+                                            return [];
+                                        }
+
+                                        return collect($pt->available_grammages)
+                                            ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                            ->toArray();
+                                    })
+                                    ->required()
+                                    ->live(),
+                                TextInput::make('quantity')
+                                    ->label('Quantity')
+                                    ->numeric()
+                                    ->integer()
+                                    ->minValue(1)
+                                    ->required(),
+                            ])
+                            ->addActionLabel('Add Item')
+                            ->defaultItems(1)
+                            ->minItems(1)
+                            ->required(),
+                        Textarea::make('notes')
+                            ->label('Collection Notes'),
+                    ])
+                    ->action(function (array $data) {
+                        $transfer = StockTransfer::create([
+                            'from_agent_id' => $data['from_agent_id'],
+                            'requested_by' => auth()->id(),
+                            'status' => StockTransferStatus::Collected,
+                            'notes' => $data['notes'] ?? null,
+                        ]);
+
+                        StockTransferService::collect($transfer, $data['items']);
+
+                        Notification::make()->title('Stock collected from agent')->success()->send();
+                    }),
+
+                Action::make('reassign')
+                    ->label('Re-assign')
+                    ->icon('heroicon-o-arrow-right-circle')
+                    ->color('primary')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Collected
+                        && in_array(auth()->user()->role, ['supervisor', 'manager', 'admin']))
+                    ->form([
+                        Select::make('to_warehouse_id')
+                            ->label('To Warehouse')
+                            ->options(fn () => Warehouse::pluck('name', 'id'))
+                            ->searchable()
+                            ->nullable()
+                            ->live()
+                            ->afterStateUpdated(fn ($set, $state) => $state ? $set('to_agent_id', null) : null),
+
+                        Select::make('to_agent_id')
+                            ->label('To Agent')
+                            ->options(function () {
+                                $user = auth()->user();
+
+                                $query = User::where('is_active', true)
+                                    ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
+
+                                if ($user->role === 'supervisor') {
+                                    $query->where(function ($q) use ($user) {
+                                        $q->where('lead_id', $user->id)
+                                            ->orWhere('portfolio_agent_id', $user->id);
+                                    });
+                                }
+
+                                return $query->pluck('name', 'id');
+                            })
+                            ->searchable()
+                            ->nullable()
+                            ->live()
+                            ->afterStateUpdated(fn ($set, $state) => $state ? $set('to_warehouse_id', null) : null),
+                    ])
+                    ->requiresConfirmation()
+                    ->modalHeading('Re-assign Collected Stock')
+                    ->modalDescription('This will move the collected stock to the selected warehouse or agent. The source agent\'s stock balance will be deducted.')
+                    ->action(function (StockTransfer $record, array $data) {
+                        if (empty($data['to_warehouse_id']) && empty($data['to_agent_id'])) {
+                            Notification::make()
+                                ->title('Please select a destination')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        StockTransferService::reassign($record, $data);
+
+                        Notification::make()->title('Stock re-assigned successfully')->success()->send();
                     }),
 
                 // === ACCOUNTANT APPROVAL (sole approver) ===

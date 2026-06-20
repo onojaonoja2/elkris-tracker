@@ -102,11 +102,11 @@ class EditUser extends EditRecord
             $action = $data['delete_action'] ?? 'freeze';
 
             if ($action === 'freeze') {
-                $user->update(['is_active' => false]);
+                $user->suspend('Frozen by admin');
 
                 Notification::make()
-                    ->title('Field Agent Frozen')
-                    ->body($user->name."'s account has been frozen and they can no longer log in.")
+                    ->title('Field Agent Suspended')
+                    ->body($user->name."'s account has been suspended and they can no longer log in.")
                     ->success()
                     ->send();
             } else {

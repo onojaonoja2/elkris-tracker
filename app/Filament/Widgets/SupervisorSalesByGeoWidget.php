@@ -47,6 +47,7 @@ class SupervisorSalesByGeoWidget extends TableWidget
             ->leftJoin('states', 'lgas.state_id', '=', 'states.id')
             ->leftJoin('regions', 'states.region_id', '=', 'regions.id')
             ->where('users.role', 'community_sales_representative')
+            ->where('users.is_active', true)
             ->whereBetween('sales_records.created_at', [$from, $to]);
 
         $aggregates = match ($this->geoTab) {

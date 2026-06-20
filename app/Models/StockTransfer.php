@@ -18,6 +18,7 @@ class StockTransfer extends Model
         'status', 'notes',
         'requested_by', 'approved_by', 'approved_at', 'rejection_reason',
         'source_type', 'source_name', 'dispatch_papers_path', 'requires_approval',
+        'collected_at', 'collected_by',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class StockTransfer extends Model
             'status' => StockTransferStatus::class,
             'received_at' => 'datetime',
             'approved_at' => 'datetime',
+            'collected_at' => 'datetime',
         ];
     }
 
@@ -69,6 +71,11 @@ class StockTransfer extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function collector(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'collected_by');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(StockTransferItem::class);
@@ -84,5 +91,10 @@ class StockTransfer extends Model
         return $this->hasMany(StockTransferItem::class)
             ->where('rejected_quantity', '>', 0)
             ->whereNull('rejection_resolved_at');
+    }
+
+    public function isCollected(): bool
+    {
+        return $this->status === StockTransferStatus::Collected;
     }
 }

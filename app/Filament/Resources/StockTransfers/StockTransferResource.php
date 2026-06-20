@@ -8,6 +8,7 @@ use App\Filament\Resources\StockTransfers\Pages\ListStockTransfers;
 use App\Filament\Resources\StockTransfers\Schemas\StockTransferForm;
 use App\Filament\Resources\StockTransfers\Tables\StockTransfersTable;
 use App\Models\StockTransfer;
+use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -27,7 +28,7 @@ class StockTransferResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $user = auth()->user();
-        $count = StockTransfer::whereIn('status', ['requested', 'approved']);
+        $count = StockTransfer::whereIn('status', ['requested', 'approved', 'collected']);
 
         if ($user->role === 'accountant') {
             $count->where('status', 'requested');
@@ -47,6 +48,23 @@ class StockTransferResource extends Resource
             $count->where(function (Builder $q) use ($user) {
                 $q->where('to_agent_id', $user->id)
                     ->orWhere('requested_by', $user->id);
+            });
+        }
+
+        if ($user->role === 'supervisor') {
+            $agentIds = User::where('lead_id', $user->id)
+                ->orWhere('portfolio_agent_id', $user->id)
+                ->pluck('id');
+            $count->where(function (Builder $q) use ($agentIds) {
+                $q->whereIn('from_agent_id', $agentIds)
+                    ->orWhere('requested_by', auth()->id());
+            });
+        }
+
+        if ($user->role === 'manager') {
+            $count->where(function (Builder $q) {
+                $q->where('source_type', 'agent_collection')
+                    ->orWhere('requested_by', auth()->id());
             });
         }
 
@@ -114,6 +132,23 @@ class StockTransferResource extends Resource
         if ($user->role === 'sales') {
             $warehouseIds = $user->salesWarehouses()->pluck('id');
             $query->whereIn('from_warehouse_id', $warehouseIds);
+        }
+
+        if ($user->role === 'supervisor') {
+            $agentIds = User::where('lead_id', $user->id)
+                ->orWhere('portfolio_agent_id', $user->id)
+                ->pluck('id');
+            $query->where(function (Builder $q) use ($agentIds) {
+                $q->whereIn('from_agent_id', $agentIds)
+                    ->orWhere('requested_by', auth()->id());
+            });
+        }
+
+        if ($user->role === 'manager') {
+            $query->where(function (Builder $q) {
+                $q->where('source_type', 'agent_collection')
+                    ->orWhere('requested_by', auth()->id());
+            });
         }
 
         return $query;
