@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\CsrOverviewWidget;
 use App\Filament\Widgets\LeadAgentSubmissionsWidget;
+use App\Filament\Widgets\LeadCsrAssignmentWidget;
 use App\Filament\Widgets\LeadCsrSubmissionsWidget;
 use App\Filament\Widgets\LeadOrdersStatsWidget;
 use App\Filament\Widgets\LeadOrdersWidget;
@@ -64,6 +65,7 @@ class LeadDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            LeadCsrAssignmentWidget::class,
             LeadPersonalPortfolioWidget::class,
             CsrOverviewWidget::class,
             UpcomingFollowUps::class,
