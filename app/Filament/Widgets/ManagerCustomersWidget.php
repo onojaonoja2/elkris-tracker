@@ -28,7 +28,7 @@ class ManagerCustomersWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
+        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
     }
 
     protected function getDefaultDateRange(): array
@@ -109,6 +109,7 @@ class ManagerCustomersWidget extends TableWidget
                     ->label('Date Added')
                     ->date('d/m/Y'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('rep_id')
                     ->label('Filter by Rep')

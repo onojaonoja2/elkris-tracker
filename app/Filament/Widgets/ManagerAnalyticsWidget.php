@@ -30,6 +30,6 @@ class ManagerAnalyticsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'manager' || auth()->user()->role === 'admin';
+        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
     }
 }

@@ -18,7 +18,6 @@ class TrialOrderExporter extends Exporter
             ExportColumn::make('id')
                 ->label('ID'),
             ExportColumn::make('agent.name')->label('Field Agent'),
-            ExportColumn::make('stockist.name')->label('Stockist'),
             ExportColumn::make('products')->state(function (TrialOrder $record) {
                 return collect($record->products)->map(fn ($p) => "{$p['quantity']}x {$p['product_name']}")->implode(', ');
             }),

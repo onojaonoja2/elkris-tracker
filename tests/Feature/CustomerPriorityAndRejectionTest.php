@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\CustomerPriority;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,63 +14,40 @@ class CustomerPriorityAndRejectionTest extends TestCase
 
     public function test_customer_priority_field_exists(): void
     {
-        $user = User::create([
+        $user = User::factory()->fieldAgent()->create([
             'name' => 'Test Agent',
-            'email' => 'agent@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'field_agent',
             'my_id' => '123456',
         ]);
 
         $this->actingAs($user);
 
-        $customer = Customer::create([
-            'customer_name' => 'Test Customer',
-            'phone_number' => '12345678901',
-            'address' => 'Test Address',
-            'city' => 'lagos_island',
-            'state' => 'Lagos',
-            'region' => 'South West',
-            'priority' => 'high',
-            'customer_status' => 'customer',
-            'agent_id' => $user->id,
+        $customer = Customer::factory()->agentId($user)->create([
+            'priority' => CustomerPriority::High,
         ]);
 
-        $this->assertEquals('high', $customer->priority);
+        $this->assertEquals(CustomerPriority::High, $customer->priority);
         $this->assertEquals($user->id, $customer->agent_id);
     }
 
     public function test_rep_can_reject_customer(): void
     {
-        $lead = User::create([
+        $lead = User::factory()->lead()->create([
             'name' => 'Test Lead',
-            'email' => 'lead@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'lead',
             'my_id' => '234567',
         ]);
 
-        $rep = User::create([
+        $rep = User::factory()->rep()->create([
             'name' => 'Test Rep',
-            'email' => 'rep@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'rep',
             'lead_id' => $lead->id,
             'my_id' => '345678',
         ]);
 
-        $customer = Customer::create([
-            'customer_name' => 'Test Customer',
-            'phone_number' => '12345678902',
-            'address' => 'Test Address',
-            'city' => 'lagos_island',
-            'state' => 'Lagos',
-            'region' => 'South West',
-            'rep_id' => $rep->id,
-            'lead_id' => $lead->id,
-            'rep_acceptance_status' => 'pending',
-            'customer_status' => 'customer',
-        ]);
+        $customer = Customer::factory()
+            ->leadId($lead)
+            ->repId($rep)
+            ->create([
+                'rep_acceptance_status' => 'pending',
+            ]);
 
         $customer->update([
             'rep_id' => null,

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Customers;
 
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
+use App\Filament\Resources\Customers\Pages\ImportCustomers;
 use App\Filament\Resources\Customers\Pages\ListCustomers;
 use App\Filament\Resources\Customers\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\Customers\Schemas\CustomerForm;
@@ -27,12 +28,12 @@ class CustomerResource extends Resource implements CopilotResource
 
     public static function canCreate(): bool
     {
-        return ! in_array(auth()->user()->role, ['sales', 'supervisor']);
+        return ! in_array(auth()->user()->role, ['sales', 'supervisor', 'accountant', 'warehouse_manager', 'general_accountant']);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return ! in_array(auth()->user()->role, ['manager', 'admin', 'sales']);
+        return ! in_array(auth()->user()->role, ['manager', 'admin', 'sales', 'general_manager']);
     }
 
     public static function form(Schema $schema): Schema
@@ -58,13 +59,14 @@ class CustomerResource extends Resource implements CopilotResource
             'index' => ListCustomers::route('/'),
             'create' => CreateCustomer::route('/create'),
             'edit' => EditCustomer::route('/{record}/edit'),
+            'import' => ImportCustomers::route('/import'),
         ];
     }
 
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (in_array($user->role, ['admin', 'manager'])) {
+        if (in_array($user->role, ['admin', 'manager', 'accountant', 'general_manager', 'general_accountant'])) {
             return parent::getEloquentQuery();
         }
 
@@ -79,7 +81,7 @@ class CustomerResource extends Resource implements CopilotResource
         }
 
         // Field agents see only theirs
-        if ($user->role === 'field_agent') {
+        if (in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             return parent::getEloquentQuery()->where('agent_id', $user->id);
         }
 

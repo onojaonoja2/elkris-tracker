@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources\CallLogs;
 
+use App\Enums\CallOutcome;
 use App\Filament\Resources\CallLogs\Pages\CreateCallLog;
 use App\Filament\Resources\CallLogs\Pages\ListCallLogs;
 use App\Models\CallLog;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -74,6 +76,10 @@ class CallLogResource extends Resource
                 ->native(false)
                 ->displayFormat('d/m/Y H:i')
                 ->default(now()),
+            DatePicker::make('next_call_date')
+                ->label('Proposed Next Call Date')
+                ->native(false)
+                ->displayFormat('d/m/Y'),
             Select::make('outcome')
                 ->options([
                     'connected' => 'Connected',
@@ -107,26 +113,14 @@ class CallLogResource extends Resource
                 TextColumn::make('called_at')
                     ->dateTime('d/m/Y H:i')
                     ->sortable(),
+                TextColumn::make('next_call_date')
+                    ->label('Next Call')
+                    ->date()
+                    ->sortable(),
                 TextColumn::make('outcome')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'connected' => 'success',
-                        'voicemail' => 'warning',
-                        'not_reachable' => 'danger',
-                        'wrong_number' => 'gray',
-                        'callback' => 'info',
-                        'no_answer' => 'warning',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'connected' => 'Connected',
-                        'voicemail' => 'Voicemail',
-                        'not_reachable' => 'Not Reachable',
-                        'wrong_number' => 'Wrong Number',
-                        'callback' => 'Callback',
-                        'no_answer' => 'No Answer',
-                        default => $state,
-                    }),
+                    ->color(fn (CallOutcome $state): string => $state->color())
+                    ->formatStateUsing(fn (CallOutcome $state): string => $state->getLabel()),
                 TextColumn::make('notes')
                     ->limit(50)
                     ->toggleable(),
@@ -135,6 +129,7 @@ class CallLogResource extends Resource
                     ->limit(50)
                     ->toggleable(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 Filter::make('called_at')
                     ->label('Date Range')
@@ -147,6 +142,10 @@ class CallLogResource extends Resource
                             ->label('To Date')
                             ->native(false)
                             ->displayFormat('d/m/Y'),
+                    ])
+                    ->default([
+                        'called_from' => now()->startOfDay(),
+                        'called_until' => now()->endOfDay(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -165,8 +164,8 @@ class CallLogResource extends Resource
                     ->label('Export Call Logs')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
-                    ->action(function () {
-                        $query = static::getEloquentQuery()->with(['user', 'customer']);
+                    ->action(function ($livewire) {
+                        $query = $livewire->getFilteredTableQuery()->with(['user', 'customer']);
                         $logs = $query->orderBy('called_at', 'desc')->get();
                         $data = [];
                         foreach ($logs as $log) {
@@ -174,6 +173,7 @@ class CallLogResource extends Resource
                                 $log->user?->name ?? 'N/A',
                                 $log->customer?->customer_name ?? 'N/A',
                                 Carbon::parse($log->called_at)->format('d/m/Y H:i'),
+                                $log->next_call_date ? Carbon::parse($log->next_call_date)->format('d/m/Y') : '',
                                 ucfirst(str_replace('_', ' ', $log->outcome)),
                                 $log->notes ?? '',
                                 $log->other_comment ?? '',
@@ -182,7 +182,7 @@ class CallLogResource extends Resource
 
                         return response()->streamDownload(function () use ($data) {
                             $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Rep', 'Customer', 'Called At', 'Outcome', 'Notes', 'Other Comment']);
+                            fputcsv($file, ['Rep', 'Customer', 'Called At', 'Next Call Date', 'Outcome', 'Notes', 'Other Comment']);
                             foreach ($data as $row) {
                                 fputcsv($file, $row);
                             }

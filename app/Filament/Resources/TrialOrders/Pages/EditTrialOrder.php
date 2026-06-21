@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TrialOrders\Pages;
 
+use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
@@ -16,6 +17,15 @@ class EditTrialOrder extends EditRecord
             DeleteAction::make()
                 ->visible(fn () => ! $this->getRecord()->isLocked()),
         ];
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if ($this->record->status !== TrialOrderStatus::Approved) {
+            $data['status'] = TrialOrderStatus::ReceiptUploaded;
+        }
+
+        return $data;
     }
 
     protected function afterSave(): void

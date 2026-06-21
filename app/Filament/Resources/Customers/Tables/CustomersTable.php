@@ -10,6 +10,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
@@ -28,14 +29,14 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('rep.name')
                     ->label('Rep Name')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('rep.my_id')
                     ->label('Rep Internal ID')
@@ -49,14 +50,14 @@ class CustomersTable
                         });
                     })
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('agent.name')
                     ->label('Agent Name')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('customer_name')
                     ->searchable()
@@ -70,10 +71,10 @@ class CustomersTable
                 TextColumn::make('age')
                     ->numeric()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('gender')
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('city')
                     ->sortable()
                     ->searchable()
@@ -88,7 +89,7 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('rep_acceptance_status')
                     ->label('Assignment Status')
                     ->badge()
@@ -102,52 +103,46 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('priority')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->color(fn (string $state): string => match ($state) {
-                        'high' => 'danger',
-                        'medium' => 'warning',
-                        'low' => 'success',
-                        default => 'gray',
-                    })
+                    ->label('Priority')
                     ->sortable()
                     ->toggleable(),
 
                 TextColumn::make('customer_status')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('diabetic_awareness')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('call_date')
                     ->date()
                     ->sortable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('preffered_call_time')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('follow_up_date')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->visible(fn () => auth()->user()->role !== 'field_agent'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
             ])
             ->filters([
                 Filter::make('call_date')
@@ -166,25 +161,55 @@ class CustomersTable
                     ->label(fn ($record) => $record->lead_id ? 'Reassign Lead' : 'Assign to Lead')
                     ->color(fn ($record) => $record->lead_id ? 'success' : 'primary')
                     ->icon('heroicon-o-users')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->agent_id !== null))
-                    ->form([
-                        Select::make('lead_id')
-                            ->label('Select Team Lead')
-                            ->options(User::where('role', 'lead')->pluck('name', 'id'))
-                            ->searchable()
-                            ->required(),
-                    ])
-                    ->action(function ($record, array $data) {
-                        $record->update(['lead_id' => $data['lead_id']]);
-                        $record->leads()->syncWithoutDetaching([$data['lead_id']]);
-                        $this->dispatch('refresh-dashboard');
+                    ->visible(function ($record) {
+                        $user = auth()->user();
+                        if (in_array($user->role, ['admin', 'manager'])) {
+                            return true;
+                        }
+                        if ($user->role === 'lead' && $record->agent_id !== null && $record->rep_acceptance_status !== 'accepted') {
+                            return true;
+                        }
+
+                        return false;
+                    })
+                    ->form(function () {
+                        if (auth()->user()->role === 'lead') {
+                            return [
+                                Hidden::make('lead_id')
+                                    ->default(auth()->id()),
+                            ];
+                        }
+
+                        return [
+                            Select::make('lead_id')
+                                ->label('Select Team Lead')
+                                ->options(User::where('role', 'lead')->pluck('name', 'id'))
+                                ->searchable()
+                                ->required(),
+                        ];
+                    })
+                    ->action(function ($record, array $data, $livewire) {
+                        $leadId = $data['lead_id'] ?? auth()->id();
+                        $record->update(['lead_id' => $leadId]);
+                        $record->leads()->syncWithoutDetaching([$leadId]);
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('assignToRep')
                     ->label(fn ($record) => $record->rep_id ? 'Reassign' : 'Assign to Rep')
                     ->color(fn ($record) => $record->rep_id ? 'success' : 'primary')
                     ->icon('heroicon-o-user-plus')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['admin', 'manager']) || (auth()->user()->role === 'lead' && $record->lead_id == auth()->id() && $record->agent_id !== null))
+                    ->visible(function ($record) {
+                        $user = auth()->user();
+                        if (in_array($user->role, ['admin', 'manager'])) {
+                            return true;
+                        }
+                        if ($user->role === 'lead' && $record->lead_id == $user->id && $record->agent_id !== null && $record->rep_acceptance_status !== 'accepted') {
+                            return true;
+                        }
+
+                        return false;
+                    })
                     ->form([
                         Select::make('rep_id')
                             ->label('Select Rep')
@@ -199,14 +224,14 @@ class CustomersTable
                             })
                             ->required(),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         $record->update([
                             'rep_id' => $data['rep_id'],
                             'rep_acceptance_status' => 'pending',
                             'lead_id' => auth()->id(),
                         ]);
                         $record->reps()->syncWithoutDetaching([$data['rep_id']]);
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('acceptAssignment')
@@ -214,12 +239,12 @@ class CustomersTable
                     ->color('success')
                     ->icon('heroicon-o-check')
                     ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
-                    ->action(function ($record) {
+                    ->action(function ($record, $livewire) {
                         $record->update([
                             'rep_acceptance_status' => 'accepted',
                             'rejection_note' => null,
                         ]);
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('rejectAssignment')
@@ -233,7 +258,7 @@ class CustomersTable
                             ->required()
                             ->rows(3),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         $record->update([
                             'rep_id' => null,
                             'rep_acceptance_status' => 'rejected',
@@ -242,21 +267,21 @@ class CustomersTable
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('rejectByTeamLead')
                     ->label('Reject Customer')
                     ->color('danger')
                     ->icon('heroicon-o-x-mark')
-                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status !== 'rejected')
+                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status !== 'rejected' && $record->rep_acceptance_status !== 'accepted')
                     ->form([
                         Textarea::make('rejection_note')
                             ->label('Reason for Rejection')
                             ->required()
                             ->rows(3),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         $record->update([
                             'rep_id' => null,
                             'rep_acceptance_status' => 'rejected',
@@ -265,15 +290,15 @@ class CustomersTable
                             'rejection_note' => $data['rejection_note'],
                         ]);
                         $record->reps()->detach();
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('requestReplacement')
                     ->label('Request Replacement')
                     ->color('warning')
                     ->icon('heroicon-o-arrow-path')
-                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status === 'rejected' && ! $record->needs_replacement)
-                    ->action(function ($record) {
+                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status === 'rejected' && ! $record->needs_replacement && $record->rep_acceptance_status !== 'accepted')
+                    ->action(function ($record, $livewire) {
                         $record->update([
                             'needs_replacement' => true,
                             'replacement_requested_by' => auth()->id(),
@@ -281,7 +306,7 @@ class CustomersTable
                             'lead_id' => null,
                         ]);
                         $record->leads()->detach();
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     }),
 
                 Action::make('logCall')
@@ -294,6 +319,10 @@ class CustomersTable
                             ->native(false)
                             ->displayFormat('d/m/Y H:i')
                             ->default(now()),
+                        DatePicker::make('next_call_date')
+                            ->label('Proposed Next Call Date')
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
                         Select::make('outcome')
                             ->options([
                                 'connected' => 'Connected',
@@ -310,26 +339,28 @@ class CustomersTable
                             ->label('Other Comment')
                             ->rows(3),
                     ])
-                    ->action(function ($record, array $data) {
+                    ->action(function ($record, array $data, $livewire) {
                         CallLog::create([
                             'user_id' => auth()->id(),
                             'customer_id' => $record->id,
                             'called_at' => $data['called_at'] ?? now(),
+                            'next_call_date' => $data['next_call_date'] ?? null,
                             'outcome' => $data['outcome'],
                             'notes' => $data['notes'],
                             'other_comment' => $data['other_comment'],
                         ]);
-                        $this->dispatch('refresh-dashboard');
+                        $livewire->dispatch('refresh-dashboard');
                     })
                     ->successNotificationTitle('Call logged successfully'),
 
                 ViewAction::make(),
                 EditAction::make()
-                    ->visible(fn () => auth()->user()->role !== 'sales'),
+                    ->visible(fn () => ! in_array(auth()->user()->role, ['sales', 'warehouse_manager'])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => ! in_array(auth()->user()->role, ['sales', 'warehouse_manager'])),
                 ]),
             ]);
     }

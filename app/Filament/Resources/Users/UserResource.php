@@ -25,7 +25,7 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'supervisor']);
+        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -34,7 +34,19 @@ class UserResource extends Resource
         $user = auth()->user();
 
         if ($user->role === 'supervisor') {
-            return $query->where('role', 'field_agent');
+            return $query->whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']);
+        }
+
+        if ($user->role === 'manager') {
+            return $query->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
+        }
+
+        if ($user->role === 'general_accountant') {
+            return $query->whereIn('role', ['accountant', 'warehouse_manager']);
+        }
+
+        if ($user->role === 'general_manager') {
+            return $query->whereIn('role', ['admin', 'supervisor', 'lead', 'rep', 'community_sales_representative', 'open_market', 'retail_market', 'sales', 'manager', 'accountant', 'warehouse_manager']);
         }
 
         if ($user->role === 'lead') {
@@ -46,7 +58,7 @@ class UserResource extends Resource
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'supervisor']);
+        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
     }
 
     public static function form(Schema $schema): Schema

@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\CallOutcome;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CallLog extends Model
 {
@@ -10,6 +12,7 @@ class CallLog extends Model
         'user_id',
         'customer_id',
         'called_at',
+        'next_call_date',
         'outcome',
         'notes',
         'other_comment',
@@ -18,16 +21,18 @@ class CallLog extends Model
     protected function casts(): array
     {
         return [
+            'outcome' => CallOutcome::class,
             'called_at' => 'datetime',
+            'next_call_date' => 'date',
         ];
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function customer()
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }

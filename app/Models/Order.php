@@ -2,31 +2,98 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Attributes\Unguarded;
+use App\Enums\AssignmentStatus;
+use App\Enums\OrderStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Unguarded]
 class Order extends Model
 {
-    public function customer()
+    use HasFactory;
+
+    protected $fillable = [
+        'customer_id',
+        'user_id',
+        'lga_id',
+        'status',
+        'is_migrated_order',
+        'expected_delivery_date',
+        'total_price',
+        'preferred_payment_option',
+        'preferred_delivery_date',
+        'delivery_details',
+        'assigned_to',
+        'assigned_by',
+        'assigned_at',
+        'assignment_status',
+        'assignment_notes',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'status' => OrderStatus::class,
+            'expected_delivery_date' => 'date',
+            'assigned_at' => 'datetime',
+            'assignment_status' => AssignmentStatus::class,
+        ];
+    }
+
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function products()
+    public function assignedTo(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
+    }
+
+    public function products(): HasMany
     {
         return $this->hasMany(Product::class);
     }
 
-    protected static function booted()
+    public function isAssigned(): bool
+    {
+        return $this->assignment_status !== AssignmentStatus::None && $this->assigned_to !== null;
+    }
+
+    public function isBeingProcessedBySales(): bool
+    {
+        return $this->assigned_to !== null
+            && $this->assignedTo?->role === 'sales'
+            && $this->assignment_status === AssignmentStatus::Accepted;
+    }
+
+    public function isBeingProcessedByCsr(): bool
+    {
+        return $this->assigned_to !== null
+            && $this->assignedTo?->role === 'community_sales_representative'
+            && $this->assignment_status === AssignmentStatus::Accepted;
+    }
+
+    public function getProcessor(): ?User
+    {
+        return $this->assignedTo ?? $this->user;
+    }
+
+    protected static function booted(): void
     {
         static::updated(function (Order $order) {
-            if ($order->isDirty('status') && $order->status === 'delivered') {
+            if ($order->isDirty('status') && $order->status === OrderStatus::Delivered) {
                 $customer = $order->customer;
                 $purchases = $customer->lifetime_purchases ?? [];
 

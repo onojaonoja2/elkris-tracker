@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\SnsSmsChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
@@ -20,7 +21,18 @@ class NewSubmissionNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = ['database'];
+
+        if ($notifiable->phone && $notifiable->sms_notifications) {
+            $channels[] = SnsSmsChannel::class;
+        }
+
+        return $channels;
+    }
+
+    public function toSnsSms(object $notifiable): string
+    {
+        return "[{$this->type}] {$this->title}: {$this->message}";
     }
 
     public function toArray(object $notifiable): array

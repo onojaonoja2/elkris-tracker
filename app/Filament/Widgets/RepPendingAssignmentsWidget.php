@@ -49,6 +49,7 @@ class RepPendingAssignmentsWidget extends TableWidget
                     ->label('Date')
                     ->date('d/m/Y'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->recordActions([
                 Action::make('accept')
                     ->label('Accept')

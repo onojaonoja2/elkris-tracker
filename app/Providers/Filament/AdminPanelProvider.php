@@ -3,12 +3,22 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Http\Middleware\Authenticate;
+use App\Filament\Pages\AccountantDashboard;
+use App\Filament\Pages\AgentDashboard;
+use App\Filament\Pages\CsrDashboard;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\FieldAgentDashboard;
+use App\Filament\Pages\GeneralAccountantDashboard;
+use App\Filament\Pages\GeneralManagerDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
+use App\Filament\Pages\OrderSettings;
+use App\Filament\Pages\Profile;
 use App\Filament\Pages\RepDashboard;
+use App\Filament\Pages\SalesOrdersDashboard;
 use App\Filament\Pages\SupervisorDashboard;
+use App\Filament\Pages\SystemMaintenance;
+use App\Filament\Pages\WarehouseManagerDashboard;
 use App\Filament\Widgets\NotificationBellWidget;
 use EslamRedaDiv\FilamentCopilot\FilamentCopilotPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -38,6 +48,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->profile(Profile::class)
             ->colors([
                 'primary' => Color::Cyan,
             ])
@@ -45,21 +56,39 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+                AgentDashboard::class,
+                CsrDashboard::class,
                 ManagerDashboard::class,
                 SupervisorDashboard::class,
                 LeadDashboard::class,
                 RepDashboard::class,
                 FieldAgentDashboard::class,
+                SalesOrdersDashboard::class,
+                WarehouseManagerDashboard::class,
+                AccountantDashboard::class,
+                GeneralAccountantDashboard::class,
+                GeneralManagerDashboard::class,
+                SystemMaintenance::class,
+                OrderSettings::class,
             ])
-            ->homeUrl(fn () => match (auth()->user()->role) {
-                'supervisor' => '/admin/supervisor-dashboard',
-                'lead' => '/admin/lead-dashboard',
-                'rep' => '/admin/rep-dashboard',
-                'sales' => '/admin/sales-orders-dashboard',
-                'field_agent' => '/admin/field-agent-dashboard',
-                'manager', 'admin' => '/admin/manager-dashboard',
-                default => '/admin',
-            })
+            ->homeUrl(fn () => auth()->user()
+                ? match (auth()->user()->role) {
+                    'supervisor' => '/admin/supervisor-dashboard',
+                    'lead' => '/admin/lead-dashboard',
+                    'rep' => '/admin/rep-dashboard',
+                    'sales' => '/admin/sales-orders-dashboard',
+                    'field_agent' => '/admin/agent-dashboard',
+                    'community_sales_representative' => '/admin/csr-dashboard',
+                    'open_market' => '/admin/agent-dashboard',
+                    'retail_market' => '/admin/agent-dashboard',
+                    'warehouse_manager' => '/admin/warehouse-dashboard',
+                    'accountant' => '/admin/accountant-dashboard',
+                    'manager', 'admin' => '/admin/manager-dashboard',
+                    'general_accountant' => '/admin/general-accountant-dashboard',
+                    'general_manager' => '/admin/general-manager-dashboard',
+                    default => '/admin',
+                }
+                : url('/admin'))
             ->widgets([
                 AccountWidget::class,
                 NotificationBellWidget::class,

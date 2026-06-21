@@ -23,7 +23,7 @@ class FieldAgentReplaceCustomersWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user() && auth()->user()->role === 'field_agent';
+        return auth()->user() && in_array(auth()->user()->role, ['field_agent', 'community_sales_representative']);
     }
 
     public function table(Table $table): Table
@@ -43,13 +43,8 @@ class FieldAgentReplaceCustomersWidget extends BaseWidget
                 TextColumn::make('state'),
                 TextColumn::make('priority')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->color(fn (string $state): string => match ($state) {
-                        'high' => 'danger',
-                        'medium' => 'warning',
-                        'low' => 'success',
-                        default => 'gray',
-                    }),
+                    ->label('Priority'),
+
                 TextColumn::make('rejection_note')
                     ->label('Rejection Reason')
                     ->limit(30),

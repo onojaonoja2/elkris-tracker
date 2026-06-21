@@ -29,7 +29,7 @@ class LeadAgentSubmissionsWidget extends TableWidget
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn (): Builder => Customer::query()->whereNotNull('agent_id')->whereNull('rep_id'))
+            ->query(fn (): Builder => Customer::query()->whereNotNull('agent_id')->whereNull('rep_id')->whereNull('lead_id'))
             ->columns([
                 TextColumn::make('customer_name')
                     ->label('Customer Name')
@@ -46,13 +46,7 @@ class LeadAgentSubmissionsWidget extends TableWidget
                     ->searchable(),
                 TextColumn::make('priority')
                     ->badge()
-                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
-                    ->color(fn (string $state): string => match ($state) {
-                        'high' => 'danger',
-                        'medium' => 'warning',
-                        'low' => 'success',
-                        default => 'gray',
-                    }),
+                    ->label('Priority'),
                 TextColumn::make('city')
                     ->searchable(),
                 TextColumn::make('state')
@@ -61,6 +55,7 @@ class LeadAgentSubmissionsWidget extends TableWidget
                     ->label('Date')
                     ->date('d/m/Y'),
             ])
+            ->defaultSort('created_at', 'desc')
             ->recordActions([
                 Action::make('assignToRep')
                     ->label('Assign to Rep')

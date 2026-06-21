@@ -16,11 +16,8 @@ class FieldAgentDashboardTest extends TestCase
 
     public function test_field_agent_can_access_dashboard(): void
     {
-        $agent = User::create([
+        $agent = User::factory()->fieldAgent()->create([
             'name' => 'Test Agent',
-            'email' => 'agent@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'field_agent',
             'my_id' => '123456',
         ]);
 
@@ -32,24 +29,12 @@ class FieldAgentDashboardTest extends TestCase
 
     public function test_field_agent_sees_daily_submissions_widget(): void
     {
-        $agent = User::create([
+        $agent = User::factory()->fieldAgent()->create([
             'name' => 'Test Agent',
-            'email' => 'agent2@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'field_agent',
             'my_id' => '234567',
         ]);
 
-        Customer::create([
-            'customer_name' => 'Test Customer',
-            'phone_number' => '12345678901',
-            'address' => 'Test Address',
-            'city' => 'lagos_island',
-            'state' => 'Lagos',
-            'region' => 'South West',
-            'priority' => 'medium',
-            'customer_status' => 'customer',
-            'agent_id' => $agent->id,
+        Customer::factory()->agentId($agent)->create([
             'created_at' => today(),
         ]);
 
@@ -62,24 +47,12 @@ class FieldAgentDashboardTest extends TestCase
 
     public function test_replace_customer_phone_validation(): void
     {
-        $agent = User::create([
+        $agent = User::factory()->fieldAgent()->create([
             'name' => 'Test Agent',
-            'email' => 'agent3@test.com',
-            'password' => bcrypt('password'),
-            'role' => 'field_agent',
             'my_id' => '345678',
         ]);
 
-        $customer = Customer::create([
-            'customer_name' => 'Old Customer',
-            'phone_number' => '12345678901',
-            'address' => 'Old Address',
-            'city' => 'lagos_island',
-            'state' => 'Lagos',
-            'region' => 'South West',
-            'priority' => 'medium',
-            'customer_status' => 'customer',
-            'agent_id' => $agent->id,
+        $customer = Customer::factory()->agentId($agent)->create([
             'needs_replacement' => true,
         ]);
 

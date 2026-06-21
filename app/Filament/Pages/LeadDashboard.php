@@ -2,11 +2,14 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\CreatedPerRepChart;
+use App\Filament\Widgets\CsrOverviewWidget;
 use App\Filament\Widgets\LeadAgentSubmissionsWidget;
+use App\Filament\Widgets\LeadCsrAssignmentWidget;
+use App\Filament\Widgets\LeadCsrSubmissionsWidget;
 use App\Filament\Widgets\LeadOrdersStatsWidget;
 use App\Filament\Widgets\LeadOrdersWidget;
 use App\Filament\Widgets\LeadPendingAssignmentsWidget;
+use App\Filament\Widgets\LeadPersonalPortfolioWidget;
 use App\Filament\Widgets\LeadPortfolioWidget;
 use App\Filament\Widgets\LeadRejectedCustomersWidget;
 use App\Filament\Widgets\LeadStatsWidget;
@@ -48,7 +51,10 @@ class LeadDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            LeadStatsWidget::class,
+            LeadOrdersStatsWidget::class,
             LeadAgentSubmissionsWidget::class,
+            LeadCsrSubmissionsWidget::class,
             LeadPendingAssignmentsWidget::class,
             LeadRejectedCustomersWidget::class,
             LeadPortfolioWidget::class,
@@ -59,9 +65,9 @@ class LeadDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
-            LeadStatsWidget::class,
-            LeadOrdersStatsWidget::class,
-            CreatedPerRepChart::class,
+            LeadCsrAssignmentWidget::class,
+            LeadPersonalPortfolioWidget::class,
+            CsrOverviewWidget::class,
             UpcomingFollowUps::class,
         ];
     }

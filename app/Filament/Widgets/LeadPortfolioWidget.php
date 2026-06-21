@@ -53,18 +53,51 @@ class LeadPortfolioWidget extends TableWidget
                     ->label('Address')
                     ->searchable()
                     ->limit(30),
+                TextColumn::make('total_purchases')
+                    ->label('Purchases')
+                    ->getStateUsing(fn ($record): int => $record->orders()->where('status', 'delivered')->where('is_migrated_order', false)->count())
+                    ->sortable()
+                    ->color(fn ($state): string => $state > 0 ? 'success' : 'danger'),
                 TextColumn::make('created_at')
                     ->label('Date Added')
                     ->date('d/m/Y'),
                 BadgeColumn::make('conversion_status')
                     ->label('Conversion')
-                    ->getStateUsing(fn (Customer $record): string => $record->orders()->exists() ? 'Converted' : 'Pending')
+                    ->getStateUsing(fn (Customer $record): string => $record->orders()->where('is_migrated_order', false)->exists() ? 'Converted' : 'Pending')
                     ->colors([
                         'success' => 'Converted',
                         'warning' => 'Pending',
                     ]),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
+                Filter::make('segment')
+                    ->label('Segment')
+                    ->form([
+                        Select::make('segment')
+                            ->label('Segment')
+                            ->options([
+                                'all' => 'All Customers',
+                                'most_purchases' => 'Most Purchases',
+                                'not_called_3d' => 'Not Called in 3 Days',
+                                'not_called_7d' => 'Not Called in 7 Days',
+                                'not_called_15d' => 'Not Called in 15 Days',
+                                'not_called_20d' => 'Not Called in 20 Days',
+                                'not_called_30d' => 'Not Called in 30 Days',
+                                'never_called' => 'Never Called',
+                                'no_purchases' => 'No Purchases',
+                                'new_call_3d' => 'New - Call in 3 Days',
+                            ])
+                            ->default('all')
+                            ->selectablePlaceholder(false),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        if (($data['segment'] ?? null) && $data['segment'] !== 'all') {
+                            self::applySegmentFilter($query, $data['segment']);
+                        }
+
+                        return $query;
+                    }),
                 Filter::make('created_at')
                     ->form([
                         DatePicker::make('created_from')
@@ -112,13 +145,14 @@ class LeadPortfolioWidget extends TableWidget
                                 $customer->rep?->name ?? 'Unassigned',
                                 $customer->address,
                                 $customer->created_at->format('d/m/Y'),
-                                $customer->orders()->exists() ? 'Yes' : 'No',
+                                $customer->orders()->where('status', 'delivered')->where('is_migrated_order', false)->count(),
+                                $customer->orders()->where('is_migrated_order', false)->exists() ? 'Yes' : 'No',
                             ];
                         }
 
                         return response()->streamDownload(function () use ($data) {
                             $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Customer Name', 'Phone', 'Assigned Rep', 'Address', 'Date Added', 'Converted']);
+                            fputcsv($file, ['Customer Name', 'Phone', 'Assigned Rep', 'Address', 'Date Added', 'Total Purchases', 'Converted']);
                             foreach ($data as $row) {
                                 fputcsv($file, $row);
                             }
@@ -130,5 +164,28 @@ class LeadPortfolioWidget extends TableWidget
                     }),
             ])
             ->paginated(false);
+    }
+
+    public static function applySegmentFilter(Builder $query, string $segment): void
+    {
+        match ($segment) {
+            'most_purchases' => $query
+                ->withCount(['orders as orders_count' => fn ($q) => $q->where('status', 'delivered')])
+                ->orderByDesc('orders_count'),
+            'not_called_3d' => $query->whereDoesntHave('callLogs', fn ($q) => $q->where('called_at', '>=', now()->subDays(3))),
+            'not_called_7d' => $query->whereDoesntHave('callLogs', fn ($q) => $q->where('called_at', '>=', now()->subDays(7))),
+            'not_called_15d' => $query->whereDoesntHave('callLogs', fn ($q) => $q->where('called_at', '>=', now()->subDays(15))),
+            'not_called_20d' => $query->whereDoesntHave('callLogs', fn ($q) => $q->where('called_at', '>=', now()->subDays(20))),
+            'not_called_30d' => $query->whereDoesntHave('callLogs', fn ($q) => $q->where('called_at', '>=', now()->subDays(30))),
+            'never_called' => $query->whereDoesntHave('callLogs'),
+            'no_purchases' => $query->whereDoesntHave('orders', fn ($q) => $q->where('status', 'delivered')),
+            'new_call_3d' => $query->whereHas('reps', function ($q) {
+                $q->where('users.id', auth()->id())
+                    ->where('customer_rep.created_at', '>=', now()->subDays(3));
+            })->whereDoesntHave('callLogs', function ($q) {
+                $q->where('called_at', '>=', now()->subDays(3));
+            }),
+            default => null,
+        };
     }
 }

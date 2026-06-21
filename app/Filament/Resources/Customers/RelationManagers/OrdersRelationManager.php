@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Customers\RelationManagers;
 
+use App\Enums\OrderStatus;
+use App\Models\Setting;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -12,6 +14,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -29,6 +32,13 @@ class OrdersRelationManager extends RelationManager
     {
         return $schema
             ->schema([
+                Toggle::make('is_migrated_order')
+                    ->label('Pre-existing Order (Migration)')
+                    ->helperText('Check if this order was placed before the migration. Lifetime purchases will be updated immediately.')
+                    ->visible(fn (): bool => Setting::getValue('migrated_orders_enabled', '0') === '1')
+                    ->live()
+                    ->default(false),
+
                 Select::make('preferred_payment_option')
                     ->label('Preferred Payment Option')
                     ->options([
@@ -59,7 +69,8 @@ class OrdersRelationManager extends RelationManager
                         'cancelled' => 'Cancelled',
                     ])
                     ->default('pending')
-                    ->required(),
+                    ->required()
+                    ->hidden(fn (Get $get): bool => (bool) $get('is_migrated_order')),
 
                 Textarea::make('delivery_details')
                     ->columnSpanFull(),
@@ -104,6 +115,7 @@ class OrdersRelationManager extends RelationManager
                             ->label('Promotion')
                             ->options([
                                 'buy_2_get_1_free' => 'Buy 2 Get 1 Free',
+                                'buy_3_get_1_free' => 'Buy 3 Get 1 Free',
                             ])
                             ->nullable()
                             ->live()
@@ -136,18 +148,13 @@ class OrdersRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('id')->label('Order #'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'dispatched' => 'info',
-                        'delivered' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (OrderStatus $state): string => $state->color()),
                 Tables\Columns\TextColumn::make('total_price')
                     ->money('NGN'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 //
             ])
@@ -156,16 +163,38 @@ class OrdersRelationManager extends RelationManager
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['user_id'] = auth()->id();
 
+                        if ($data['is_migrated_order'] ?? false) {
+                            $data['status'] = 'delivered';
+                        }
+
                         return $data;
+                    })
+                    ->after(function ($record): void {
+                        if (! ($record->is_migrated_order ?? false)) {
+                            return;
+                        }
+
+                        $customer = $record->customer;
+                        $purchases = $customer->lifetime_purchases ?? [];
+
+                        foreach ($record->products as $product) {
+                            $key = $product->product_name.' - '.$product->grammage.'g';
+                            $purchases[$key] = ($purchases[$key] ?? 0) + $product->quantity;
+                        }
+
+                        $customer->update(['lifetime_purchases' => $purchases]);
                     }),
             ])
             ->recordActions([
-                EditAction::make(),
-                DeleteAction::make(),
+                EditAction::make()
+                    ->hidden(fn ($record): bool => $record->status === 'delivered'),
+                DeleteAction::make()
+                    ->hidden(fn ($record): bool => $record->status === 'delivered'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->hidden(fn (): bool => true),
                 ]),
             ]);
     }
@@ -180,6 +209,8 @@ class OrdersRelationManager extends RelationManager
         $freeQty = 0;
         if ($promotionType === 'buy_2_get_1_free' && $quantity >= 2) {
             $freeQty = floor($quantity / 2);
+        } elseif ($promotionType === 'buy_3_get_1_free' && $quantity >= 3) {
+            $freeQty = floor($quantity / 3);
         }
         $set('free_quantity', $freeQty);
 

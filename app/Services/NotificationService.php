@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Notifications\NewSubmissionNotification;
+use Illuminate\Support\Facades\Log;
 
 class NotificationService
 {
@@ -11,31 +12,23 @@ class NotificationService
     {
         $admins = User::whereIn('role', ['admin', 'manager'])->get();
         foreach ($admins as $admin) {
-            $admin->notify(new NewSubmissionNotification($type, $title, $message, $resourceId, $resourceType));
+            try {
+                $admin->notify(new NewSubmissionNotification($type, $title, $message, $resourceId, $resourceType));
+            } catch (\Throwable $e) {
+                Log::error("Failed to send notification to admin {$admin->id}: {$e->getMessage()}");
+            }
         }
     }
 
-    public static function notifyTeamLead(int $leadId, string $type, string $title, string $message, ?int $resourceId = null, ?string $resourceType = null): void
+    public static function notifyUser(int $userId, string $type, string $title, string $message, ?int $resourceId = null, ?string $resourceType = null): void
     {
-        $lead = User::find($leadId);
-        if ($lead) {
-            $lead->notify(new NewSubmissionNotification($type, $title, $message, $resourceId, $resourceType));
-        }
-    }
-
-    public static function notifySupervisors(string $type, string $title, string $message, ?int $resourceId = null, ?string $resourceType = null): void
-    {
-        $supervisors = User::where('role', 'supervisor')->get();
-        foreach ($supervisors as $supervisor) {
-            $supervisor->notify(new NewSubmissionNotification($type, $title, $message, $resourceId, $resourceType));
-        }
-    }
-
-    public static function notifyRep(int $repId, string $type, string $title, string $message, ?int $resourceId = null, ?string $resourceType = null): void
-    {
-        $rep = User::find($repId);
-        if ($rep) {
-            $rep->notify(new NewSubmissionNotification($type, $title, $message, $resourceId, $resourceType));
+        $user = User::find($userId);
+        if ($user) {
+            try {
+                $user->notify(new NewSubmissionNotification($type, $title, $message, $resourceId, $resourceType));
+            } catch (\Throwable $e) {
+                Log::error("Failed to send notification to user {$userId}: {$e->getMessage()}");
+            }
         }
     }
 }

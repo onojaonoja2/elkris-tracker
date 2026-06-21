@@ -11,19 +11,22 @@ class OrdersPerCityChart extends ChartWidget
 {
     protected ?string $heading = 'Total Orders Per City';
 
+    protected int|string|array $columnSpan = 'full';
+
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'manager';
+        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
     }
 
     protected function getData(): array
     {
-        $data = Order::where('status', '!=', 'cancelled')
-            ->select('city', DB::raw('count(*) as total_orders'))
-            ->groupBy('city')
+        $data = Order::where('orders.status', '!=', 'cancelled')
+            ->join('customers', 'orders.customer_id', '=', 'customers.id')
+            ->select('customers.city', DB::raw('count(*) as total_orders'))
+            ->groupBy('customers.city')
             ->pluck('total_orders', 'city')
             ->toArray();
 

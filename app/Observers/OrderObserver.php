@@ -2,6 +2,9 @@
 
 namespace App\Observers;
 
+use App\Enums\OrderStatus;
+use App\Events\OrderCreated;
+use App\Events\OrderDelivered;
 use App\Models\Order;
 use App\Services\NotificationService;
 
@@ -9,17 +12,7 @@ class OrderObserver
 {
     public function created(Order $order): void
     {
-        $lead = $order->customer->lead;
-        if ($lead) {
-            NotificationService::notifyRep(
-                $lead->id,
-                'new_order',
-                'New Order',
-                "New order #{$order->id} from {$order->customer->name}",
-                $order->id,
-                'order'
-            );
-        }
+        OrderCreated::dispatch($order);
     }
 
     public function updated(Order $order): void
@@ -27,16 +20,14 @@ class OrderObserver
         if ($order->wasChanged('status')) {
             $lead = $order->customer->lead;
             if ($lead) {
-                $statusMessages = [
-                    'confirmed' => 'has been confirmed',
-                    'processing' => 'is being processed',
-                    'shipped' => 'has been shipped',
-                    'delivered' => 'has been delivered',
-                    'cancelled' => 'has been cancelled',
-                ];
+                $message = match ($order->status) {
+                    OrderStatus::Dispatched => 'has been dispatched',
+                    OrderStatus::Delivered => 'has been delivered',
+                    OrderStatus::Cancelled => 'has been cancelled',
+                    default => "status changed to {$order->status->getLabel()}",
+                };
 
-                $message = $statusMessages[$order->status] ?? "status changed to {$order->status}";
-                NotificationService::notifyRep(
+                NotificationService::notifyUser(
                     $lead->id,
                     'order_status_changed',
                     'Order Status Updated',
@@ -46,14 +37,8 @@ class OrderObserver
                 );
             }
 
-            if ($order->status === 'delivered') {
-                NotificationService::notifyAdmins(
-                    'order_delivered',
-                    'Order Delivered',
-                    "Order #{$order->id} has been delivered",
-                    $order->id,
-                    'order'
-                );
+            if ($order->status === OrderStatus::Delivered) {
+                OrderDelivered::dispatch($order);
             }
         }
     }

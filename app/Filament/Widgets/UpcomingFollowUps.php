@@ -18,7 +18,7 @@ class UpcomingFollowUps extends TableWidget
     {
         $role = auth()->user()->role;
 
-        return $role !== 'field_agent' && $role !== 'supervisor';
+        return ! in_array($role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market', 'supervisor']);
     }
 
     #[On('refresh-dashboard')]

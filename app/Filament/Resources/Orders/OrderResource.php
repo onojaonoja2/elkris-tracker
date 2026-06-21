@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders;
 
+use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
 use App\Models\Order;
 use BackedEnum;
@@ -43,12 +44,7 @@ class OrderResource extends Resource
         return $schema
             ->components([
                 Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'dispatched' => 'Dispatched',
-                        'delivered' => 'Delivered',
-                        'cancelled' => 'Cancelled',
-                    ])
+                    ->options(OrderStatus::class)
                     ->required(),
                 DatePicker::make('expected_delivery_date')
                     ->label('Expected Delivery Date')
@@ -66,13 +62,7 @@ class OrderResource extends Resource
                 TextColumn::make('user.name')->label('Submitted By'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'pending' => 'warning',
-                        'dispatched' => 'info',
-                        'delivered' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('total_price')
                     ->money('NGN'),
                 TextColumn::make('created_at')
@@ -84,14 +74,10 @@ class OrderResource extends Resource
                     ->date('d/m/Y')
                     ->sortable(),
             ])
+            ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'dispatched' => 'Dispatched',
-                        'delivered' => 'Delivered',
-                        'cancelled' => 'Cancelled',
-                    ]),
+                    ->options(OrderStatus::class),
                 Filter::make('order_type')
                     ->label('Order Type')
                     ->form([
@@ -123,8 +109,18 @@ class OrderResource extends Resource
                     }),
                 Filter::make('created_at')
                     ->form([
-                        DatePicker::make('created_from')->closeOnDateSelection(),
-                        DatePicker::make('created_until')->closeOnDateSelection(),
+                        DatePicker::make('created_from')
+                            ->closeOnDateSelection()
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                        DatePicker::make('created_until')
+                            ->closeOnDateSelection()
+                            ->native(false)
+                            ->displayFormat('d/m/Y'),
+                    ])
+                    ->default([
+                        'created_from' => now()->startOfDay(),
+                        'created_until' => now()->endOfDay(),
                     ])
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
@@ -200,15 +196,11 @@ class OrderResource extends Resource
                     ->label('Export Orders')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
-                    ->action(function () {
-                        $user = auth()->user();
-                        $query = Order::query()->with(['customer', 'user', 'products']);
-
-                        if (! in_array($user->role, ['admin', 'sales'])) {
-                            $query->where('user_id', $user->id);
-                        }
-
-                        $orders = $query->orderBy('created_at', 'desc')->get();
+                    ->action(function ($livewire) {
+                        $orders = $livewire->getFilteredTableQuery()
+                            ->with(['customer', 'user', 'products'])
+                            ->orderBy('created_at', 'desc')
+                            ->get();
                         $data = [];
                         foreach ($orders as $order) {
                             $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
@@ -216,7 +208,7 @@ class OrderResource extends Resource
                                 $order->id,
                                 $order->customer?->customer_name ?? 'N/A',
                                 $order->user?->name ?? 'N/A',
-                                ucfirst($order->status),
+                                $order->status->getLabel(),
                                 $products,
                                 number_format($order->total_price, 2),
                                 $order->created_at->format('d/m/Y H:i'),

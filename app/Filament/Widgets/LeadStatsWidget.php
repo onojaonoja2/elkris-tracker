@@ -2,6 +2,8 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\Customers\CustomerResource;
+use App\Filament\Resources\Users\UserResource;
 use App\Models\Customer;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
@@ -22,7 +24,7 @@ class LeadStatsWidget extends StatsOverviewWidget
 
         $portfolioCustomers = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId));
         $totalPortfolio = $portfolioCustomers->count();
-        $convertedPortfolio = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId))->whereHas('orders')->count();
+        $convertedPortfolio = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId))->whereHas('orders', fn ($q) => $q->where('is_migrated_order', false))->count();
         $conversionRate = $totalPortfolio > 0 ? round(($convertedPortfolio / $totalPortfolio) * 100, 1) : 0;
 
         $customersCount = Customer::whereIn('rep_id', $repIds)
@@ -35,25 +37,30 @@ class LeadStatsWidget extends StatsOverviewWidget
 
         $submissionsWaiting = Customer::whereNotNull('agent_id')
             ->whereNull('rep_id')
+            ->whereNull('lead_id')
             ->count();
 
         return [
             Stat::make('Team Reps', $reps->count())
                 ->description('Active representatives')
                 ->icon('heroicon-o-users')
-                ->color('info'),
+                ->color('info')
+                ->url(UserResource::getUrl('index')),
             Stat::make('Portfolio', $totalPortfolio)
                 ->description($convertedPortfolio.' converted ('.$conversionRate.'%)')
                 ->icon('heroicon-o-user-group')
-                ->color('success'),
+                ->color('success')
+                ->url(CustomerResource::getUrl('index')),
             Stat::make('Pending Assignments', $pendingAssignments)
                 ->description('Awaiting rep acceptance')
                 ->icon('heroicon-o-clock')
-                ->color('warning'),
+                ->color('warning')
+                ->url(CustomerResource::getUrl('index')),
             Stat::make('Submissions Waiting', $submissionsWaiting)
                 ->description('Ready for assignment')
                 ->icon('heroicon-o-inbox-stack')
-                ->color('primary'),
+                ->color('primary')
+                ->url(CustomerResource::getUrl('index')),
         ];
     }
 
