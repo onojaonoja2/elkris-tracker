@@ -6,6 +6,7 @@ use App\Filament\Widgets\AccountantCreditSalesWidget;
 use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
 use App\Filament\Widgets\AccountantSalesRecordsWidget;
+use App\Filament\Widgets\AccountantStockCountApprovalWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
 use App\Filament\Widgets\AccountantStockReceiveRequestsWidget;
@@ -59,6 +60,7 @@ class GeneralAccountantDashboard extends BaseDashboard
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             AccountantStockReceiveRequestsWidget::class,
+            AccountantStockCountApprovalWidget::class,
             AccountantDamagedReturnsWidget::class,
             DamagedReturnsBreakdownWidget::class,
             AccountantCreditSalesWidget::class,

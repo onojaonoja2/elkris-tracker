@@ -7,6 +7,8 @@ use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
 use App\Models\Inventory;
 use App\Models\ProductType;
+use App\Models\Setting;
+use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -306,5 +308,91 @@ class WarehouseManagerDashboard extends BaseDashboard
                     Notification::make()->title('Stock dispatched successfully')->success()->send();
                 }),
         ];
+
+        if (Setting::getValue('stock_at_hand_enabled', '0') === '1') {
+            $actions[] = Action::make('submitStockCount')
+                ->label('Submit Stock Count')
+                ->icon('heroicon-o-clipboard-document-check')
+                ->color('info')
+                ->form([
+                    Select::make('warehouse_id')
+                        ->label('Warehouse')
+                        ->options(fn () => Warehouse::where('manager_id', auth()->id())->pluck('name', 'id'))
+                        ->default(fn () => Warehouse::where('manager_id', auth()->id())->value('id'))
+                        ->disabled()
+                        ->dehydrated()
+                        ->required(),
+                    Repeater::make('items')
+                        ->label('Physical Stock Count')
+                        ->schema([
+                            Select::make('product_type_id')
+                                ->label('Product')
+                                ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'id'))
+                                ->searchable()
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(fn ($set) => $set('grammage', null)),
+                            Select::make('grammage')
+                                ->label('Weight (g)')
+                                ->options(function (callable $get) {
+                                    $ptId = $get('product_type_id');
+                                    if (! $ptId) {
+                                        return [];
+                                    }
+                                    $pt = ProductType::find($ptId);
+                                    if (! $pt) {
+                                        return [];
+                                    }
+
+                                    return collect($pt->available_grammages)
+                                        ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                        ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                        ->toArray();
+                                })
+                                ->required()
+                                ->live(),
+                            TextInput::make('quantity')
+                                ->label('Quantity on Hand')
+                                ->numeric()
+                                ->integer()
+                                ->minValue(0)
+                                ->required(),
+                        ])
+                        ->addActionLabel('Add Item')
+                        ->defaultItems(1)
+                        ->minItems(1)
+                        ->required(),
+                    Textarea::make('notes')
+                        ->label('Notes'),
+                ])
+                ->action(function (array $data) {
+                    $stockCount = StockCount::create([
+                        'user_id' => auth()->id(),
+                        'warehouse_id' => $data['warehouse_id'],
+                        'status' => 'pending',
+                        'notes' => $data['notes'] ?? null,
+                    ]);
+
+                    foreach ($data['items'] as $item) {
+                        $pt = ProductType::find($item['product_type_id']);
+                        $stockCount->items()->create([
+                            'product_type_id' => $item['product_type_id'],
+                            'product_name' => $pt->name,
+                            'grammage' => $item['grammage'],
+                            'quantity' => $item['quantity'],
+                        ]);
+                    }
+
+                    Notification::make()
+                        ->title('Stock count submitted')
+                        ->body('Your physical stock count is pending accountant approval.')
+                        ->success()
+                        ->send();
+                })
+                ->modalHeading('Submit Physical Stock Count')
+                ->modalButton('Submit Count');
+        }
+
+        return $actions;
     }
 }

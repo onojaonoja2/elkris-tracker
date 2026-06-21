@@ -23,9 +23,12 @@ class OrderSettings extends Page
 
     public bool $migratedOrdersEnabled = false;
 
+    public bool $stockAtHandEnabled = false;
+
     public function mount(): void
     {
         $this->migratedOrdersEnabled = Setting::getValue('migrated_orders_enabled', '0') === '1';
+        $this->stockAtHandEnabled = Setting::getValue('stock_at_hand_enabled', '0') === '1';
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -41,6 +44,7 @@ class OrderSettings extends Page
     public function save(): void
     {
         Setting::setValue('migrated_orders_enabled', $this->migratedOrdersEnabled ? '1' : '0');
+        Setting::setValue('stock_at_hand_enabled', $this->stockAtHandEnabled ? '1' : '0');
 
         Notification::make()
             ->title('Setting saved')

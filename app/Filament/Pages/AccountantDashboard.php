@@ -8,6 +8,7 @@ use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
 use App\Filament\Widgets\AccountantSalesRecordsWidget;
 use App\Filament\Widgets\AccountantStatsOverviewWidget;
+use App\Filament\Widgets\AccountantStockCountApprovalWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
 use App\Filament\Widgets\AccountantStockReceiveRequestsWidget;
@@ -52,6 +53,7 @@ class AccountantDashboard extends BaseDashboard
     {
         return [
             AccountantStockReceiveRequestsWidget::class,
+            AccountantStockCountApprovalWidget::class,
             AccountantDamagedReturnsWidget::class,
             DamagedReturnsBreakdownWidget::class,
             AccountantCreditSalesWidget::class,

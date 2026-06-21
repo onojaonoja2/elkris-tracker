@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\StockTransfer;
 use Filament\Actions\Action;
@@ -94,15 +95,30 @@ class AccountantStockReceiveRequestsWidget extends TableWidget
                     ->action(function (StockTransfer $record) {
                         DB::transaction(function () use ($record) {
                             foreach ($record->items as $item) {
-                                $inv = Inventory::firstOrCreate(
-                                    [
-                                        'warehouse_id' => $record->to_warehouse_id,
-                                        'product_type_id' => $item->product_type_id,
-                                        'grammage' => $item->grammage,
-                                    ],
-                                    ['quantity' => 0]
-                                );
-                                $inv->increment('quantity', $item->quantity);
+                                if ($record->to_agent_id) {
+                                    $agentStock = AgentStock::firstOrCreate(
+                                        [
+                                            'user_id' => $record->to_agent_id,
+                                            'product_name' => $item->productType->name ?? $item->product_type_id,
+                                            'grammage' => $item->grammage,
+                                        ],
+                                        [
+                                            'product_type_id' => $item->product_type_id,
+                                            'quantity' => 0,
+                                        ]
+                                    );
+                                    $agentStock->increment('quantity', $item->quantity);
+                                } else {
+                                    $inv = Inventory::firstOrCreate(
+                                        [
+                                            'warehouse_id' => $record->to_warehouse_id,
+                                            'product_type_id' => $item->product_type_id,
+                                            'grammage' => $item->grammage,
+                                        ],
+                                        ['quantity' => 0]
+                                    );
+                                    $inv->increment('quantity', $item->quantity);
+                                }
                             }
 
                             $record->update([

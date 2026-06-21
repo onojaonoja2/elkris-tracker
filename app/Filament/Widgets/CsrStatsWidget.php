@@ -15,6 +15,11 @@ class CsrStatsWidget extends StatsOverviewWidget
     protected function getStats(): array
     {
         $user = auth()->user();
+
+        if (! $user) {
+            return [];
+        }
+
         $stockQuantity = AgentStock::where('user_id', $user->id)->sum('quantity');
         $totalCustomers = Customer::where('agent_id', $user->id)->count();
         $totalSalesRecords = SalesRecord::where('agent_id', $user->id)->count();
