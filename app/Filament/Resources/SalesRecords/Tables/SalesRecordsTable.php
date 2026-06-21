@@ -179,48 +179,54 @@ class SalesRecordsTable
                     ->action(function (SalesRecord $record, array $data) {
                         $products = $record->products ?? [];
 
-                        DB::transaction(function () use ($record, $products, $data) {
-                            foreach ($products as $product) {
-                                $productName = $product['product_name'] ?? null;
-                                $grammage = $product['grammage'] ?? null;
-                                $quantity = $product['quantity'] ?? 0;
+                        try {
+                            DB::transaction(function () use ($record, $products, $data) {
+                                foreach ($products as $product) {
+                                    $productName = $product['product_name'] ?? null;
+                                    $grammage = $product['grammage'] ?? null;
+                                    $quantity = $product['quantity'] ?? 0;
 
-                                if (! $productName || ! $grammage || $quantity <= 0) {
-                                    continue;
-                                }
-
-                                if ($record->agent_id) {
-                                    $agentStock = AgentStock::where('user_id', $record->agent_id)
-                                        ->where('product_name', $productName)
-                                        ->where('grammage', $grammage)
-                                        ->lockForUpdate()
-                                        ->first();
-
-                                    if (! $agentStock || $agentStock->quantity < $quantity) {
-                                        Notification::make()
-                                            ->danger()
-                                            ->title('Insufficient agent stock')
-                                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock?->quantity ?? 0))
-                                            ->send();
-
-                                        return;
+                                    if (! $productName || ! $grammage || $quantity <= 0) {
+                                        continue;
                                     }
 
-                                    $agentStock->decrement('quantity', $quantity);
+                                    if ($record->agent_id) {
+                                        $agentStock = AgentStock::where('user_id', $record->agent_id)
+                                            ->where('product_name', $productName)
+                                            ->where('grammage', $grammage)
+                                            ->lockForUpdate()
+                                            ->first();
+
+                                        if (! $agentStock || $agentStock->quantity < $quantity) {
+                                            throw new \Exception(
+                                                "Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock?->quantity ?? 0)
+                                            );
+                                        }
+
+                                        $agentStock->decrement('quantity', $quantity);
+                                    }
                                 }
-                            }
 
-                            if (! $record->is_credit && $record->agent_id) {
-                                $record->agent?->increment('stock_balance', $record->total_value);
-                            }
+                                if (! $record->is_credit && $record->agent_id) {
+                                    $record->agent?->increment('stock_balance', $record->total_value);
+                                }
 
-                            $record->update([
-                                'status' => 'approved',
-                                'accountant_verified_at' => now(),
-                                'accountant_verified_by' => auth()->id(),
-                                'accountant_notes' => $data['accountant_notes'] ?? null,
-                            ]);
-                        });
+                                $record->update([
+                                    'status' => 'approved',
+                                    'accountant_verified_at' => now(),
+                                    'accountant_verified_by' => auth()->id(),
+                                    'accountant_notes' => $data['accountant_notes'] ?? null,
+                                ]);
+                            });
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Approval failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
 
                         Notification::make()->title('Sales record approved and stock deducted')->success()->send();
                     })
