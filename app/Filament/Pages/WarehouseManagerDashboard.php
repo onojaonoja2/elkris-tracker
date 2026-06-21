@@ -21,6 +21,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Illuminate\Support\Facades\DB;
 
 class WarehouseManagerDashboard extends BaseDashboard
 {
@@ -271,66 +272,73 @@ class WarehouseManagerDashboard extends BaseDashboard
                 ->action(function (array $data) {
                     $user = auth()->user();
 
-                    $insufficientItems = [];
-                    foreach ($data['items'] as $item) {
-                        $inv = Inventory::where([
-                            'warehouse_id' => $data['from_warehouse_id'],
-                            'product_type_id' => $item['product_type_id'],
-                            'grammage' => $item['grammage'],
-                        ])->first();
+                    try {
+                        DB::transaction(function () use ($data, $user) {
+                            $insufficientItems = [];
+                            $inventoryToDecrement = [];
 
-                        $available = $inv?->quantity ?? 0;
-                        if ($available < $item['quantity']) {
-                            $pt = ProductType::find($item['product_type_id']);
-                            $productName = $pt?->name ?? 'Unknown';
-                            $insufficientItems[] = "{$productName} {$item['grammage']}g (requested: {$item['quantity']}, available: {$available})";
-                        }
-                    }
+                            foreach ($data['items'] as $item) {
+                                $inv = Inventory::where([
+                                    'warehouse_id' => $data['from_warehouse_id'],
+                                    'product_type_id' => $item['product_type_id'],
+                                    'grammage' => $item['grammage'],
+                                ])->lockForUpdate()->first();
 
-                    if (! empty($insufficientItems)) {
+                                $available = $inv?->quantity ?? 0;
+                                if ($available < $item['quantity']) {
+                                    $pt = ProductType::find($item['product_type_id']);
+                                    $productName = $pt?->name ?? 'Unknown';
+                                    $insufficientItems[] = "{$productName} {$item['grammage']}g (requested: {$item['quantity']}, available: {$available})";
+                                } else {
+                                    $inventoryToDecrement[] = [
+                                        'inventory' => $inv,
+                                        'quantity' => $item['quantity'],
+                                    ];
+                                }
+                            }
+
+                            if (! empty($insufficientItems)) {
+                                throw new \Exception('Insufficient stock: '.implode(', ', $insufficientItems));
+                            }
+
+                            $transferData = [
+                                'from_warehouse_id' => $data['from_warehouse_id'],
+                                'dispatched_by' => $user->id,
+                                'status' => 'dispatched',
+                                'notes' => $data['notes'] ?? null,
+                            ];
+
+                            if (($data['to_type'] ?? null) === 'warehouse') {
+                                $transferData['to_warehouse_id'] = $data['to_warehouse_id'];
+                            }
+
+                            if (($data['to_type'] ?? null) === 'community_sales_representative') {
+                                $transferData['to_agent_id'] = $data['to_agent_id'];
+                            }
+
+                            $transfer = StockTransfer::create($transferData);
+
+                            foreach ($data['items'] as $item) {
+                                $transfer->items()->create($item);
+                            }
+
+                            foreach ($inventoryToDecrement as $entry) {
+                                $entry['inventory']->decrement('quantity', $entry['quantity']);
+                            }
+
+                            $pdf = Pdf::loadView('pdf.dispatch-note', ['transfer' => $transfer]);
+                            $pdfPath = storage_path('app/public/dispatch-'.$transfer->id.'.pdf');
+                            $pdf->save($pdfPath);
+                        });
+                    } catch (\Throwable $e) {
                         Notification::make()
-                            ->title('Insufficient stock in source warehouse')
-                            ->body('The following items have insufficient stock:'.PHP_EOL.implode(PHP_EOL, $insufficientItems))
+                            ->title('Dispatch failed')
+                            ->body($e->getMessage())
                             ->danger()
                             ->send();
 
                         return;
                     }
-
-                    $transferData = [
-                        'from_warehouse_id' => $data['from_warehouse_id'],
-                        'dispatched_by' => $user->id,
-                        'status' => 'dispatched',
-                        'notes' => $data['notes'] ?? null,
-                    ];
-
-                    if (($data['to_type'] ?? null) === 'warehouse') {
-                        $transferData['to_warehouse_id'] = $data['to_warehouse_id'];
-                    }
-
-                    if (($data['to_type'] ?? null) === 'community_sales_representative') {
-                        $transferData['to_agent_id'] = $data['to_agent_id'];
-                    }
-
-                    $transfer = StockTransfer::create($transferData);
-
-                    foreach ($data['items'] as $item) {
-                        $transfer->items()->create($item);
-
-                        $inv = Inventory::where([
-                            'warehouse_id' => $data['from_warehouse_id'],
-                            'product_type_id' => $item['product_type_id'],
-                            'grammage' => $item['grammage'],
-                        ])->first();
-
-                        if ($inv) {
-                            $inv->decrement('quantity', $item['quantity']);
-                        }
-                    }
-
-                    $pdf = Pdf::loadView('pdf.dispatch-note', ['transfer' => $transfer]);
-                    $pdfPath = storage_path('app/public/dispatch-'.$transfer->id.'.pdf');
-                    $pdf->save($pdfPath);
 
                     Notification::make()->title('Stock dispatched successfully')->success()->send();
                 }),
