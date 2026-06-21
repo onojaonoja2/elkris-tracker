@@ -270,6 +270,33 @@ class WarehouseManagerDashboard extends BaseDashboard
                 ])
                 ->action(function (array $data) {
                     $user = auth()->user();
+
+                    $insufficientItems = [];
+                    foreach ($data['items'] as $item) {
+                        $inv = Inventory::where([
+                            'warehouse_id' => $data['from_warehouse_id'],
+                            'product_type_id' => $item['product_type_id'],
+                            'grammage' => $item['grammage'],
+                        ])->first();
+
+                        $available = $inv?->quantity ?? 0;
+                        if ($available < $item['quantity']) {
+                            $pt = ProductType::find($item['product_type_id']);
+                            $productName = $pt?->name ?? 'Unknown';
+                            $insufficientItems[] = "{$productName} {$item['grammage']}g (requested: {$item['quantity']}, available: {$available})";
+                        }
+                    }
+
+                    if (! empty($insufficientItems)) {
+                        Notification::make()
+                            ->title('Insufficient stock in source warehouse')
+                            ->body('The following items have insufficient stock:'.PHP_EOL.implode(PHP_EOL, $insufficientItems))
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+
                     $transferData = [
                         'from_warehouse_id' => $data['from_warehouse_id'],
                         'dispatched_by' => $user->id,
@@ -377,7 +404,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                         $pt = ProductType::find($item['product_type_id']);
                         $stockCount->items()->create([
                             'product_type_id' => $item['product_type_id'],
-                            'product_name' => $pt->name,
+                            'product_name' => $pt?->name ?? 'Unknown Product',
                             'grammage' => $item['grammage'],
                             'quantity' => $item['quantity'],
                         ]);

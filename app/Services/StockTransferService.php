@@ -172,6 +172,17 @@ class StockTransferService
                     'grammage' => $itemData['grammage'],
                     'quantity' => $itemData['quantity'],
                 ]);
+
+                $productName = $itemData['product_name'] ?? ($record->items()->first()?->productType?->name ?? 'Unknown');
+                $agentStock = AgentStock::where([
+                    'user_id' => $record->from_agent_id,
+                    'product_name' => $productName,
+                    'grammage' => $itemData['grammage'],
+                ])->first();
+
+                if ($agentStock) {
+                    $agentStock->decrement('quantity', $itemData['quantity']);
+                }
             }
         });
     }
@@ -182,7 +193,7 @@ class StockTransferService
             $toWarehouseId = $data['to_warehouse_id'] ?? null;
             $toAgentId = $data['to_agent_id'] ?? null;
 
-            if ($record->from_agent_id) {
+            if ($record->from_agent_id && $record->status !== StockTransferStatus::Collected) {
                 foreach ($record->items as $item) {
                     $stock = AgentStock::where([
                         'user_id' => $record->from_agent_id,

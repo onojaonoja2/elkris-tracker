@@ -150,7 +150,7 @@ class CsrDashboard extends BaseDashboard
                     $pt = ProductType::find($item['product_type_id']);
                     $stockCount->items()->create([
                         'product_type_id' => $item['product_type_id'],
-                        'product_name' => $pt->name,
+                        'product_name' => $pt?->name ?? 'Unknown Product',
                         'grammage' => $item['grammage'],
                         'quantity' => $item['quantity'],
                     ]);
