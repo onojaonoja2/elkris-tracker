@@ -326,7 +326,6 @@ class ImportCustomers extends Page
                 }
 
                 $successful++;
-                $this->dispatch('refresh-dashboard');
             } catch (\Exception $e) {
                 $failed++;
                 $errors[] = "Row {$rowNumber}: ".$e->getMessage();
@@ -336,6 +335,10 @@ class ImportCustomers extends Page
         $body = "Successfully imported {$successful} customers.";
         if ($failed > 0) {
             $body .= " {$failed} rows failed.";
+        }
+
+        if ($successful > 0) {
+            $this->dispatch('refresh-dashboard');
         }
 
         Notification::make()

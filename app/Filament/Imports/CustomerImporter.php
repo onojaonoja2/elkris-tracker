@@ -65,7 +65,11 @@ class CustomerImporter extends Importer
 
     protected function afterCreate(): void
     {
-        $user = auth()->user();
+        $user = $this->import->user;
+
+        if (! $user) {
+            return;
+        }
 
         if ($user->role === 'lead') {
             $this->record->updateQuietly([

@@ -200,7 +200,7 @@ class SalesRecordsTable
                                         Notification::make()
                                             ->danger()
                                             ->title('Insufficient agent stock')
-                                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0))
+                                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock?->quantity ?? 0))
                                             ->send();
 
                                         return;

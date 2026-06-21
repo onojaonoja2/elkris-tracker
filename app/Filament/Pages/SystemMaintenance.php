@@ -6,6 +6,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class SystemMaintenance extends Page
 {
@@ -205,8 +206,13 @@ class SystemMaintenance extends Page
             return;
         }
 
-        $upperQuery = strtoupper($query);
-        $forbidden = ['DROP', 'ALTER', 'TRUNCATE', 'RENAME', 'GRANT', 'REVOKE'];
+        $upperQuery = strtoupper(preg_replace('/--.*$|\/\*.*?\*\//m', '', $query));
+        $upperQuery = preg_replace('/\s+/', ' ', trim($upperQuery));
+
+        $forbidden = [
+            'INSERT', 'UPDATE', 'DELETE', 'DROP', 'ALTER', 'TRUNCATE',
+            'RENAME', 'GRANT', 'REVOKE', 'CREATE', 'REPLACE',
+        ];
 
         foreach ($forbidden as $word) {
             if (
@@ -215,6 +221,7 @@ class SystemMaintenance extends Page
                 || str_starts_with($upperQuery, $word.'`')
                 || str_starts_with($upperQuery, $word.'"')
                 || str_starts_with($upperQuery, $word."'")
+                || str_contains($upperQuery, ' '.$word.' ')
             ) {
                 $this->sqlError = "Operation not allowed: {$word} is forbidden for safety.";
 
@@ -222,21 +229,27 @@ class SystemMaintenance extends Page
             }
         }
 
+        $allowedPrefixes = ['SELECT', 'SHOW', 'DESCRIBE', 'EXPLAIN'];
+        $isAllowed = false;
+        foreach ($allowedPrefixes as $prefix) {
+            if (str_starts_with($upperQuery, $prefix.' ') || $upperQuery === $prefix) {
+                $isAllowed = true;
+                break;
+            }
+        }
+
+        if (! $isAllowed) {
+            $this->sqlError = 'Only read-only queries are allowed (SELECT, SHOW, DESCRIBE, EXPLAIN).';
+
+            return;
+        }
+
         $startTime = microtime(true);
 
         try {
-            if (
-                str_starts_with($upperQuery, 'SELECT')
-                || str_starts_with($upperQuery, 'SHOW')
-                || str_starts_with($upperQuery, 'DESCRIBE')
-                || str_starts_with($upperQuery, 'EXPLAIN')
-            ) {
-                $results = DB::select($query);
-                $this->sqlResults = array_map(fn ($row) => (array) $row, $results);
-                $this->sqlColumns = ! empty($this->sqlResults) ? array_keys($this->sqlResults[0]) : [];
-            } else {
-                $this->sqlAffectedRows = DB::statement($query);
-            }
+            $results = DB::select($query);
+            $this->sqlResults = array_map(fn ($row) => (array) $row, $results);
+            $this->sqlColumns = ! empty($this->sqlResults) ? array_keys($this->sqlResults[0]) : [];
         } catch (\Throwable $e) {
             $this->sqlError = $e->getMessage();
 
@@ -285,7 +298,7 @@ class SystemMaintenance extends Page
             return;
         }
 
-        DB::statement("DROP TABLE `{$tableName}`");
+        Schema::dropIfExists($tableName);
         Notification::make()->success()->title("Table '{$tableName}' has been dropped.")->send();
     }
 
