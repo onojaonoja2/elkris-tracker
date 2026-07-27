@@ -21,8 +21,6 @@ class ManagerPortfolioPerAgentWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $leads = User::where('role', 'lead')->with('reps')->get();
-
         return $table
             ->query(fn (): Builder => User::query()->where('role', 'lead'))
             ->columns([

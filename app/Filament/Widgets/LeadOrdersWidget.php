@@ -150,6 +150,6 @@ class LeadOrdersWidget extends TableWidget
                         ]);
                     }),
             ])
-            ->paginated(false);
+            ->paginated([10, 25, 50]);
     }
 }

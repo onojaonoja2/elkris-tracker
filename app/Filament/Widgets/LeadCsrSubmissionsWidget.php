@@ -103,6 +103,6 @@ class LeadCsrSubmissionsWidget extends TableWidget
                         $this->dispatch('refresh-dashboard');
                     }),
             ])
-            ->paginated(false);
+            ->paginated([10, 25, 50]);
     }
 }

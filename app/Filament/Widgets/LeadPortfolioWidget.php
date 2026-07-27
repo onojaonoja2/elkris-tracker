@@ -163,7 +163,7 @@ class LeadPortfolioWidget extends TableWidget
                         ]);
                     }),
             ])
-            ->paginated(false);
+            ->paginated([10, 25, 50]);
     }
 
     public static function applySegmentFilter(Builder $query, string $segment): void
