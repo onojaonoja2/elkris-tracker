@@ -28,12 +28,12 @@ class CustomerResource extends Resource implements CopilotResource
 
     public static function canCreate(): bool
     {
-        return ! in_array(auth()->user()->role, ['sales', 'supervisor', 'accountant', 'warehouse_manager', 'general_accountant']);
+        return ! auth()->user()->hasAnyRole(['sales', 'supervisor', 'accountant', 'warehouse_manager', 'general_accountant']);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return ! in_array(auth()->user()->role, ['manager', 'admin', 'sales', 'general_manager']);
+        return ! auth()->user()->hasAnyRole(['manager', 'admin', 'sales', 'general_manager']);
     }
 
     public static function form(Schema $schema): Schema
@@ -53,6 +53,16 @@ class CustomerResource extends Resource implements CopilotResource
         ];
     }
 
+    protected static function getViewRelations(): array
+    {
+        return [
+            'orders' => [
+                'label' => 'Orders',
+                'columns' => ['id', 'status', 'total_price', 'created_at'],
+            ],
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
@@ -66,27 +76,27 @@ class CustomerResource extends Resource implements CopilotResource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (in_array($user->role, ['admin', 'manager', 'accountant', 'general_manager', 'general_accountant'])) {
+        if (auth()->user()->hasAnyRole(['admin', 'manager', 'accountant', 'general_manager', 'general_accountant'])) {
             return parent::getEloquentQuery();
         }
 
         // Supervisors see customers submitted by field agents globally
-        if ($user->role === 'supervisor') {
+        if ($user->hasRole('supervisor')) {
             return parent::getEloquentQuery()->whereNotNull('agent_id');
         }
 
         // Leads see customers they assigned (for tracking rep acceptance)
-        if ($user->role === 'lead') {
+        if ($user->hasRole('lead')) {
             return parent::getEloquentQuery()->where('lead_id', $user->id);
         }
 
         // Field agents see only theirs
-        if (in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
+        if (auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             return parent::getEloquentQuery()->where('agent_id', $user->id);
         }
 
         // Sales personnel see customers whose orders are pending or dispatched delivery
-        if ($user->role === 'sales') {
+        if ($user->hasRole('sales')) {
             return parent::getEloquentQuery()
                 ->whereHas('orders', fn ($q) => $q->whereIn('status', ['pending', 'dispatched']));
         }

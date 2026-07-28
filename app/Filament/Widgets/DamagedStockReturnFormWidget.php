@@ -28,7 +28,7 @@ class DamagedStockReturnFormWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
+        return auth()->user()->hasAnyRole(['community_sales_representative', 'open_market', 'retail_market']);
     }
 
     public function table(Table $table): Table
@@ -119,7 +119,7 @@ class DamagedStockReturnFormWidget extends TableWidget
                         $user = auth()->user();
                         $agentRoles = ['community_sales_representative', 'open_market', 'retail_market'];
 
-                        if (in_array($user->role, $agentRoles)) {
+                        if (auth()->user()->hasAnyRole($agentRoles)) {
                             $availableStock = AgentStock::where('user_id', $userId)
                                 ->where('product_type_id', $data['product_type_id'])
                                 ->where('grammage', $data['grammage'])

@@ -118,6 +118,6 @@ class GeneralManagerStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'general_manager';
+        return auth()->user()->hasRole('general_manager');
     }
 }

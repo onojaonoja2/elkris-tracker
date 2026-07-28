@@ -1,0 +1,50 @@
+<?php
+
+namespace App\Filament\Widgets;
+
+use App\Models\Order;
+use App\Models\SalesRecord;
+use Filament\Widgets\StatsOverviewWidget as BaseWidget;
+use Filament\Widgets\StatsOverviewWidget\Stat;
+
+class CsrDailySalesWidget extends BaseWidget
+{
+    protected function getColumns(): int
+    {
+        return 3;
+    }
+
+    protected function getStats(): array
+    {
+        $user = auth()->user();
+        $today = now()->toDateString();
+
+        $orderValueToday = Order::where('user_id', $user->id)
+            ->whereDate('created_at', $today)
+            ->sum('total_price');
+
+        $salesValueToday = SalesRecord::where('agent_id', $user->id)
+            ->whereDate('created_at', $today)
+            ->sum('total_value');
+
+        $orderValueWeek = Order::where('user_id', $user->id)
+            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
+            ->sum('total_price');
+
+        $salesValueWeek = SalesRecord::where('agent_id', $user->id)
+            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
+            ->sum('total_value');
+
+        return [
+            Stat::make('Today\'s Order Value', '₦'.number_format($orderValueToday, 2))
+                ->description('Orders submitted today')
+                ->color('success'),
+            Stat::make('Today\'s Sales Value', '₦'.number_format($salesValueToday, 2))
+                ->description('Sales recorded today')
+                ->color('primary'),
+            Stat::make('This Week\'s Total', '₦'.number_format($orderValueWeek + $salesValueWeek, 2))
+                ->description('Combined order & sales value this week')
+                ->color('warning'),
+        ];
+    }
+}

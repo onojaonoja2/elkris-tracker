@@ -18,13 +18,13 @@ class AgentStockCardsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user() && in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
+        return auth()->user() && auth()->user()->hasAnyRole(['community_sales_representative', 'open_market', 'retail_market']);
     }
 
     protected function getStats(): array
     {
         $userId = auth()->id();
-        $role = auth()->user()->role;
+        $role = auth()->user()->getPrimaryRole();
 
         $stats = [];
 
@@ -57,7 +57,7 @@ class AgentStockCardsWidget extends BaseWidget
                 ->url(SalesRecordResource::getUrl('index'));
         }
 
-        if (in_array($role, ['open_market', 'retail_market'])) {
+        if (auth()->user()->hasAnyRole(['open_market', 'retail_market'])) {
             $todaySales = SalesRecord::where('agent_id', $userId)
                 ->whereDate('created_at', today())
                 ->get();

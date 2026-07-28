@@ -15,14 +15,23 @@ class Dashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        // Always register to ensure route exists, control visibility via canViewNavigation
         return true;
     }
 
     public static function canViewNavigation(): bool
     {
-        // Only show in navigation for roles that need it
-        return ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market', 'sales', 'supervisor', 'warehouse_manager', 'accountant']);
+        $user = auth()->user();
+
+        return ! $user->hasAnyRole([
+            'field_agent',
+            'community_sales_representative',
+            'open_market',
+            'retail_market',
+            'sales',
+            'supervisor',
+            'warehouse_manager',
+            'accountant',
+        ]);
     }
 
     public static function getNavigationLabel(): string
@@ -36,7 +45,7 @@ class Dashboard extends BaseDashboard
             return;
         }
 
-        $role = auth()->user()->role;
+        $role = auth()->user()->getPrimaryRole();
 
         if ($role === 'supervisor') {
             return redirect()->to(SupervisorDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
@@ -84,7 +93,7 @@ class Dashboard extends BaseDashboard
 
     public function getWidgets(): array
     {
-        $role = auth()->user()->role ?? 'guest';
+        $role = auth()->user()?->getPrimaryRole() ?? 'guest';
 
         return match ($role) {
             'field_agent', 'community_sales_representative', 'open_market', 'retail_market' => [

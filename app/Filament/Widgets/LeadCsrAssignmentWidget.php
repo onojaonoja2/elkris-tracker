@@ -21,7 +21,7 @@ class LeadCsrAssignmentWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->check() && auth()->user()->role === 'lead';
+        return auth()->check() && auth()->user()->hasRole('lead');
     }
 
     #[On('refresh-dashboard')]

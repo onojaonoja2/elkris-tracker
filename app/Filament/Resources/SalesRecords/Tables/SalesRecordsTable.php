@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SalesRecords\Tables;
 
+use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Models\AgentStock;
 use App\Models\SalesRecord;
 use Filament\Actions\Action;
@@ -164,12 +165,14 @@ class SalesRecordsTable
             ])
             ->recordActions([
 
+                SalesRecordResource::getViewActionForResource(SalesRecordResource::class),
+
                 // ACCOUNTANT: Approve (verify + auto-deduct from creator's stock)
                 Action::make('approveByAccountant')
                     ->label('Approve (Accountant)')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->role === 'accountant')
+                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->hasRole('accountant'))
                     ->form(function () {
                         return [
                             Textarea::make('accountant_notes')
@@ -239,7 +242,7 @@ class SalesRecordsTable
                     ->label('Reject (Accountant)')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->role === 'accountant')
+                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->hasRole('accountant'))
                     ->form([
                         Textarea::make('accountant_notes')
                             ->label('Reason for Rejection')
@@ -264,7 +267,7 @@ class SalesRecordsTable
                     ->visible(fn (SalesRecord $record) => $record->is_credit
                         && $record->status === 'approved'
                         && $record->credit_status === 'pending_payment'
-                        && auth()->user()->role === 'accountant')
+                        && auth()->user()->hasRole('accountant'))
                     ->form([
                         Textarea::make('credit_notes')
                             ->label('Collection Notes'),
@@ -292,7 +295,7 @@ class SalesRecordsTable
                     ->label('View Receipt')
                     ->icon('heroicon-o-photo')
                     ->color('info')
-                    ->visible(fn (SalesRecord $record) => $record->receipt_path && in_array(auth()->user()->role, ['accountant', 'supervisor', 'admin']))
+                    ->visible(fn (SalesRecord $record) => $record->receipt_path && auth()->user()->hasAnyRole(['accountant', 'supervisor', 'admin']))
                     ->modalContent(fn (SalesRecord $record) => view('filament.sales-record-receipt', ['record' => $record]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),

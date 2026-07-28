@@ -21,12 +21,12 @@ class RepDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'rep';
+        return auth()->check() && auth()->user()->hasRole('rep');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'rep';
+        return auth()->check() && auth()->user()->hasRole('rep');
     }
 
     public static function getNavigationLabel(): string
@@ -36,7 +36,7 @@ class RepDashboard extends BaseDashboard
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'rep') {
+        if (! auth()->check() || ! auth()->user()->hasRole('rep')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }

@@ -22,7 +22,7 @@ class SupervisorCreditSalesWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'supervisor';
+        return auth()->user()->hasRole('supervisor');
     }
 
     public function table(Table $table): Table

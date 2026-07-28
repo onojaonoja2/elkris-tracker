@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Orders;
 
 use App\Enums\OrderStatus;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
+use App\Filament\Traits\HasViewModal;
 use App\Models\Order;
 use BackedEnum;
 use Carbon\Carbon;
@@ -23,6 +24,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class OrderResource extends Resource
 {
+    use HasViewModal;
+
     protected static ?string $model = Order::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
@@ -31,12 +34,12 @@ class OrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'sales', 'rep', 'lead', 'manager']);
+        return auth()->user()->hasAnyRole(['admin', 'sales', 'rep', 'lead', 'manager']);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return ! in_array(auth()->user()->role, ['manager', 'admin']);
+        return ! auth()->user()->hasAnyRole(['manager', 'admin']);
     }
 
     public static function form(Schema $schema): Schema
@@ -135,6 +138,7 @@ class OrderResource extends Resource
                     }),
             ])
             ->recordActions([
+                HasViewModal::getViewActionForResource(static::class),
                 Action::make('view_customer')
                     ->label('View Customer')
                     ->icon('heroicon-o-user')
@@ -189,7 +193,7 @@ class OrderResource extends Resource
 
                         return $entries;
                     }),
-                EditAction::make()->visible(fn () => in_array(auth()->user()->role, ['admin', 'sales'])),
+                EditAction::make()->visible(fn () => auth()->user()->hasAnyRole(['admin', 'sales'])),
             ])
             ->toolbarActions([
                 Action::make('export')
@@ -232,12 +236,22 @@ class OrderResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (in_array($user->role, ['admin', 'sales'])) {
+        if (auth()->user()->hasAnyRole(['admin', 'sales'])) {
             return parent::getEloquentQuery();
         }
 
         // Reps/Leads see only theirs
         return parent::getEloquentQuery()->where('user_id', $user->id);
+    }
+
+    protected static function getViewRelations(): array
+    {
+        return [
+            'products' => [
+                'label' => 'Order Products',
+                'columns' => ['product_name', 'grammage', 'quantity', 'price'],
+            ],
+        ];
     }
 
     public static function getPages(): array

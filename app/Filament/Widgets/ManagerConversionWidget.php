@@ -86,6 +86,6 @@ class ManagerConversionWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'manager', 'general_manager']);
     }
 }

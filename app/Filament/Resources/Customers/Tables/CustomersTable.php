@@ -29,14 +29,14 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('rep.name')
                     ->label('Rep Name')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('rep.my_id')
                     ->label('Rep Internal ID')
@@ -50,14 +50,14 @@ class CustomersTable
                         });
                     })
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('agent.name')
                     ->label('Agent Name')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('customer_name')
                     ->searchable()
@@ -71,25 +71,25 @@ class CustomersTable
                 TextColumn::make('age')
                     ->numeric()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('gender')
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('city')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep'])),
+                    ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'manager', 'lead', 'rep'])),
                 TextColumn::make('state')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep'])),
+                    ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'manager', 'lead', 'rep'])),
                 TextColumn::make('region')
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('rep_acceptance_status')
                     ->label('Assignment Status')
                     ->badge()
@@ -103,7 +103,7 @@ class CustomersTable
                     ->sortable()
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('priority')
                     ->badge()
@@ -114,35 +114,35 @@ class CustomersTable
                 TextColumn::make('customer_status')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('diabetic_awareness')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('call_date')
                     ->date()
                     ->sortable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('preffered_call_time')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('follow_up_date')
                     ->searchable()
                     ->toggleable()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
             ])
             ->filters([
                 Filter::make('call_date')
@@ -163,17 +163,17 @@ class CustomersTable
                     ->icon('heroicon-o-users')
                     ->visible(function ($record) {
                         $user = auth()->user();
-                        if (in_array($user->role, ['admin', 'manager'])) {
+                        if ($user->hasAnyRole(['admin', 'manager'])) {
                             return true;
                         }
-                        if ($user->role === 'lead' && $record->agent_id !== null && $record->rep_acceptance_status !== 'accepted') {
+                        if ($user->hasRole('lead') && $record->agent_id !== null && $record->rep_acceptance_status !== 'accepted') {
                             return true;
                         }
 
                         return false;
                     })
                     ->form(function () {
-                        if (auth()->user()->role === 'lead') {
+                        if (auth()->user()->hasRole('lead')) {
                             return [
                                 Hidden::make('lead_id')
                                     ->default(auth()->id()),
@@ -201,10 +201,10 @@ class CustomersTable
                     ->icon('heroicon-o-user-plus')
                     ->visible(function ($record) {
                         $user = auth()->user();
-                        if (in_array($user->role, ['admin', 'manager'])) {
+                        if ($user->hasAnyRole(['admin', 'manager'])) {
                             return true;
                         }
-                        if ($user->role === 'lead' && $record->lead_id == $user->id && $record->agent_id !== null && $record->rep_acceptance_status !== 'accepted') {
+                        if ($user->hasRole('lead') && $record->lead_id == $user->id && $record->agent_id !== null && $record->rep_acceptance_status !== 'accepted') {
                             return true;
                         }
 
@@ -216,7 +216,7 @@ class CustomersTable
                             ->options(function () {
                                 $user = auth()->user();
                                 $query = User::where('role', 'rep');
-                                if ($user->role === 'lead') {
+                                if ($user->hasRole('lead')) {
                                     $query->where('lead_id', $user->id);
                                 }
 
@@ -238,7 +238,7 @@ class CustomersTable
                     ->label('Accept')
                     ->color('success')
                     ->icon('heroicon-o-check')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
+                    ->visible(fn ($record) => auth()->user()->hasAnyRole(['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
                     ->action(function ($record, $livewire) {
                         $record->update([
                             'rep_acceptance_status' => 'accepted',
@@ -251,7 +251,7 @@ class CustomersTable
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-mark')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
+                    ->visible(fn ($record) => auth()->user()->hasAnyRole(['rep', 'lead']) && $record->rep_acceptance_status === 'pending' && $record->rep_id === auth()->id())
                     ->form([
                         Textarea::make('rejection_note')
                             ->label('Reason for Rejection')
@@ -274,7 +274,7 @@ class CustomersTable
                     ->label('Reject Customer')
                     ->color('danger')
                     ->icon('heroicon-o-x-mark')
-                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status !== 'rejected' && $record->rep_acceptance_status !== 'accepted')
+                    ->visible(fn ($record) => auth()->user()->hasRole('lead') && $record->lead_id === auth()->id() && $record->rep_acceptance_status !== 'rejected' && $record->rep_acceptance_status !== 'accepted')
                     ->form([
                         Textarea::make('rejection_note')
                             ->label('Reason for Rejection')
@@ -297,7 +297,7 @@ class CustomersTable
                     ->label('Request Replacement')
                     ->color('warning')
                     ->icon('heroicon-o-arrow-path')
-                    ->visible(fn ($record) => auth()->user()->role === 'lead' && $record->lead_id === auth()->id() && $record->rep_acceptance_status === 'rejected' && ! $record->needs_replacement && $record->rep_acceptance_status !== 'accepted')
+                    ->visible(fn ($record) => auth()->user()->hasRole('lead') && $record->lead_id === auth()->id() && $record->rep_acceptance_status === 'rejected' && ! $record->needs_replacement && $record->rep_acceptance_status !== 'accepted')
                     ->action(function ($record, $livewire) {
                         $record->update([
                             'needs_replacement' => true,
@@ -313,7 +313,7 @@ class CustomersTable
                     ->label('Log Call')
                     ->color('info')
                     ->icon('heroicon-o-phone')
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['rep', 'lead', 'admin', 'manager']))
+                    ->visible(fn ($record) => auth()->user()->hasAnyRole(['rep', 'lead', 'admin', 'manager']))
                     ->form([
                         DatePicker::make('called_at')
                             ->native(false)
@@ -355,12 +355,12 @@ class CustomersTable
 
                 ViewAction::make(),
                 EditAction::make()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['sales', 'warehouse_manager'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['sales', 'warehouse_manager'])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => ! in_array(auth()->user()->role, ['sales', 'warehouse_manager'])),
+                        ->visible(fn () => ! auth()->user()->hasAnyRole(['sales', 'warehouse_manager'])),
                 ]),
             ]);
     }

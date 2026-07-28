@@ -33,12 +33,12 @@ class SalesOrdersDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'sales';
+        return auth()->check() && auth()->user()->hasRole('sales');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'sales';
+        return auth()->check() && auth()->user()->hasRole('sales');
     }
 
     public static function getNavigationLabel(): string
@@ -48,7 +48,7 @@ class SalesOrdersDashboard extends BaseDashboard
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'sales') {
+        if (! auth()->check() || ! auth()->user()->hasRole('sales')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }

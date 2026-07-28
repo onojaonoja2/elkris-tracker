@@ -20,7 +20,7 @@ class LeadRejectedCustomersWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'lead';
+        return auth()->user()->hasRole('lead');
     }
 
     public function table(Table $table): Table

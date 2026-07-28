@@ -30,7 +30,7 @@ class StockTransactionResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'sales', 'warehouse_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'sales', 'warehouse_manager']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -38,7 +38,7 @@ class StockTransactionResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if ($user->role === 'warehouse_manager') {
+        if ($user->hasRole('warehouse_manager')) {
             $warehouseIds = $user->managedWarehouses()->pluck('id');
 
             return $query->whereIn('stock_transactions.warehouse_id', $warehouseIds);

@@ -42,22 +42,22 @@ class ProductTypeResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canEditAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function getPages(): array

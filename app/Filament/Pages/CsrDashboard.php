@@ -4,11 +4,13 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\AgentCreditSalesWidget;
 use App\Filament\Widgets\CsrAssignedOrdersWidget;
+use App\Filament\Widgets\CsrDailySalesWidget;
 use App\Filament\Widgets\CsrPendingDispatchesWidget;
 use App\Filament\Widgets\CsrSalesRecordsWidget;
 use App\Filament\Widgets\CsrStatsWidget;
 use App\Filament\Widgets\CsrStocksWidget;
 use App\Filament\Widgets\DamagedStockReturnFormWidget;
+use App\Models\AgentStock;
 use App\Models\ProductType;
 use App\Models\Setting;
 use App\Models\StockCount;
@@ -20,6 +22,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -35,17 +38,18 @@ class CsrDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'community_sales_representative';
+        return auth()->check() && auth()->user()->hasRole('community_sales_representative');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'community_sales_representative';
+        return auth()->check() && auth()->user()->hasRole('community_sales_representative');
     }
 
     public function getHeaderWidgets(): array
     {
         return [
+            CsrDailySalesWidget::class,
             CsrStatsWidget::class,
             AgentCreditSalesWidget::class,
             CsrStocksWidget::class,
@@ -94,6 +98,10 @@ class CsrDashboard extends BaseDashboard
             ->icon('heroicon-o-clipboard-document-check')
             ->color('info')
             ->form([
+                Toggle::make('is_additional_count')
+                    ->label('This is an additional count (adds to existing stock)')
+                    ->default(false)
+                    ->live(),
                 Repeater::make('items')
                     ->label('Physical Stock Count')
                     ->schema([
@@ -139,9 +147,11 @@ class CsrDashboard extends BaseDashboard
             ])
             ->action(function (array $data) {
                 $userId = auth()->id();
+                $isAdditional = $data['is_additional_count'] ?? false;
 
                 $stockCount = StockCount::create([
                     'user_id' => $userId,
+                    'is_additional_count' => $isAdditional,
                     'status' => 'pending',
                     'notes' => $data['notes'] ?? null,
                 ]);
@@ -156,11 +166,34 @@ class CsrDashboard extends BaseDashboard
                     ]);
                 }
 
-                Notification::make()
-                    ->title('Stock count submitted')
-                    ->body('Your physical stock count is pending accountant approval.')
-                    ->success()
-                    ->send();
+                if ($isAdditional) {
+                    foreach ($data['items'] as $item) {
+                        $pt = ProductType::find($item['product_type_id']);
+                        $productName = $pt?->name ?? 'Unknown Product';
+                        $agentStock = AgentStock::firstOrCreate(
+                            [
+                                'user_id' => $userId,
+                                'product_type_id' => $item['product_type_id'],
+                                'product_name' => $productName,
+                                'grammage' => $item['grammage'],
+                            ],
+                            ['quantity' => 0]
+                        );
+                        $agentStock->increment('quantity', $item['quantity']);
+                    }
+
+                    Notification::make()
+                        ->title('Additional stock count submitted')
+                        ->body('The quantities have been added to your current stock.')
+                        ->success()
+                        ->send();
+                } else {
+                    Notification::make()
+                        ->title('Stock count submitted')
+                        ->body('Your physical stock count is pending supervisor approval.')
+                        ->success()
+                        ->send();
+                }
             })
             ->modalHeading('Submit Physical Stock Count')
             ->modalButton('Submit Count');

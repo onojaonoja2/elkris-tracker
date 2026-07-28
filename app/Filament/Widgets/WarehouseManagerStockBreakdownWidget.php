@@ -20,7 +20,7 @@ class WarehouseManagerStockBreakdownWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'warehouse_manager';
+        return auth()->user()->hasRole('warehouse_manager');
     }
 
     public function table(Table $table): Table

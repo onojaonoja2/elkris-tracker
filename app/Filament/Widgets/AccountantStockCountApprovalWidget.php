@@ -3,172 +3,90 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
-use App\Models\Inventory;
 use App\Models\StockCount;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Filament\Widgets\TableWidget;
-use Illuminate\Support\Facades\DB;
-use Livewire\Attributes\On;
+use Filament\Widgets\TableWidget as BaseWidget;
 
-class AccountantStockCountApprovalWidget extends TableWidget
+class AccountantStockCountApprovalWidget extends BaseWidget
 {
-    protected static ?int $sort = 5;
-
-    protected static ?string $heading = 'Stock Count Approvals';
+    protected static ?string $heading = 'Stock Count Final Approvals';
 
     protected int|string|array $columnSpan = 'full';
-
-    public static function canView(): bool
-    {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
-    }
-
-    #[On('refresh-dashboard')]
-    public function refreshWidget(): void {}
 
     public function table(Table $table): Table
     {
         return $table
             ->query(
-                fn () => StockCount::where('status', 'pending')
-                    ->with(['user', 'warehouse', 'items.productType'])
-                    ->orderBy('created_at', 'desc')
+                StockCount::where('status', 'pending')
+                    ->where('supervisor_status', 'verified')
+                    ->with('user', 'items.productType')
             )
             ->columns([
-                TextColumn::make('id')
-                    ->label('#')
-                    ->sortable(),
-
-                TextColumn::make('user.name')
-                    ->label('Submitted By')
-                    ->searchable(),
-
-                TextColumn::make('user.role')
-                    ->label('Role')
+                TextColumn::make('user.name')->label('Agent'),
+                TextColumn::make('items_count')->label('Items')->counts('items'),
+                TextColumn::make('supervisor_verified_at')->label('Supervisor Verified')->dateTime(),
+                TextColumn::make('is_additional_count')
+                    ->label('Type')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'community_sales_representative' => 'info',
-                        'sales' => 'warning',
-                        'warehouse_manager' => 'success',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'community_sales_representative' => 'CSR',
-                        'sales' => 'Sales',
-                        'warehouse_manager' => 'Warehouse',
-                        default => ucfirst(str_replace('_', ' ', $state)),
-                    }),
-
-                TextColumn::make('warehouse.name')
-                    ->label('Warehouse')
-                    ->placeholder('N/A'),
-
-                TextColumn::make('items')
-                    ->label('Items')
-                    ->formatStateUsing(fn (StockCount $record): string => $record->items->map(
-                        fn ($item) => "{$item->product_name} ({$item->grammage}g): {$item->quantity}"
-                    )->implode(', '))
-                    ->limit(60),
-
-                TextColumn::make('notes')
-                    ->label('Notes')
-                    ->limit(30)
-                    ->placeholder('-'),
-
-                TextColumn::make('created_at')
-                    ->label('Submitted')
-                    ->dateTime()
-                    ->sortable(),
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Additional' : 'Initial')
+                    ->color(fn (bool $state): string => $state ? 'warning' : 'info'),
             ])
-            ->recordActions([
-                Action::make('approve')
-                    ->label('Approve')
-                    ->icon('heroicon-o-check-circle')
+            ->actions([
+                Action::make('accountantApprove')
+                    ->label('Final Approve')
                     ->color('success')
-                    ->size('sm')
-                    ->requiresConfirmation()
-                    ->modalHeading('Approve Stock Count')
-                    ->modalDescription('This will replace the current inventory with the submitted physical count. Continue?')
-                    ->modalButton('Approve')
+                    ->icon('heroicon-o-check-circle')
                     ->action(function (StockCount $record) {
-                        DB::transaction(function () use ($record) {
-                            $user = $record->user;
-                            $isWarehouse = $record->warehouse_id !== null;
-
-                            foreach ($record->items as $item) {
-                                if ($isWarehouse) {
-                                    $inventory = Inventory::firstOrCreate(
-                                        [
-                                            'warehouse_id' => $record->warehouse_id,
-                                            'product_type_id' => $item->product_type_id,
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        ['quantity' => 0]
-                                    );
-                                    $inventory->update(['quantity' => $item->quantity]);
-                                } else {
-                                    $agentStock = AgentStock::firstOrCreate(
-                                        [
-                                            'user_id' => $record->user_id,
-                                            'product_name' => $item->product_name,
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        [
-                                            'product_type_id' => $item->product_type_id,
-                                            'quantity' => 0,
-                                        ]
-                                    );
-                                    $agentStock->update(['quantity' => $item->quantity]);
-                                }
-                            }
-
+                        \DB::transaction(function () use ($record) {
                             $record->update([
                                 'status' => 'approved',
                                 'approved_by' => auth()->id(),
                                 'approved_at' => now(),
                             ]);
+
+                            if (! $record->is_additional_count) {
+                                foreach ($record->items as $item) {
+                                    AgentStock::updateOrCreate(
+                                        [
+                                            'user_id' => $record->user_id,
+                                            'product_type_id' => $item->product_type_id,
+                                            'product_name' => $item->product_name,
+                                            'grammage' => $item->grammage,
+                                        ],
+                                        ['quantity' => $item->quantity]
+                                    );
+                                }
+                            }
                         });
 
                         Notification::make()
                             ->title('Stock count approved')
-                            ->body("Inventory updated for {$record->user->name}.")
                             ->success()
                             ->send();
-
-                        $this->dispatch('refresh-dashboard');
                     }),
-
-                Action::make('reject')
+                Action::make('accountantReject')
                     ->label('Reject')
-                    ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->size('sm')
+                    ->icon('heroicon-o-x-circle')
+                    ->requiresConfirmation()
                     ->form([
-                        Textarea::make('reason')
-                            ->label('Rejection Reason')
-                            ->required(),
+                        Textarea::make('rejection_reason')->required(),
                     ])
                     ->action(function (StockCount $record, array $data) {
                         $record->update([
                             'status' => 'rejected',
-                            'approved_by' => auth()->id(),
-                            'approved_at' => now(),
-                            'rejection_reason' => $data['reason'],
+                            'rejection_reason' => $data['rejection_reason'],
                         ]);
 
                         Notification::make()
                             ->title('Stock count rejected')
-                            ->body("Stock count #{$record->id} has been rejected.")
                             ->danger()
                             ->send();
-
-                        $this->dispatch('refresh-dashboard');
                     }),
-            ])
-            ->defaultSort('created_at', 'desc');
+            ]);
     }
 }

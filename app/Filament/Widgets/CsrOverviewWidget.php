@@ -22,7 +22,7 @@ class CsrOverviewWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['rep', 'lead']);
+        return auth()->user()->hasAnyRole(['rep', 'lead']);
     }
 
     public function table(Table $table): Table
@@ -103,16 +103,16 @@ class CsrOverviewWidget extends TableWidget
 
     private function getPairedCsrIds(User $user): Collection
     {
-        if ($user->role === 'rep') {
+        if ($user->hasRole('rep')) {
             return User::where('portfolio_agent_id', $user->id)
                 ->where('role', 'community_sales_representative')
                 ->pluck('id');
         }
 
-        if ($user->role === 'lead') {
-            $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
+        if ($user->hasRole('lead')) {
+            $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id')->toArray();
 
-            return User::where('portfolio_agent_id', $repIds)
+            return User::whereIn('portfolio_agent_id', $repIds)
                 ->where('role', 'community_sales_representative')
                 ->pluck('id');
         }

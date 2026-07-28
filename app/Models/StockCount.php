@@ -14,7 +14,12 @@ class StockCount extends Model
     protected $fillable = [
         'user_id',
         'warehouse_id',
+        'is_additional_count',
+        'parent_stock_count_id',
         'status',
+        'supervisor_status',
+        'supervisor_verified_by',
+        'supervisor_verified_at',
         'notes',
         'approved_by',
         'approved_at',
@@ -24,6 +29,8 @@ class StockCount extends Model
     protected function casts(): array
     {
         return [
+            'is_additional_count' => 'boolean',
+            'supervisor_verified_at' => 'datetime',
             'approved_at' => 'datetime',
         ];
     }
@@ -46,5 +53,20 @@ class StockCount extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function supervisorVerifier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_verified_by');
+    }
+
+    public function parentStockCount(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_stock_count_id');
+    }
+
+    public function childStockCounts(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_stock_count_id');
     }
 }

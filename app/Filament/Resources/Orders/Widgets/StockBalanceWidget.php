@@ -14,7 +14,7 @@ class StockBalanceWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        if (! in_array(auth()->user()->role, ['admin', 'sales'])) {
+        if (! auth()->user()->hasAnyRole(['admin', 'sales'])) {
             return [];
         }
 

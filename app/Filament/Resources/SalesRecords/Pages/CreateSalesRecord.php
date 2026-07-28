@@ -14,7 +14,7 @@ class CreateSalesRecord extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['agent_id'] = auth()->id();
-        $data['agent_type'] = auth()->user()->role;
+        $data['agent_type'] = auth()->user()->getPrimaryRole();
 
         $products = $data['products'] ?? [];
 

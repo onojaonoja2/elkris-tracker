@@ -20,7 +20,7 @@ class ManageStockTransactions extends ManageRecords
                 ->label('Export Stock Report')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('secondary')
-                ->visible(fn () => in_array(auth()->user()->role, ['admin', 'sales', 'warehouse_manager']))
+                ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'sales', 'warehouse_manager']))
                 ->action(function (Action $action) {
                     $livewire = $action->getLivewire();
                     $filters = $livewire->tableFilters ?? [];
@@ -28,7 +28,7 @@ class ManageStockTransactions extends ManageRecords
 
                     $transactionsQuery = StockTransaction::query();
 
-                    if ($user->role === 'warehouse_manager') {
+                    if (auth()->user()->hasRole('warehouse_manager')) {
                         $warehouseIds = $user->managedWarehouses()->pluck('id');
                         $transactionsQuery->whereIn('stock_transactions.warehouse_id', $warehouseIds);
                     }

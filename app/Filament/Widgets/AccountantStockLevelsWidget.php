@@ -17,7 +17,7 @@ class AccountantStockLevelsWidget extends Widget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     protected function getCartonQuantity(?int $productTypeId, int $grammage): int

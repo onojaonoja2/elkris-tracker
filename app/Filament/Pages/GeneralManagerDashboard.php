@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AgentCustomerViewWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\GeneralManagerStatsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
@@ -30,17 +31,17 @@ class GeneralManagerDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_manager';
+        return auth()->check() && auth()->user()->hasRole('general_manager');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_manager';
+        return auth()->check() && auth()->user()->hasRole('general_manager');
     }
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'general_manager') {
+        if (! auth()->check() || ! auth()->user()->hasRole('general_manager')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
@@ -63,6 +64,7 @@ class GeneralManagerDashboard extends BaseDashboard
             ManagerCustomersWidget::class,
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
+            AgentCustomerViewWidget::class,
             DamagedReturnsBreakdownWidget::class,
             OrdersPerCityChart::class,
         ];

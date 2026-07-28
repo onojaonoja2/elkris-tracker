@@ -21,6 +21,14 @@ class DamagedStockReturn extends Model
         'approved_by',
         'approved_at',
         'rejection_reason',
+        'supervisor_approved_by',
+        'supervisor_approved_at',
+        'accountant_approved_by',
+        'accountant_approved_at',
+        'return_to_warehouse_initiated_at',
+        'return_to_warehouse_initiated_by',
+        'return_received_at',
+        'return_received_by',
     ];
 
     protected function casts(): array
@@ -29,6 +37,10 @@ class DamagedStockReturn extends Model
             'grammage' => 'integer',
             'quantity' => 'integer',
             'approved_at' => 'datetime',
+            'supervisor_approved_at' => 'datetime',
+            'accountant_approved_at' => 'datetime',
+            'return_to_warehouse_initiated_at' => 'datetime',
+            'return_received_at' => 'datetime',
         ];
     }
 
@@ -50,5 +62,25 @@ class DamagedStockReturn extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function supervisorApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_approved_by');
+    }
+
+    public function accountantApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'accountant_approved_by');
+    }
+
+    public function returnInitiator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_to_warehouse_initiated_by');
+    }
+
+    public function returnReceiver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'return_received_by');
     }
 }

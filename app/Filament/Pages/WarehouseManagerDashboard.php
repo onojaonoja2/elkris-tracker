@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\WarehouseDamagedReturnsWidget;
 use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
@@ -35,17 +36,17 @@ class WarehouseManagerDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'warehouse_manager';
+        return auth()->check() && auth()->user()->hasRole('warehouse_manager');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'warehouse_manager';
+        return auth()->check() && auth()->user()->hasRole('warehouse_manager');
     }
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'warehouse_manager') {
+        if (! auth()->check() || ! auth()->user()->hasRole('warehouse_manager')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
@@ -61,6 +62,7 @@ class WarehouseManagerDashboard extends BaseDashboard
     {
         return [
             WarehouseManagerStockBreakdownWidget::class,
+            WarehouseDamagedReturnsWidget::class,
             WarehouseRecentMovementsWidget::class,
         ];
     }

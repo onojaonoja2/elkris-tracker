@@ -68,6 +68,6 @@ class RepStatsWidget extends StatsOverviewWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'rep';
+        return auth()->user()->hasRole('rep');
     }
 }

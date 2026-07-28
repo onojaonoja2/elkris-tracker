@@ -7,6 +7,7 @@ use App\Filament\Resources\SalesRecords\Pages\EditSalesRecord;
 use App\Filament\Resources\SalesRecords\Pages\ListSalesRecords;
 use App\Filament\Resources\SalesRecords\Schemas\SalesRecordForm;
 use App\Filament\Resources\SalesRecords\Tables\SalesRecordsTable;
+use App\Filament\Traits\HasViewModal;
 use App\Models\SalesRecord;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -18,6 +19,8 @@ use UnitEnum;
 
 class SalesRecordResource extends Resource
 {
+    use HasViewModal;
+
     protected static ?string $model = SalesRecord::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
@@ -36,9 +39,14 @@ class SalesRecordResource extends Resource
         return SalesRecordsTable::configure($table);
     }
 
+    protected static function getViewRelations(): array
+    {
+        return [];
+    }
+
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, [
+        return auth()->user()->hasAnyRole([
             'open_market', 'retail_market', 'community_sales_representative',
             'supervisor', 'accountant', 'admin', 'manager',
         ]);
@@ -46,12 +54,12 @@ class SalesRecordResource extends Resource
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['open_market', 'retail_market', 'community_sales_representative', 'admin']);
+        return auth()->user()->hasAnyRole(['open_market', 'retail_market', 'community_sales_representative', 'admin']);
     }
 
     public static function canEditAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canEditRecord(SalesRecord $record): bool
@@ -61,7 +69,7 @@ class SalesRecordResource extends Resource
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canDeleteRecord(SalesRecord $record): bool
@@ -74,7 +82,7 @@ class SalesRecordResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if (in_array($user->role, ['open_market', 'retail_market', 'community_sales_representative'])) {
+        if (auth()->user()->hasAnyRole(['open_market', 'retail_market', 'community_sales_representative'])) {
             $query->where('agent_id', $user->id);
         }
 

@@ -7,6 +7,7 @@ use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
+use App\Filament\Traits\HasViewModal;
 use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -17,6 +18,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
+    use HasViewModal;
+
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
@@ -25,7 +28,7 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
+        return auth()->user()->hasAnyRole(['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -33,23 +36,23 @@ class UserResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if ($user->role === 'supervisor') {
+        if ($user->hasRole('supervisor')) {
             return $query->whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']);
         }
 
-        if ($user->role === 'manager') {
+        if ($user->hasRole('manager')) {
             return $query->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
         }
 
-        if ($user->role === 'general_accountant') {
+        if ($user->hasRole('general_accountant')) {
             return $query->whereIn('role', ['accountant', 'warehouse_manager']);
         }
 
-        if ($user->role === 'general_manager') {
+        if ($user->hasRole('general_manager')) {
             return $query->whereIn('role', ['admin', 'supervisor', 'lead', 'rep', 'community_sales_representative', 'open_market', 'retail_market', 'sales', 'manager', 'accountant', 'warehouse_manager']);
         }
 
-        if ($user->role === 'lead') {
+        if ($user->hasRole('lead')) {
             $query->where('lead_id', $user->id);
         }
 
@@ -58,7 +61,7 @@ class UserResource extends Resource
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
+        return auth()->user()->hasAnyRole(['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
     }
 
     public static function canEditAny(): bool
@@ -73,7 +76,7 @@ class UserResource extends Resource
 
     public static function canDeleteAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'general_manager'], true);
+        return auth()->user()->hasAnyRole(['admin', 'general_manager'], true);
     }
 
     public static function canDeleteRecord($record): bool
@@ -88,7 +91,7 @@ class UserResource extends Resource
      */
     protected static function currentUserMayManageRole(string $targetRole): bool
     {
-        $role = auth()->user()->role;
+        $role = auth()->user()->getPrimaryRole();
 
         return match ($role) {
             'admin', 'general_manager' => true,
@@ -113,6 +116,16 @@ class UserResource extends Resource
     {
         return [
             //
+        ];
+    }
+
+    protected static function getViewRelations(): array
+    {
+        return [
+            'agentStocks' => [
+                'label' => 'Agent Stocks',
+                'columns' => ['product_name', 'grammage', 'quantity'],
+            ],
         ];
     }
 

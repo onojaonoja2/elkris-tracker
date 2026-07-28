@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TrialOrders\Tables;
 use App\Enums\PaymentStatus;
 use App\Enums\TrialOrderStatus;
 use App\Filament\Exports\TrialOrderExporter;
+use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Models\TrialOrder;
 use App\Services\TrialOrderService;
 use Filament\Actions\Action;
@@ -88,12 +89,14 @@ class TrialOrdersTable
             ])
             ->recordActions([
 
+                TrialOrderResource::getViewActionForResource(TrialOrderResource::class),
+
                 // ACCOUNTANT: Approve (verify + auto-deduct from creator's stock)
                 Action::make('approveByAccountant')
                     ->label('Approve (Accountant)')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (TrialOrder $record) => $record->status === TrialOrderStatus::ReceiptUploaded && auth()->user()->role === 'accountant')
+                    ->visible(fn (TrialOrder $record) => $record->status === TrialOrderStatus::ReceiptUploaded && auth()->user()->hasRole('accountant'))
                     ->form(function () {
                         return [
                             Textarea::make('accountant_notes')
@@ -113,7 +116,7 @@ class TrialOrdersTable
                     ->label('Reject (Accountant)')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (TrialOrder $record) => $record->status === TrialOrderStatus::ReceiptUploaded && auth()->user()->role === 'accountant')
+                    ->visible(fn (TrialOrder $record) => $record->status === TrialOrderStatus::ReceiptUploaded && auth()->user()->hasRole('accountant'))
                     ->form([
                         Textarea::make('accountant_notes')
                             ->label('Reason for Rejection')
@@ -130,7 +133,7 @@ class TrialOrdersTable
                     ->label('View Receipt')
                     ->icon('heroicon-o-photo')
                     ->color('info')
-                    ->visible(fn (TrialOrder $record) => $record->receipt_path && in_array(auth()->user()->role, ['accountant', 'supervisor', 'admin']))
+                    ->visible(fn (TrialOrder $record) => $record->receipt_path && auth()->user()->hasAnyRole(['accountant', 'supervisor', 'admin']))
                     ->modalContent(fn (TrialOrder $record) => view('filament.trial-order-receipt', ['record' => $record]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
@@ -140,7 +143,7 @@ class TrialOrdersTable
                     ->label('Attribute Sale')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('info')
-                    ->visible(fn ($record) => $record->payment_status === PaymentStatus::Pending && auth()->user()->role === 'supervisor')
+                    ->visible(fn ($record) => $record->payment_status === PaymentStatus::Pending && auth()->user()->hasRole('supervisor'))
                     ->requiresConfirmation()
                     ->modalHeading('Attribute Sale')
                     ->modalDescription('This will attribute the sale, deduct stock, and mark payment as completed.')

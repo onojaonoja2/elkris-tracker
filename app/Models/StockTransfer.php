@@ -17,6 +17,7 @@ class StockTransfer extends Model
         'dispatched_by', 'received_by', 'received_at',
         'status', 'notes',
         'requested_by', 'approved_by', 'approved_at', 'rejection_reason',
+        'supervisor_approved_by', 'supervisor_approved_at',
         'source_type', 'source_name', 'dispatch_papers_path', 'requires_approval',
         'collected_at', 'collected_by',
     ];
@@ -27,6 +28,7 @@ class StockTransfer extends Model
             'status' => StockTransferStatus::class,
             'received_at' => 'datetime',
             'approved_at' => 'datetime',
+            'supervisor_approved_at' => 'datetime',
             'collected_at' => 'datetime',
         ];
     }
@@ -69,6 +71,11 @@ class StockTransfer extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function supervisorApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_approved_by');
     }
 
     public function collector(): BelongsTo

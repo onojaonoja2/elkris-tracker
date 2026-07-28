@@ -33,7 +33,7 @@ class StockTransferForm
                         $query = User::where('is_active', true)
                             ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
 
-                        if ($user->role === 'supervisor') {
+                        if ($user->hasRole('supervisor')) {
                             $query->where(function ($q) use ($user) {
                                 $q->where('lead_id', $user->id)
                                     ->orWhere('portfolio_agent_id', $user->id);
@@ -64,7 +64,7 @@ class StockTransferForm
                         $query = User::where('is_active', true)
                             ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
 
-                        if ($user->role === 'supervisor') {
+                        if ($user->hasRole('supervisor')) {
                             $query->where(function ($q) use ($user) {
                                 $q->where('lead_id', $user->id)
                                     ->orWhere('portfolio_agent_id', $user->id);

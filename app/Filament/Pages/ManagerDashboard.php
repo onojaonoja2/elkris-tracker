@@ -39,12 +39,12 @@ class ManagerDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['manager', 'admin']);
+        return auth()->check() && auth()->user()->hasAnyRole(['manager', 'admin']);
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['manager', 'admin']);
+        return auth()->check() && auth()->user()->hasAnyRole(['manager', 'admin']);
     }
 
     public static function getNavigationLabel(): string
@@ -54,7 +54,7 @@ class ManagerDashboard extends BaseDashboard
 
     public function mount()
     {
-        if (! auth()->check() || ! in_array(auth()->user()->role, ['manager', 'admin'])) {
+        if (! auth()->check() || ! auth()->user()->hasAnyRole(['manager', 'admin'])) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
@@ -156,8 +156,8 @@ class ManagerDashboard extends BaseDashboard
                     Notification::make()
                         ->title('Agent created')
                         ->body(empty($data['password'])
-                            ? "{$user->name} has been created as a ".str_replace('_', ' ', $user->role).". Share this one-time password securely (it will not be shown again): **{$plainPassword}**"
-                            : "{$user->name} has been created as a ".str_replace('_', ' ', $user->role).'.')
+                            ? "{$user->name} has been created as a ".str_replace('_', ' ', $user->getPrimaryRole()).". Share this one-time password securely (it will not be shown again): **{$plainPassword}**"
+                            : "{$user->name} has been created as a ".str_replace('_', ' ', $user->getPrimaryRole()).'.')
                         ->success()
                         ->persistent()
                         ->send();

@@ -20,9 +20,9 @@ class CreateCallLog extends CreateRecord
                 ->label('Customer')
                 ->relationship('customer', 'customer_name', fn ($query) => $query->where(function ($q) {
                     $user = auth()->user();
-                    if ($user->role === 'rep') {
+                    if ($user->hasRole('rep')) {
                         $q->where('rep_id', $user->id);
-                    } elseif ($user->role === 'lead') {
+                    } elseif ($user->hasRole('lead')) {
                         $q->whereHas('reps', fn ($qr) => $qr->where('lead_id', $user->id));
                     }
                 }))

@@ -14,7 +14,7 @@ class ListWarehouses extends ListRecords
     {
         return [
             CreateAction::make()
-                ->visible(fn () => auth()->user()->role === 'admin'),
+                ->visible(fn () => auth()->user()->hasRole('admin')),
         ];
     }
 }

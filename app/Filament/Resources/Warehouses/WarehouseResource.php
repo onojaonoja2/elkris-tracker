@@ -42,22 +42,22 @@ class WarehouseResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager', 'warehouse_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'manager', 'warehouse_manager']);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['admin']);
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canEditAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin']);
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canDeleteAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin']);
+        return auth()->user()->hasRole('admin');
     }
 
     public static function getPages(): array

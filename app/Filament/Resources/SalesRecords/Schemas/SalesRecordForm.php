@@ -22,14 +22,14 @@ class SalesRecordForm
             ->components([
                 TextInput::make('vendor_name')
                     ->label('Market / Vendor Name')
-                    ->visible(fn () => auth()->user()->role === 'open_market')
-                    ->required(fn () => auth()->user()->role === 'open_market')
+                    ->visible(fn () => auth()->user()->hasRole('open_market'))
+                    ->required(fn () => auth()->user()->hasRole('open_market'))
                     ->maxLength(255),
 
                 TextInput::make('business_name')
                     ->label('Business Name (Restaurant / Hotel / Supermarket)')
-                    ->visible(fn () => auth()->user()->role === 'retail_market')
-                    ->required(fn () => auth()->user()->role === 'retail_market')
+                    ->visible(fn () => auth()->user()->hasRole('retail_market'))
+                    ->required(fn () => auth()->user()->hasRole('retail_market'))
                     ->maxLength(255),
 
                 Toggle::make('is_credit')

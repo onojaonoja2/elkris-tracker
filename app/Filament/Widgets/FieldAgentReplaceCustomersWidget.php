@@ -23,7 +23,7 @@ class FieldAgentReplaceCustomersWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user() && in_array(auth()->user()->role, ['field_agent', 'community_sales_representative']);
+        return auth()->user() && auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative']);
     }
 
     public function table(Table $table): Table

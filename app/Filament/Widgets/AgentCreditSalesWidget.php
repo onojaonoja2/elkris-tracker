@@ -16,7 +16,7 @@ class AgentCreditSalesWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
+        return auth()->user()->hasAnyRole(['community_sales_representative', 'open_market', 'retail_market']);
     }
 
     protected function getStats(): array

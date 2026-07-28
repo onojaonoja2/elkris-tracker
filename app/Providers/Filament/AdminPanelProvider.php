@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Helpers\NavigationHelper;
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\AccountantDashboard;
 use App\Filament\Pages\AgentDashboard;
@@ -72,22 +73,7 @@ class AdminPanelProvider extends PanelProvider
                 OrderSettings::class,
             ])
             ->homeUrl(fn () => auth()->user()
-                ? match (auth()->user()->role) {
-                    'supervisor' => '/admin/supervisor-dashboard',
-                    'lead' => '/admin/lead-dashboard',
-                    'rep' => '/admin/rep-dashboard',
-                    'sales' => '/admin/sales-orders-dashboard',
-                    'field_agent' => '/admin/agent-dashboard',
-                    'community_sales_representative' => '/admin/csr-dashboard',
-                    'open_market' => '/admin/agent-dashboard',
-                    'retail_market' => '/admin/agent-dashboard',
-                    'warehouse_manager' => '/admin/warehouse-dashboard',
-                    'accountant' => '/admin/accountant-dashboard',
-                    'manager', 'admin' => '/admin/manager-dashboard',
-                    'general_accountant' => '/admin/general-accountant-dashboard',
-                    'general_manager' => '/admin/general-manager-dashboard',
-                    default => '/admin',
-                }
+                ? NavigationHelper::getDashboardUrl(auth()->user())
                 : url('/admin'))
             ->widgets([
                 AccountWidget::class,

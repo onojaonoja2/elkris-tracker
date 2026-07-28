@@ -33,12 +33,12 @@ class OrderSettings extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canAccess(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public function save(): void

@@ -28,12 +28,12 @@ class LeadDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'lead';
+        return auth()->check() && auth()->user()->hasRole('lead');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'lead';
+        return auth()->check() && auth()->user()->hasRole('lead');
     }
 
     public static function getNavigationLabel(): string
@@ -43,7 +43,7 @@ class LeadDashboard extends BaseDashboard
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'lead') {
+        if (! auth()->check() || ! auth()->user()->hasRole('lead')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }

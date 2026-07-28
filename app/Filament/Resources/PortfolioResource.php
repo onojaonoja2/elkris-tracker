@@ -33,7 +33,7 @@ class PortfolioResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['rep', 'lead']);
+        return auth()->user()->hasAnyRole(['rep', 'lead']);
     }
 
     public static function form(Schema $schema): Schema
@@ -76,10 +76,10 @@ class PortfolioResource extends Resource
                         $user = auth()->user();
                         $query = Customer::query()->with(['rep', 'lead', 'agent']);
 
-                        if ($user->role === 'rep') {
+                        if ($user->hasRole('rep')) {
                             $query->where('rep_acceptance_status', 'accepted')
                                 ->where('rep_id', $user->id);
-                        } elseif ($user->role === 'lead') {
+                        } elseif ($user->hasRole('lead')) {
                             $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
                             $query->where('rep_acceptance_status', 'accepted')
                                 ->whereIn('rep_id', $repIds);
@@ -119,7 +119,7 @@ class PortfolioResource extends Resource
     {
         $user = auth()->user();
 
-        if ($user->role === 'rep') {
+        if ($user->hasRole('rep')) {
             // Portfolio Agent sees: own customers + customers from paired CSRs
             $pairedCsrIds = User::where('portfolio_agent_id', $user->id)->pluck('id');
 
@@ -132,7 +132,7 @@ class PortfolioResource extends Resource
                         $sub->whereIn('agent_id', $pairedCsrIds);
                     });
                 });
-        } elseif ($user->role === 'lead') {
+        } elseif ($user->hasRole('lead')) {
             $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id');
 
             return parent::getEloquentQuery()

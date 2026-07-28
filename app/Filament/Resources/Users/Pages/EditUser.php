@@ -41,7 +41,7 @@ class EditUser extends EditRecord
                 ->label('Delete User')
                 ->color('danger')
                 ->icon('heroicon-o-trash')
-                ->visible(fn (): bool => auth()->user()->role === 'admin')
+                ->visible(fn (): bool => auth()->user()->hasRole('admin'))
                 ->requiresConfirmation()
                 ->modalHeading('Delete User')
                 ->modalDescription(fn (): string => 'You are about to delete '.$this->getRecord()->name.' ('.ucfirst($this->getRecord()->role).').')
@@ -61,7 +61,7 @@ class EditUser extends EditRecord
             TextInput::make('user_info')
                 ->label('User')
                 ->disabled()
-                ->default($user->name.' - '.ucfirst($user->role)),
+                ->default($user->name.' - '.ucfirst($user->getPrimaryRole())),
 
             TextInput::make('customers_count')
                 ->label('Assigned Customers')

@@ -3,12 +3,15 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\AgentCustomerViewWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\SupervisorCreditSalesWidget;
 use App\Filament\Widgets\SupervisorCsrListWidget;
+use App\Filament\Widgets\SupervisorDamagedReturnsWidget;
 use App\Filament\Widgets\SupervisorSalesByGeoWidget;
 use App\Filament\Widgets\SupervisorSalesRecordsWidget;
 use App\Filament\Widgets\SupervisorStatsWidget;
+use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
 use App\Filament\Widgets\SupervisorStockWidget;
 use App\Models\SalesRecord;
 use App\Models\User;
@@ -30,12 +33,12 @@ class SupervisorDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'supervisor';
+        return auth()->check() && auth()->user()->hasRole('supervisor');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'supervisor';
+        return auth()->check() && auth()->user()->hasRole('supervisor');
     }
 
     public static function getNavigationLabel(): string
@@ -45,7 +48,7 @@ class SupervisorDashboard extends BaseDashboard
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'supervisor') {
+        if (! auth()->check() || ! auth()->user()->hasRole('supervisor')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
@@ -67,10 +70,13 @@ class SupervisorDashboard extends BaseDashboard
     {
         return [
             SupervisorCsrListWidget::class,
+            SupervisorStockCountApprovalWidget::class,
             SupervisorSalesByGeoWidget::class,
             SupervisorSalesRecordsWidget::class,
             SupervisorCreditSalesWidget::class,
+            SupervisorDamagedReturnsWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            AgentCustomerViewWidget::class,
         ];
     }
 

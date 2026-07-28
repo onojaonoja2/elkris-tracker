@@ -93,6 +93,6 @@ class GeneralAccountantStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'general_accountant';
+        return auth()->user()->hasRole('general_accountant');
     }
 }

@@ -24,7 +24,7 @@ class LeadCsrSubmissionsWidget extends TableWidget
     public static function canView(): bool
     {
         $user = auth()->user();
-        if (! $user || $user->role !== 'lead') {
+        if (! $user || ! $user->hasRole('lead')) {
             return false;
         }
 

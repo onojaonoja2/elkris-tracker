@@ -31,17 +31,17 @@ class GeneralAccountantDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_accountant';
+        return auth()->check() && auth()->user()->hasRole('general_accountant');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_accountant';
+        return auth()->check() && auth()->user()->hasRole('general_accountant');
     }
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'general_accountant') {
+        if (! auth()->check() || ! auth()->user()->hasRole('general_accountant')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }

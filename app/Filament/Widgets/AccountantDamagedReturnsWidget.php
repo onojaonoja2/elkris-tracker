@@ -25,13 +25,16 @@ class AccountantDamagedReturnsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn () => DamagedStockReturn::where('status', 'pending')->orderBy('created_at', 'desc'))
+            ->query(fn () => DamagedStockReturn::where('status', 'pending')
+                ->whereNotNull('supervisor_approved_by')
+                ->whereNull('accountant_approved_by')
+                ->orderBy('created_at', 'desc'))
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -85,8 +88,8 @@ class AccountantDamagedReturnsWidget extends TableWidget
 
                             $record->update([
                                 'status' => 'approved',
-                                'approved_by' => auth()->id(),
-                                'approved_at' => now(),
+                                'accountant_approved_by' => auth()->id(),
+                                'accountant_approved_at' => now(),
                             ]);
                         });
 
@@ -107,8 +110,8 @@ class AccountantDamagedReturnsWidget extends TableWidget
                     ->action(function (DamagedStockReturn $record, array $data) {
                         $record->update([
                             'status' => 'rejected',
-                            'approved_by' => auth()->id(),
-                            'approved_at' => now(),
+                            'accountant_approved_by' => auth()->id(),
+                            'accountant_approved_at' => now(),
                             'rejection_reason' => $data['rejection_reason'],
                         ]);
 
