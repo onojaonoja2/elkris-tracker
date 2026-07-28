@@ -61,6 +61,44 @@ class UserResource extends Resource
         return in_array(auth()->user()->role, ['admin', 'supervisor', 'general_manager', 'general_accountant', 'manager']);
     }
 
+    public static function canEditAny(): bool
+    {
+        return static::canCreate();
+    }
+
+    public static function canEditRecord($record): bool
+    {
+        return static::currentUserMayManageRole($record->role);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return in_array(auth()->user()->role, ['admin', 'general_manager'], true);
+    }
+
+    public static function canDeleteRecord($record): bool
+    {
+        // Deletion is restricted to admin/general_manager AND only for roles they can manage.
+        return static::canDeleteAny() && static::currentUserMayManageRole($record->role);
+    }
+
+    /**
+     * Mirrors getEloquentQuery(): whether the current user is permitted to
+     * manage users of the target role. Used by canEditRecord/canDeleteRecord.
+     */
+    protected static function currentUserMayManageRole(string $targetRole): bool
+    {
+        $role = auth()->user()->role;
+
+        return match ($role) {
+            'admin', 'general_manager' => true,
+            'supervisor' => in_array($targetRole, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'], true),
+            'manager' => in_array($targetRole, ['community_sales_representative', 'open_market', 'retail_market'], true),
+            'general_accountant' => in_array($targetRole, ['accountant', 'warehouse_manager'], true),
+            default => false,
+        };
+    }
+
     public static function form(Schema $schema): Schema
     {
         return UserForm::configure($schema);

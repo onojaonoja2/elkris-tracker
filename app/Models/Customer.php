@@ -3,16 +3,19 @@
 namespace App\Models;
 
 use App\Enums\CustomerPriority;
+use App\Models\Concerns\HasSanitization;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class Customer extends Model
+class Customer extends Model implements Auditable
 {
-    use HasFactory;
+    use AuditableTrait, HasFactory, HasSanitization;
 
     protected $fillable = [
         'lead_id',
@@ -72,8 +75,21 @@ class Customer extends Model
         $this->attributes['phone_number'] = $digits;
     }
 
+    protected array $sanitizableFields = [
+        'customer_name',
+        'address',
+        'feedback',
+        'remarks',
+        'rejection_note',
+        'city',
+    ];
+
     protected static function booted(): void
     {
+        static::saving(function (Customer $customer) {
+            $customer->sanitizeFields($customer->sanitizableFields);
+        });
+
         static::creating(function (self $customer) {
             if ($customer->state_id && ! $customer->state) {
                 $state = State::find($customer->state_id);

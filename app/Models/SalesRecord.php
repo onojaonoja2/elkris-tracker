@@ -2,11 +2,24 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasSanitization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SalesRecord extends Model
 {
+    use HasSanitization;
+
+    protected array $sanitizableFields = [
+        'vendor_name',
+        'business_name',
+        'accountant_notes',
+        'supervisor_notes',
+        'customer_name',
+        'customer_phone',
+        'credit_notes',
+    ];
+
     protected $fillable = [
         'agent_id',
         'agent_type',
@@ -44,6 +57,13 @@ class SalesRecord extends Model
             'expected_collection_date' => 'date',
             'collected_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (SalesRecord $salesRecord) {
+            $salesRecord->sanitizeFields($salesRecord->sanitizableFields);
+        });
     }
 
     public function isLocked(): bool

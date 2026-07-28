@@ -12,7 +12,12 @@ class CustomerPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return in_array($user->role, [
+            'admin', 'manager', 'lead', 'rep', 'sales',
+            'supervisor', 'field_agent', 'community_sales_representative',
+            'open_market', 'retail_market', 'general_manager',
+            'accountant', 'general_accountant',
+        ]);
     }
 
     /**
@@ -20,7 +25,25 @@ class CustomerPolicy
      */
     public function view(User $user, Customer $customer): bool
     {
-        return true;
+        if (in_array($user->role, ['admin', 'manager', 'general_manager'])) {
+            return true;
+        }
+
+        if (in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
+            return $customer->agent_id === $user->id;
+        }
+
+        if ($user->role === 'lead') {
+            return ($customer->lead_id ?? null) === $user->id
+                || $customer->leads()->where('users.id', $user->id)->exists();
+        }
+
+        if ($user->role === 'rep') {
+            return ($customer->rep_id ?? null) === $user->id
+                || $customer->reps()->where('users.id', $user->id)->exists();
+        }
+
+        return false;
     }
 
     /**
@@ -52,8 +75,9 @@ class CustomerPolicy
 
         // Portfolio Agents can update customers from their paired CSRs
         if ($user->role === 'rep') {
-            $pairedCsrIds = User::where('portfolio_agent_id', $user->id)->pluck('id');
-            if ($pairedCsrIds->contains($customer->agent_id)) {
+            if ($customer->agent_id && User::where('portfolio_agent_id', $user->id)
+                ->where('id', $customer->agent_id)
+                ->exists()) {
                 return true;
             }
 
@@ -63,16 +87,13 @@ class CustomerPolicy
             }
         }
 
-        // Check many-to-many pivots if present, fall back to scalar columns
-        if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
-            if ($customer->leads->contains($user->id)) {
-                return true;
-            }
+        // Check many-to-many pivots with query-level checks
+        if ($customer->leads()->where('users.id', $user->id)->exists()) {
+            return true;
         }
-        if (method_exists($customer, 'reps') && $customer->reps()->exists()) {
-            if ($customer->reps->contains($user->id)) {
-                return true;
-            }
+
+        if ($customer->reps()->where('users.id', $user->id)->exists()) {
+            return true;
         }
 
         return ($customer->lead_id ?? null) === $user->id || ($customer->rep_id ?? null) === $user->id;
@@ -90,8 +111,8 @@ class CustomerPolicy
             return true;
         }
 
-        if (method_exists($customer, 'leads') && $customer->leads()->exists()) {
-            return $customer->leads->contains($user->id);
+        if ($customer->leads()->where('users.id', $user->id)->exists()) {
+            return true;
         }
 
         return ($customer->lead_id ?? null) === $user->id;

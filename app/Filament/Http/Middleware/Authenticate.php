@@ -30,6 +30,7 @@ class Authenticate extends Middleware
         // Check if user is_active
         if (! ($user?->is_active ?? true)) {
             $guard->logout();
+            $request->session()->regenerate(true);
             $this->unauthenticated($request, $guards);
 
             return;

@@ -4,14 +4,17 @@ namespace App\Models;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
+use App\Models\Concerns\HasSanitization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class Order extends Model
+class Order extends Model implements Auditable
 {
-    use HasFactory;
+    use AuditableTrait, HasFactory, HasSanitization;
 
     protected $fillable = [
         'customer_id',
@@ -90,8 +93,17 @@ class Order extends Model
         return $this->assignedTo ?? $this->user;
     }
 
+    protected array $sanitizableFields = [
+        'delivery_details',
+        'assignment_notes',
+    ];
+
     protected static function booted(): void
     {
+        static::saving(function (Order $order) {
+            $order->sanitizeFields($order->sanitizableFields);
+        });
+
         static::updated(function (Order $order) {
             if ($order->isDirty('status') && $order->status === OrderStatus::Delivered) {
                 $customer = $order->customer;

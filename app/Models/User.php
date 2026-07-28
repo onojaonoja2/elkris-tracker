@@ -12,12 +12,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements Auditable, FilamentUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasCopilotChat, HasFactory, Notifiable;
+    use AuditableTrait, HasCopilotChat, HasFactory, Notifiable;
 
     protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'portfolio_agent_id', 'state_id', 'lga_id', 'assigned_cities', 'is_active', 'sms_notifications', 'suspended_at', 'suspension_reason'];
 
@@ -124,17 +127,31 @@ class User extends Authenticatable implements FilamentUser
     {
         static::creating(function (User $user) {
             if (empty($user->my_id)) {
-                do {
-                    $id = random_int(100000, 999999);
-                } while (self::where('my_id', $id)->exists());
-
-                $user->my_id = (string) $id;
+                $user->my_id = (string) self::generateUniqueId();
             }
 
             if (! isset($user->is_active) && Schema::hasColumn('users', 'is_active')) {
                 $user->is_active = true;
             }
         });
+    }
+
+    protected static function generateUniqueId(): int
+    {
+        return DB::transaction(function () {
+            $seq = DB::table('id_sequences')
+                ->where('name', 'user_my_id')
+                ->lockForUpdate()
+                ->first();
+
+            $id = $seq->next_id;
+
+            DB::table('id_sequences')
+                ->where('name', 'user_my_id')
+                ->update(['next_id' => $id + 1]);
+
+            return $id;
+        }, 3);
     }
 
     /**

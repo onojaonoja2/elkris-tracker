@@ -130,7 +130,8 @@ class UsersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn (): bool => in_array(auth()->user()->role, ['admin', 'general_manager'], true)),
                 ]),
             ]);
     }

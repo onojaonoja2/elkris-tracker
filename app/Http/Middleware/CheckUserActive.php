@@ -20,6 +20,7 @@ class CheckUserActive
 
             if (! $user->is_active) {
                 auth()->logout();
+                $request->session()->regenerate(true);
 
                 return response()->json([
                     'message' => 'Your account has been deactivated. Please contact administrator.',

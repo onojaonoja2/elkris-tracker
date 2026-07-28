@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Pages;
 
+use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\Customer;
 use App\Models\Order;
@@ -16,6 +17,22 @@ use Illuminate\Support\Facades\DB;
 class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
+
+    /**
+     * Re-validate the submitted role against the options the current user is
+     * permitted to assign. Mirrors the guard in CreateUser — the dropdown
+     * options are not a security boundary on their own.
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $allowedRoles = array_keys(UserForm::getRoleOptions());
+
+        if (array_key_exists('role', $data) && ! in_array($data['role'], $allowedRoles, true)) {
+            abort(403, 'You are not permitted to assign this role.');
+        }
+
+        return $data;
+    }
 
     protected function getHeaderActions(): array
     {

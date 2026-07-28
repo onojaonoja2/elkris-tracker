@@ -25,6 +25,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
 
 class ManagerDashboard extends BaseDashboard
 {
@@ -123,26 +124,42 @@ class ManagerDashboard extends BaseDashboard
                         ->searchable()
                         ->required(),
                     TextInput::make('password')
-                        ->label('Password')
+                        ->label('Password (leave blank to auto-generate)')
                         ->password()
-                        ->required()
-                        ->default('password'),
+                        ->helperText('If left blank, a secure one-time password will be generated and shown once.')
+                        ->autocomplete('new-password'),
                 ])
                 ->action(function (array $data): void {
+                    // Re-validate the role server-side to prevent privilege escalation via crafted payloads.
+                    if (! in_array($data['role'], ['open_market', 'retail_market'], true)) {
+                        Notification::make()
+                            ->title('Invalid agent type')
+                            ->danger()
+                            ->send();
+
+                        $this->halt();
+                    }
+
+                    // Generate a secure one-time password when none is provided; never default to a known string.
+                    $plainPassword = ! empty($data['password']) ? $data['password'] : Str::random(16);
+
                     $user = User::create([
                         'name' => $data['name'],
                         'email' => $data['email'],
                         'role' => $data['role'],
                         'state_id' => $data['state_id'],
                         'lga_id' => $data['lga_id'],
-                        'password' => Hash::make($data['password']),
+                        'password' => Hash::make($plainPassword),
                         'lead_id' => auth()->id(),
                     ]);
 
                     Notification::make()
                         ->title('Agent created')
-                        ->body("{$user->name} has been created as a ".str_replace('_', ' ', $user->role).'.')
+                        ->body(empty($data['password'])
+                            ? "{$user->name} has been created as a ".str_replace('_', ' ', $user->role).". Share this one-time password securely (it will not be shown again): **{$plainPassword}**"
+                            : "{$user->name} has been created as a ".str_replace('_', ' ', $user->role).'.')
                         ->success()
+                        ->persistent()
                         ->send();
                 }),
             Action::make('filter_date')

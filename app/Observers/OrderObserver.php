@@ -18,6 +18,7 @@ class OrderObserver
     public function updated(Order $order): void
     {
         if ($order->wasChanged('status')) {
+            $order->load('customer.lead');
             $lead = $order->customer->lead;
             if ($lead) {
                 $message = match ($order->status) {

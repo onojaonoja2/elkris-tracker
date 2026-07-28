@@ -197,31 +197,29 @@ class OrderResource extends Resource
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
                     ->action(function ($livewire) {
-                        $orders = $livewire->getFilteredTableQuery()
-                            ->with(['customer', 'user', 'products'])
-                            ->orderBy('created_at', 'desc')
-                            ->get();
-                        $data = [];
-                        foreach ($orders as $order) {
-                            $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
-                            $data[] = [
-                                $order->id,
-                                $order->customer?->customer_name ?? 'N/A',
-                                $order->user?->name ?? 'N/A',
-                                $order->status->getLabel(),
-                                $products,
-                                number_format($order->total_price, 2),
-                                $order->created_at->format('d/m/Y H:i'),
-                                $order->expected_delivery_date ? Carbon::parse($order->expected_delivery_date)->format('d/m/Y') : 'N/A',
-                            ];
-                        }
-
-                        return response()->streamDownload(function () use ($data) {
+                        return response()->streamDownload(function () use ($livewire) {
                             $file = fopen('php://output', 'w');
                             fputcsv($file, ['Order ID', 'Customer', 'Submitted By', 'Status', 'Products', 'Total Price', 'Submitted Date', 'Expected Delivery']);
-                            foreach ($data as $row) {
-                                fputcsv($file, $row);
-                            }
+
+                            $livewire->getFilteredTableQuery()
+                                ->with(['customer', 'user', 'products'])
+                                ->orderBy('created_at', 'desc')
+                                ->chunk(100, function ($orders) use ($file) {
+                                    foreach ($orders as $order) {
+                                        $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
+                                        fputcsv($file, [
+                                            $order->id,
+                                            $order->customer?->customer_name ?? 'N/A',
+                                            $order->user?->name ?? 'N/A',
+                                            $order->status->getLabel(),
+                                            $products,
+                                            number_format($order->total_price, 2),
+                                            $order->created_at->format('d/m/Y H:i'),
+                                            $order->expected_delivery_date ? Carbon::parse($order->expected_delivery_date)->format('d/m/Y') : 'N/A',
+                                        ]);
+                                    }
+                                });
+
                             fclose($file);
                         }, 'orders_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
                             'Content-Type' => 'text/csv',

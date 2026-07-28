@@ -15,8 +15,10 @@ class StockTransferService
     public static function receive(StockTransfer $record, array $items): void
     {
         DB::transaction(function () use ($record, $items) {
+            $record->load('items.productType');
+
             foreach ($items as $itemData) {
-                $item = $record->items()->find($itemData['item_id']);
+                $item = $record->items->firstWhere('id', $itemData['item_id']);
                 if (! $item) {
                     continue;
                 }
@@ -33,19 +35,18 @@ class StockTransferService
 
                 if ($accepted > 0) {
                     if ($record->to_warehouse_id) {
-                        $inv = Inventory::firstOrCreate(
+                        Inventory::firstOrCreate(
                             [
                                 'warehouse_id' => $record->to_warehouse_id,
                                 'product_type_id' => $item->product_type_id,
                                 'grammage' => $item->grammage,
                             ],
                             ['quantity' => 0]
-                        );
-                        $inv->increment('quantity', $accepted);
+                        )->increment('quantity', $accepted);
                     }
 
                     if ($record->to_agent_id) {
-                        $agentStock = AgentStock::firstOrCreate(
+                        AgentStock::firstOrCreate(
                             [
                                 'user_id' => $record->to_agent_id,
                                 'product_type_id' => $item->product_type_id,
@@ -53,12 +54,11 @@ class StockTransferService
                                 'grammage' => $item->grammage,
                             ],
                             ['quantity' => 0]
-                        );
-                        $agentStock->increment('quantity', $accepted);
+                        )->increment('quantity', $accepted);
                     }
 
                     if ($record->requested_by && $record->requested_by !== $record->to_agent_id) {
-                        $agentStock = AgentStock::firstOrCreate(
+                        AgentStock::firstOrCreate(
                             [
                                 'user_id' => $record->requested_by,
                                 'product_type_id' => $item->product_type_id,
@@ -66,34 +66,47 @@ class StockTransferService
                                 'grammage' => $item->grammage,
                             ],
                             ['quantity' => 0]
-                        );
-                        $agentStock->increment('quantity', $accepted);
+                        )->increment('quantity', $accepted);
                     }
                 }
             }
 
             if ($record->from_warehouse_id) {
+                $inventories = Inventory::where(function ($q) use ($record) {
+                    foreach ($record->items as $item) {
+                        $q->orWhere(function ($sub) use ($record, $item) {
+                            $sub->where('warehouse_id', $record->from_warehouse_id)
+                                ->where('product_type_id', $item->product_type_id)
+                                ->where('grammage', $item->grammage);
+                        });
+                    }
+                })->get()->keyBy(fn ($inv) => "{$inv->warehouse_id}-{$inv->product_type_id}-{$inv->grammage}");
+
                 foreach ($record->items as $item) {
-                    $inv = Inventory::where([
-                        'warehouse_id' => $record->from_warehouse_id,
-                        'product_type_id' => $item->product_type_id,
-                        'grammage' => $item->grammage,
-                    ])->first();
-                    if ($inv) {
-                        $inv->decrement('quantity', $item->quantity - $item->rejected_quantity);
+                    $key = "{$record->from_warehouse_id}-{$item->product_type_id}-{$item->grammage}";
+                    if (isset($inventories[$key])) {
+                        $inventories[$key]->decrement('quantity', $item->quantity - $item->rejected_quantity);
                     }
                 }
             }
 
             if ($record->from_agent_id) {
+                $agentKeys = $record->items->map(fn ($item) => [
+                    'user_id' => $record->from_agent_id,
+                    'product_name' => $item->productType?->name ?? 'Unknown',
+                    'grammage' => $item->grammage,
+                ])->toArray();
+
+                $agentStocks = AgentStock::where('user_id', $record->from_agent_id)
+                    ->whereIn('grammage', $record->items->pluck('grammage'))
+                    ->whereIn('product_name', $record->items->map(fn ($i) => $i->productType?->name ?? 'Unknown'))
+                    ->get()->keyBy(fn ($s) => "{$s->user_id}-{$s->product_name}-{$s->grammage}");
+
                 foreach ($record->items as $item) {
-                    $stock = AgentStock::where([
-                        'user_id' => $record->from_agent_id,
-                        'product_name' => $item->productType?->name ?? 'Unknown',
-                        'grammage' => $item->grammage,
-                    ])->first();
-                    if ($stock) {
-                        $stock->decrement('quantity', $item->quantity - $item->rejected_quantity);
+                    $productName = $item->productType?->name ?? 'Unknown';
+                    $key = "{$record->from_agent_id}-{$productName}-{$item->grammage}";
+                    if (isset($agentStocks[$key])) {
+                        $agentStocks[$key]->decrement('quantity', $item->quantity - $item->rejected_quantity);
                     }
                 }
             }
@@ -112,14 +125,21 @@ class StockTransferService
             if ($validateInventory) {
                 $insufficientItems = [];
 
-                foreach ($record->items as $item) {
-                    $inventory = Inventory::where([
-                        'warehouse_id' => $record->from_warehouse_id,
-                        'product_type_id' => $item->product_type_id,
-                        'grammage' => $item->grammage,
-                    ])->first();
+                $record->load('items.productType');
 
-                    $available = $inventory?->quantity ?? 0;
+                $inventories = Inventory::where(function ($q) use ($record) {
+                    foreach ($record->items as $item) {
+                        $q->orWhere(function ($sub) use ($record, $item) {
+                            $sub->where('warehouse_id', $record->from_warehouse_id)
+                                ->where('product_type_id', $item->product_type_id)
+                                ->where('grammage', $item->grammage);
+                        });
+                    }
+                })->get()->keyBy(fn ($inv) => "{$inv->warehouse_id}-{$inv->product_type_id}-{$inv->grammage}");
+
+                foreach ($record->items as $item) {
+                    $key = "{$record->from_warehouse_id}-{$item->product_type_id}-{$item->grammage}";
+                    $available = isset($inventories[$key]) ? $inventories[$key]->quantity : 0;
 
                     if ($available < $item->quantity) {
                         $productName = $item->productType?->name ?? 'Unknown';
@@ -190,6 +210,7 @@ class StockTransferService
     public static function reassign(StockTransfer $record, array $data): void
     {
         DB::transaction(function () use ($record, $data) {
+            $record->load('items.productType');
             $toWarehouseId = $data['to_warehouse_id'] ?? null;
             $toAgentId = $data['to_agent_id'] ?? null;
 
@@ -226,15 +247,14 @@ class StockTransferService
 
                 if ($accepted > 0) {
                     if ($toWarehouseId) {
-                        $inv = Inventory::firstOrCreate(
+                        Inventory::firstOrCreate(
                             [
                                 'warehouse_id' => $toWarehouseId,
                                 'product_type_id' => $item->product_type_id,
                                 'grammage' => $item->grammage,
                             ],
                             ['quantity' => 0]
-                        );
-                        $inv->increment('quantity', $accepted);
+                        )->increment('quantity', $accepted);
 
                         StockTransaction::create([
                             'type' => 'received',
@@ -250,7 +270,7 @@ class StockTransferService
                     }
 
                     if ($toAgentId) {
-                        $agentStock = AgentStock::firstOrCreate(
+                        AgentStock::firstOrCreate(
                             [
                                 'user_id' => $toAgentId,
                                 'product_type_id' => $item->product_type_id,
@@ -258,8 +278,7 @@ class StockTransferService
                                 'grammage' => $item->grammage,
                             ],
                             ['quantity' => 0]
-                        );
-                        $agentStock->increment('quantity', $accepted);
+                        )->increment('quantity', $accepted);
                     }
                 }
             }
