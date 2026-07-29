@@ -5,8 +5,10 @@ namespace App\Filament\Widgets;
 use App\Models\Customer;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
@@ -62,6 +64,27 @@ class LeadCsrSubmissionsWidget extends TableWidget
                     ->date('d/m/Y'),
             ])
             ->defaultSort('created_at', 'desc')
+            ->filters([
+                Filter::make('created_at')
+                    ->label('Date Range')
+                    ->form([
+                        DatePicker::make('created_from')
+                            ->label('From')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->closeOnDateSelection(),
+                        DatePicker::make('created_until')
+                            ->label('To')
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->closeOnDateSelection(),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['created_from'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['created_until'] ?? null, fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+            ])
             ->recordActions([
                 Action::make('accept')
                     ->label('Accept')

@@ -4,11 +4,13 @@ namespace App\Filament\Widgets;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
+use App\Filament\Exports\OrderExporter;
 use App\Models\AgentStock;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\OrderAssignmentService;
 use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -161,6 +163,10 @@ class SalesPendingOrdersWidget extends TableWidget
 
                         $this->dispatch('refresh-dashboard');
                     }),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(OrderExporter::class),
             ])
             ->defaultSort('created_at', 'desc');
     }

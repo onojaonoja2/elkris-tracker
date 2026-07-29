@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Customers;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\Customers\Pages\CreateCustomer;
 use App\Filament\Resources\Customers\Pages\EditCustomer;
 use App\Filament\Resources\Customers\Pages\ImportCustomers;
@@ -20,6 +21,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CustomerResource extends Resource implements CopilotResource
 {
+    use HasRoleBasedNavigationGroup;
+
+    protected static array $navigationRoles = ['admin', 'manager', 'lead', 'rep'];
+
     protected static ?string $model = Customer::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;

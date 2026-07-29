@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Customers\Pages;
 
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Models\Customer;
+use App\Rules\UniquePhoneWithOwner;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -288,7 +289,7 @@ class ImportCustomers extends Page
 
             $validator = Validator::make($customerData, [
                 'customer_name' => ['required', 'string', 'max:255'],
-                'phone_number' => ['required', 'string', 'max:11', 'unique:customers,phone_number'],
+                'phone_number' => ['required', 'string', 'max:11', new UniquePhoneWithOwner],
                 'age' => ['nullable', 'integer', 'min:0', 'max:150'],
                 'gender' => ['nullable', 'in:male,female'],
                 'priority' => ['nullable', 'in:high,medium,low'],

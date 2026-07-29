@@ -3,7 +3,9 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\StockTransferStatus;
+use App\Filament\Exports\StockTransferExporter;
 use App\Models\StockTransfer;
+use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -67,6 +69,10 @@ class ManagerStockMovementsWidget extends TableWidget
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(StockTransferExporter::class),
+            ])
             ->paginated(25);
     }
 }

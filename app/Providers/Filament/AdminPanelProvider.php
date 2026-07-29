@@ -14,6 +14,7 @@ use App\Filament\Pages\GeneralManagerDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\OrderSettings;
+use App\Filament\Pages\ProductionDashboard;
 use App\Filament\Pages\Profile;
 use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SalesOrdersDashboard;
@@ -69,6 +70,7 @@ class AdminPanelProvider extends PanelProvider
                 AccountantDashboard::class,
                 GeneralAccountantDashboard::class,
                 GeneralManagerDashboard::class,
+                ProductionDashboard::class,
                 SystemMaintenance::class,
                 OrderSettings::class,
             ])

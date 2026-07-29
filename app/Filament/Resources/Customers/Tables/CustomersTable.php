@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Customers\Tables;
 use App\Models\CallLog;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -13,9 +14,12 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class CustomersTable
 {
@@ -145,6 +149,21 @@ class CustomersTable
                     ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
             ])
             ->filters([
+                SelectFilter::make('agent_id')
+                    ->label('Filter by Agent')
+                    ->options(fn () => User::whereIn('role', [
+                        'field_agent', 'community_sales_representative',
+                        'open_market', 'retail_market', 'sales',
+                    ])->pluck('name', 'id'))
+                    ->searchable(),
+                SelectFilter::make('lead_id')
+                    ->label('Filter by Team Lead')
+                    ->options(fn () => User::where('role', 'lead')->pluck('name', 'id'))
+                    ->searchable(),
+                SelectFilter::make('rep_id')
+                    ->label('Filter by Rep')
+                    ->options(fn () => User::where('role', 'rep')->pluck('name', 'id'))
+                    ->searchable(),
                 Filter::make('call_date')
                     ->schema([
                         DatePicker::make('from'),
@@ -359,6 +378,62 @@ class CustomersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    BulkAction::make('bulkAssignToLead')
+                        ->label('Assign Selected to Lead')
+                        ->icon('heroicon-o-users')
+                        ->color('primary')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'manager']))
+                        ->form([
+                            Select::make('lead_id')
+                                ->label('Select Team Lead')
+                                ->options(User::where('role', 'lead')->pluck('name', 'id'))
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $leadId = $data['lead_id'];
+                            $count = 0;
+                            foreach ($records as $record) {
+                                $record->update(['lead_id' => $leadId]);
+                                $record->leads()->syncWithoutDetaching([$leadId]);
+                                $count++;
+                            }
+                            Notification::make()
+                                ->title("{$count} customer(s) assigned to lead")
+                                ->success()
+                                ->send();
+                        }),
+                    BulkAction::make('bulkAssignToRep')
+                        ->label('Assign Selected to Rep')
+                        ->icon('heroicon-o-user-plus')
+                        ->color('primary')
+                        ->deselectRecordsAfterCompletion()
+                        ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'manager']))
+                        ->form([
+                            Select::make('rep_id')
+                                ->label('Select Rep')
+                                ->options(User::where('role', 'rep')->pluck('name', 'id'))
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $repId = $data['rep_id'];
+                            $count = 0;
+                            foreach ($records as $record) {
+                                $record->update([
+                                    'rep_id' => $repId,
+                                    'rep_acceptance_status' => 'pending',
+                                    'lead_id' => $record->lead_id ?? auth()->id(),
+                                ]);
+                                $record->reps()->syncWithoutDetaching([$repId]);
+                                $count++;
+                            }
+                            Notification::make()
+                                ->title("{$count} customer(s) assigned to rep")
+                                ->success()
+                                ->send();
+                        }),
                     DeleteBulkAction::make()
                         ->visible(fn () => ! auth()->user()->hasAnyRole(['sales', 'warehouse_manager'])),
                 ]),

@@ -7,6 +7,7 @@ use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
@@ -56,6 +57,11 @@ class LeadAgentSubmissionsWidget extends TableWidget
                     ->date('d/m/Y'),
             ])
             ->defaultSort('created_at', 'desc')
+            ->filters([
+                SelectFilter::make('agent_id')
+                    ->label('Submitted By')
+                    ->options(fn () => User::where('role', 'agent')->pluck('name', 'id')),
+            ])
             ->recordActions([
                 Action::make('assignToRep')
                     ->label('Assign to Rep')

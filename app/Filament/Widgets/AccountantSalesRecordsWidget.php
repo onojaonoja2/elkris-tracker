@@ -2,10 +2,12 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\SalesRecordExporter;
 use App\Models\AgentStock;
 use App\Models\SalesRecord;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -197,37 +199,8 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->modalCancelActionLabel('Close'),
             ])
             ->headerActions([
-                Action::make('export')
-                    ->label('Export to Excel')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->action(function () {
-                        $records = $this->getFilteredQuery()->get();
-                        $data = [];
-                        foreach ($records as $record) {
-                            $data[] = [
-                                $record->agent?->name ?? 'N/A',
-                                $record->agent_type,
-                                $record->total_value,
-                                $record->vendor_name ?? '-',
-                                $record->business_name ?? '-',
-                                $record->status,
-                                $record->created_at->format('d/m/Y H:i'),
-                            ];
-                        }
-
-                        return response()->streamDownload(function () use ($data) {
-                            $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Agent', 'Type', 'Total Value (₦)', 'Vendor', 'Business', 'Status', 'Submitted']);
-                            foreach ($data as $row) {
-                                fputcsv($file, $row);
-                            }
-                            fclose($file);
-                        }, 'sales_records_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
-                            'Content-Type' => 'text/csv',
-                            'Content-Disposition' => 'attachment',
-                        ]);
-                    }),
+                ExportAction::make()
+                    ->exporter(SalesRecordExporter::class),
             ])
             ->paginated(20);
     }

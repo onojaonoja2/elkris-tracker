@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\ManagerAgentManagementWidget;
+use App\Filament\Widgets\ManagerAnalyticsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomerSubmissionsWidget;
@@ -15,14 +16,21 @@ use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\RevenueTrendChart;
+use App\Models\Customer;
 use App\Models\Lga;
+use App\Models\Order;
+use App\Models\SalesRecord;
 use App\Models\State;
 use App\Models\User;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -63,6 +71,8 @@ class ManagerDashboard extends BaseDashboard
     {
         return [
             ManagerStatsWidget::class,
+            ManagerAnalyticsWidget::class,
+            ProductionActivityWidget::class,
             ManagerCustomerSubmissionsWidget::class,
         ];
     }
@@ -80,6 +90,7 @@ class ManagerDashboard extends BaseDashboard
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            RevenueTrendChart::class,
             OrdersPerCityChart::class,
         ];
     }
@@ -183,6 +194,50 @@ class ManagerDashboard extends BaseDashboard
                     $this->redirect($this->getUrl());
                 })
                 ->successNotificationTitle('Date filter applied'),
+            Action::make('export_report')
+                ->label('Export Report')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('success')
+                ->action(function () {
+                    $from = Session::get('manager_date_preset') === 'lifetime'
+                        ? Carbon::now()->subYears(10)
+                        : Carbon::now()->startOfDay();
+
+                    $filename = 'system_report_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv';
+
+                    return response()->streamDownload(function () use ($from) {
+                        $handle = fopen('php://output', 'w');
+                        fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+                        fputcsv($handle, ['Section', 'Metric', 'Value']);
+
+                        $totalCustomers = Customer::where('created_at', '>=', $from)->count();
+                        $totalOrders = Order::where('created_at', '>=', $from)->where('is_migrated_order', false)->count();
+                        $orderRevenue = Order::where('created_at', '>=', $from)->where('is_migrated_order', false)->sum('total_price');
+                        $salesRecords = SalesRecord::where('created_at', '>=', $from)->count();
+                        $pendingSales = SalesRecord::where('status', 'receipt_uploaded')->count();
+                        $activeAgents = User::whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])->active()->count();
+
+                        fputcsv($handle, ['Sales', 'Total Customers', $totalCustomers]);
+                        fputcsv($handle, ['Sales', 'Total Orders', $totalOrders]);
+                        fputcsv($handle, ['Sales', 'Order Revenue (₦)', number_format($orderRevenue, 2)]);
+                        fputcsv($handle, ['Sales', 'Sales Records', $salesRecords]);
+                        fputcsv($handle, ['Sales', 'Pending Approvals', $pendingSales]);
+                        fputcsv($handle, ['Sales', 'Active Agents', $activeAgents]);
+
+                        $roleCounts = User::select('role', DB::raw('COUNT(*) as count'))
+                            ->where('is_active', true)
+                            ->groupBy('role')
+                            ->pluck('count', 'role');
+
+                        fputcsv($handle, ['Users', 'Total Active Users', $roleCounts->sum()]);
+                        foreach ($roleCounts as $role => $count) {
+                            fputcsv($handle, ['Users', str_replace('_', ' ', $role), $count]);
+                        }
+
+                        fclose($handle);
+                    }, $filename, ['Content-Type' => 'text/csv']);
+                }),
         ];
     }
 }

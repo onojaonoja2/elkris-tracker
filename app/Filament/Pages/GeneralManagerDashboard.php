@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Widgets\AgentCustomerViewWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\GeneralManagerStatsWidget;
+use App\Filament\Widgets\ManagerAnalyticsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomersWidget;
@@ -14,6 +15,8 @@ use App\Filament\Widgets\ManagerSalesRecordsByStateWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\RevenueTrendChart;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -50,6 +53,8 @@ class GeneralManagerDashboard extends BaseDashboard
     {
         return [
             GeneralManagerStatsWidget::class,
+            ManagerAnalyticsWidget::class,
+            ProductionActivityWidget::class,
         ];
     }
 
@@ -66,6 +71,7 @@ class GeneralManagerDashboard extends BaseDashboard
             ManagerConversionWidget::class,
             AgentCustomerViewWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            RevenueTrendChart::class,
             OrdersPerCityChart::class,
         ];
     }

@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Resources\Users\UserResource;
 use App\Models\AgentStock;
+use App\Models\Order;
 use App\Models\SalesRecord;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
@@ -39,6 +40,9 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             ->where('credit_status', 'pending_payment')
             ->sum('total_value');
 
+        $pendingOrders = Order::where('status', 'pending')->count();
+        $ordersValue = Order::where('status', 'pending')->sum('total_price');
+
         return [
             Stat::make('CSRs', number_format($csrCount))
                 ->description('Active CSRs')
@@ -56,8 +60,13 @@ class SupervisorStatsWidget extends StatsOverviewWidget
                 ->icon('heroicon-o-banknotes')
                 ->color('success'),
 
-            Stat::make('Pending', number_format($pendingCount))
-                ->description('Awaiting approval')
+            Stat::make('Pending Orders', number_format($pendingOrders))
+                ->description('₦'.number_format($ordersValue, 2).' total value')
+                ->icon('heroicon-o-shopping-cart')
+                ->color($pendingOrders > 0 ? 'warning' : 'gray'),
+
+            Stat::make('Pending Approvals', number_format($pendingCount))
+                ->description('Receipts awaiting approval')
                 ->icon('heroicon-o-clock')
                 ->color('warning'),
 

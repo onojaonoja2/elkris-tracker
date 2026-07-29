@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Orders;
 
 use App\Enums\OrderStatus;
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
 use App\Filament\Traits\HasViewModal;
 use App\Models\Order;
@@ -24,7 +25,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class OrderResource extends Resource
 {
-    use HasViewModal;
+    use HasRoleBasedNavigationGroup, HasViewModal;
+
+    protected static array $navigationRoles = ['admin', 'manager', 'general_manager', 'sales', 'rep', 'lead'];
 
     protected static ?string $model = Order::class;
 

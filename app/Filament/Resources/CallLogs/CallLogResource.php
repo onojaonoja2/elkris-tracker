@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\CallLogs;
 
 use App\Enums\CallOutcome;
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\CallLogs\Pages\CreateCallLog;
 use App\Filament\Resources\CallLogs\Pages\ListCallLogs;
 use App\Filament\Traits\HasViewModal;
@@ -24,7 +25,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CallLogResource extends Resource
 {
-    use HasViewModal;
+    use HasRoleBasedNavigationGroup, HasViewModal;
+
+    protected static array $navigationRoles = ['admin', 'manager', 'lead', 'rep'];
 
     protected static ?string $model = CallLog::class;
 

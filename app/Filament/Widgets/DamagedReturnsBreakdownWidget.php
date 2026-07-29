@@ -2,8 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\DamagedStockReturnExporter;
 use App\Models\DamagedStockReturn;
 use App\Models\Warehouse;
+use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -73,6 +75,10 @@ class DamagedReturnsBreakdownWidget extends TableWidget
                 SelectFilter::make('warehouse_id')
                     ->label('Warehouse')
                     ->options(fn () => Warehouse::pluck('name', 'id')),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(DamagedStockReturnExporter::class),
             ])
             ->paginated(15);
     }

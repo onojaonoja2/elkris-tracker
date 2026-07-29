@@ -53,12 +53,6 @@ class LeadDashboard extends BaseDashboard
         return [
             LeadStatsWidget::class,
             LeadOrdersStatsWidget::class,
-            LeadAgentSubmissionsWidget::class,
-            LeadCsrSubmissionsWidget::class,
-            LeadPendingAssignmentsWidget::class,
-            LeadRejectedCustomersWidget::class,
-            LeadPortfolioWidget::class,
-            LeadOrdersWidget::class,
         ];
     }
 
@@ -66,7 +60,13 @@ class LeadDashboard extends BaseDashboard
     {
         return [
             LeadCsrAssignmentWidget::class,
+            LeadAgentSubmissionsWidget::class,
+            LeadCsrSubmissionsWidget::class,
+            LeadPendingAssignmentsWidget::class,
+            LeadRejectedCustomersWidget::class,
+            LeadPortfolioWidget::class,
             LeadPersonalPortfolioWidget::class,
+            LeadOrdersWidget::class,
             CsrOverviewWidget::class,
             UpcomingFollowUps::class,
         ];

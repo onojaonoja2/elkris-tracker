@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
+use App\Models\SalesRecord;
 use App\Models\StockTransfer;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -33,9 +34,13 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
             ->where('status', 'pending')
             ->count();
 
-        $stockValue = AgentStock::where('user_id', $userId)
-            ->where('quantity', '>', 0)
-            ->sum('quantity');
+        $todaySales = SalesRecord::where('agent_id', $userId)
+            ->whereDate('created_at', today())
+            ->where('status', 'approved')
+            ->get();
+
+        $todaySalesCount = $todaySales->count();
+        $todaySalesValue = $todaySales->sum('total_value');
 
         return [
             Stat::make('Total Stock Units', number_format($totalStock))
@@ -47,6 +52,11 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
                 ->description('Distinct products in stock')
                 ->color('info')
                 ->descriptionIcon('heroicon-o-tag'),
+
+            Stat::make("Today's Sales", number_format($todaySalesCount))
+                ->description('₦'.number_format($todaySalesValue, 2).' value')
+                ->color($todaySalesCount > 0 ? 'success' : 'gray')
+                ->descriptionIcon('heroicon-o-currency-dollar'),
 
             Stat::make('Pending Requests', number_format($pendingRequests))
                 ->description('Stock requests awaiting approval')

@@ -2,11 +2,15 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\SalesRecordExporter;
 use App\Models\SalesRecord;
 use App\Models\User;
+use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
 
@@ -57,6 +61,21 @@ class SupervisorSalesRecordsWidget extends TableWidget
                     ->label('Date')
                     ->dateTime()
                     ->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('agent_id')
+                    ->label('CSR')
+                    ->options(fn () => User::where('role', 'community_sales_representative')
+                        ->active()
+                        ->pluck('name', 'id'))
+                    ->query(fn (Builder $query, array $data) => $query->when(
+                        $data['value'] ?? null,
+                        fn (Builder $query, $agentId) => $query->where('agent_id', $agentId),
+                    )),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(SalesRecordExporter::class),
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([10, 25, 50]);

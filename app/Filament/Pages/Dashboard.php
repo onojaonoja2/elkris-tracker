@@ -31,6 +31,7 @@ class Dashboard extends BaseDashboard
             'supervisor',
             'warehouse_manager',
             'accountant',
+            'production_management',
         ]);
     }
 
@@ -88,6 +89,10 @@ class Dashboard extends BaseDashboard
 
         if ($role === 'manager' || $role === 'admin') {
             return redirect()->to(ManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if ($role === 'production_management') {
+            return redirect()->to(ProductionDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
 

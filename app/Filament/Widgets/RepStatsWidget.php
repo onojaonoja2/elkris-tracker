@@ -6,6 +6,8 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\PortfolioResource;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Models\SalesRecord;
+use App\Models\User;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -42,6 +44,25 @@ class RepStatsWidget extends StatsOverviewWidget
         $ordersToday = $ordersTodayQuery->count();
         $ordersTodayValue = number_format($ordersTodayQuery->sum('total_price'), 2);
 
+        $attachedCsrIds = User::where('portfolio_agent_id', $repId)
+            ->where('role', 'community_sales_representative')
+            ->pluck('id');
+
+        $teamSalesValue = SalesRecord::whereIn('agent_id', $attachedCsrIds)
+            ->where('status', 'approved')
+            ->sum('total_value');
+
+        $orderValueAccrued = Order::where('user_id', $repId)
+            ->where('is_migrated_order', false)
+            ->sum('total_price');
+
+        if ($attachedCsrIds->isNotEmpty()) {
+            $stats[] = Stat::make('Team Sales Value', '₦'.number_format($teamSalesValue, 2))
+                ->description('From '.$attachedCsrIds->count().' attached CSR(s)')
+                ->icon('heroicon-o-currency-dollar')
+                ->color('success');
+        }
+
         return [
             Stat::make('Pending Assignments', $pendingCount)
                 ->description('Awaiting your acceptance')
@@ -63,6 +84,10 @@ class RepStatsWidget extends StatsOverviewWidget
                 ->icon('heroicon-o-shopping-cart')
                 ->color('primary')
                 ->url(OrderResource::getUrl('index')),
+            Stat::make('Order Value Accrued', '₦'.number_format($orderValueAccrued, 2))
+                ->description('Lifetime from your orders')
+                ->icon('heroicon-o-banknotes')
+                ->color('info'),
         ];
     }
 

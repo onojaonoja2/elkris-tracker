@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Filament\Exports;
+
+use App\Models\SalesRecord;
+use Filament\Actions\Exports\ExportColumn;
+use Filament\Actions\Exports\Exporter;
+use Filament\Actions\Exports\Models\Export;
+use Illuminate\Support\Number;
+
+class SalesRecordExporter extends Exporter
+{
+    protected static ?string $model = SalesRecord::class;
+
+    public static function getColumns(): array
+    {
+        return [
+            ExportColumn::make('agent.name')->label('Agent'),
+            ExportColumn::make('agent_type')->label('Type'),
+            ExportColumn::make('total_value')->label('Total Value (₦)'),
+            ExportColumn::make('vendor_name')->label('Vendor'),
+            ExportColumn::make('business_name')->label('Business'),
+            ExportColumn::make('status'),
+            ExportColumn::make('created_at')->label('Date'),
+        ];
+    }
+
+    public static function getCompletedNotificationBody(Export $export): string
+    {
+        $body = 'Your sales record export has completed and '.Number::format($export->successful_rows).' '.str('row')->plural($export->successful_rows).' exported.';
+
+        if ($failedRowsCount = $export->getFailedRowsCount()) {
+            $body .= ' '.Number::format($failedRowsCount).' '.str('row')->plural($failedRowsCount).' failed to export.';
+        }
+
+        return $body;
+    }
+}

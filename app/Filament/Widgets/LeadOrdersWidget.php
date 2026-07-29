@@ -3,13 +3,12 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\OrderStatus;
+use App\Filament\Exports\OrderExporter;
 use App\Models\Order;
 use App\Models\User;
-use Carbon\Carbon;
-use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -49,7 +48,7 @@ class LeadOrdersWidget extends TableWidget
                 TextColumn::make('user.name')
                     ->label('Submitted By')
                     ->searchable(),
-                BadgeColumn::make('status')
+                TextColumn::make('status')
                     ->label('Status')
                     ->badge()
                     ->color(fn (OrderStatus $state): string => $state->color()),
@@ -110,45 +109,8 @@ class LeadOrdersWidget extends TableWidget
                     }),
             ])
             ->headerActions([
-                Action::make('export')
-                    ->label('Export Orders')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->action(function () {
-                        $leadId = auth()->id();
-                        $repIds = User::where('lead_id', $leadId)->where('role', 'rep')->pluck('id')->toArray();
-                        $allUserIds = array_merge([$leadId], $repIds);
-
-                        $orders = Order::query()
-                            ->whereIn('user_id', $allUserIds)
-                            ->with(['user', 'customer'])
-                            ->orderBy('created_at', 'desc')
-                            ->get();
-
-                        $data = [];
-                        foreach ($orders as $order) {
-                            $data[] = [
-                                $order->id,
-                                $order->customer?->customer_name ?? 'N/A',
-                                $order->user?->name ?? 'N/A',
-                                ucfirst($order->status),
-                                number_format($order->total_price, 2),
-                                $order->created_at->format('d/m/Y H:i'),
-                            ];
-                        }
-
-                        return response()->streamDownload(function () use ($data) {
-                            $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Order ID', 'Customer', 'Submitted By', 'Status', 'Total Price', 'Date']);
-                            foreach ($data as $row) {
-                                fputcsv($file, $row);
-                            }
-                            fclose($file);
-                        }, 'team_orders_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
-                            'Content-Type' => 'text/csv',
-                            'Content-Disposition' => 'attachment',
-                        ]);
-                    }),
+                ExportAction::make()
+                    ->exporter(OrderExporter::class),
             ])
             ->paginated([10, 25, 50]);
     }

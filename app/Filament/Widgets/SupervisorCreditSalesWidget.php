@@ -4,6 +4,8 @@ namespace App\Filament\Widgets;
 
 use App\Models\SalesRecord;
 use App\Models\User;
+use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -87,6 +89,59 @@ class SupervisorCreditSalesWidget extends TableWidget
                     ->getStateUsing(fn ($record): float => $aggregates->get($record->id)?->overdue_value ?? 0)
                     ->money('NGN'),
             ])
-            ->paginated(false);
+            ->headerActions([
+                Action::make('export')
+                    ->label('Export')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(function () {
+                        $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
+
+                        $aggregates = SalesRecord::select(
+                            'agent_id',
+                            DB::raw('COALESCE(SUM(total_value), 0) as total_credit_value'),
+                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN 1 ELSE 0 END) as pending_count"),
+                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN total_value ELSE 0 END) as pending_value"),
+                            DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN 1 ELSE 0 END) as collected_count"),
+                            DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN total_value ELSE 0 END) as collected_value"),
+                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
+                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
+                        )
+                            ->whereIn('agent_id', $csrIds)
+                            ->where('is_credit', true)
+                            ->where('status', 'approved')
+                            ->groupBy('agent_id')
+                            ->get()
+                            ->keyBy('agent_id');
+
+                        $records = $this->getFilteredQuery()->get();
+
+                        return response()->streamDownload(function () use ($records, $aggregates) {
+                            $file = fopen('php://output', 'w');
+                            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+                            fputcsv($file, ['CSR', 'Total Credit (₦)', 'Pending Count', 'Pending Value (₦)', 'Collected Count', 'Collected Value (₦)', 'Overdue Count', 'Overdue Value (₦)']);
+
+                            foreach ($records as $record) {
+                                $agg = $aggregates->get($record->id);
+
+                                fputcsv($file, [
+                                    $record->name,
+                                    number_format($agg?->total_credit_value ?? 0, 2),
+                                    number_format($agg?->pending_count ?? 0, 0),
+                                    number_format($agg?->pending_value ?? 0, 2),
+                                    number_format($agg?->collected_count ?? 0, 0),
+                                    number_format($agg?->collected_value ?? 0, 2),
+                                    number_format($agg?->overdue_count ?? 0, 0),
+                                    number_format($agg?->overdue_value ?? 0, 2),
+                                ]);
+                            }
+
+                            fclose($file);
+                        }, 'credit_sales_by_csr_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                            'Content-Type' => 'text/csv',
+                        ]);
+                    }),
+            ])
+            ->paginated([10, 25, 50]);
     }
 }

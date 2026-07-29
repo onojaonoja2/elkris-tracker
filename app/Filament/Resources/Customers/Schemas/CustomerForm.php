@@ -6,7 +6,7 @@ use App\Models\Customer;
 use App\Models\Lga;
 use App\Models\Product;
 use App\Models\State;
-use Filament\Forms\Components\Checkbox;
+use App\Rules\UniquePhoneWithOwner;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\MultiSelect;
@@ -49,7 +49,7 @@ class CustomerForm
                 TextInput::make('phone_number')
                     ->tel()
                     ->required()
-                    ->unique(ignoreRecord: true)
+                    ->rule(fn (?Customer $record) => new UniquePhoneWithOwner(ignoreId: $record?->id))
                     ->maxLength(11)
                     ->regex('/^[0-9]{11}$/')
                     ->validationMessages([
@@ -113,19 +113,6 @@ class CustomerForm
                 Textarea::make('address')
                     ->required(fn () => auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
                     ->columnSpanFull(),
-
-                Checkbox::make('assign_to_self')
-                    ->label('Assign to myself (add to my portfolio)')
-                    ->visible(fn () => auth()->user()->hasRole('lead'))
-                    ->live()
-                    ->dehydrated(false)
-                    ->afterStateUpdated(function ($state, Set $set) {
-                        if ($state) {
-                            $set('agent_id', auth()->id());
-                            $set('lead_id', auth()->id());
-                            $set('leads', [auth()->id()]);
-                        }
-                    }),
 
                 Hidden::make('agent_id'),
 

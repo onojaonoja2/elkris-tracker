@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StockTransfers;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\StockTransfers\Pages\CreateStockTransfer;
 use App\Filament\Resources\StockTransfers\Pages\EditStockTransfer;
 use App\Filament\Resources\StockTransfers\Pages\ListStockTransfers;
@@ -16,17 +17,16 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use UnitEnum;
 
 class StockTransferResource extends Resource
 {
-    use HasViewModal;
+    use HasRoleBasedNavigationGroup, HasViewModal;
 
     protected static ?string $model = StockTransfer::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTruck;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Inventory';
+    protected static array $navigationRoles = ['admin', 'manager', 'warehouse_manager', 'supervisor'];
 
     public static function getNavigationBadge(): ?string
     {

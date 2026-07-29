@@ -171,6 +171,7 @@ class UserForm
             'sales' => 'Sales',
             'warehouse_manager' => 'Warehouse Manager',
             'accountant' => 'Accountant',
+            'production_management' => 'Production Management',
         ];
     }
 }

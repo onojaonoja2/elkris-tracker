@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StockTransactions;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\StockTransactions\Pages\ManageStockTransactions;
 use App\Models\StockTransaction;
 use BackedEnum;
@@ -17,11 +18,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class StockTransactionResource extends Resource
 {
+    use HasRoleBasedNavigationGroup;
+
     protected static ?string $model = StockTransaction::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Inventory';
+    protected static array $navigationRoles = ['admin', 'manager', 'warehouse_manager'];
 
     public static function canCreate(): bool
     {

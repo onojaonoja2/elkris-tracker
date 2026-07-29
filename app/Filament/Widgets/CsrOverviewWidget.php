@@ -45,9 +45,13 @@ class CsrOverviewWidget extends TableWidget
 
         $isAttached = fn (int $csrId): bool => $pairedCsrIds->contains($csrId);
 
+        $pairedCsrIdsList = $pairedCsrIds->toArray();
+        $pairedList = ! empty($pairedCsrIdsList) ? implode(',', $pairedCsrIdsList) : '0';
+
         return $table
             ->query(fn () => User::where('role', 'community_sales_representative')
                 ->with(['state', 'lga'])
+                ->orderByRaw("FIELD(id, {$pairedList}) DESC")
                 ->orderBy('name'))
             ->columns([
                 TextColumn::make('name')

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
 use App\Filament\Resources\Users\Pages\ListUsers;
@@ -18,7 +19,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
-    use HasViewModal;
+    use HasRoleBasedNavigationGroup, HasViewModal;
+
+    protected static ?string $navigationRole = 'admin';
 
     protected static ?string $model = User::class;
 

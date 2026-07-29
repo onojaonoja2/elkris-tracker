@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SalesRecords;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\SalesRecords\Pages\CreateSalesRecord;
 use App\Filament\Resources\SalesRecords\Pages\EditSalesRecord;
 use App\Filament\Resources\SalesRecords\Pages\ListSalesRecords;
@@ -15,17 +16,16 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use UnitEnum;
 
 class SalesRecordResource extends Resource
 {
-    use HasViewModal;
+    use HasRoleBasedNavigationGroup, HasViewModal;
 
     protected static ?string $model = SalesRecord::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Sales';
+    protected static array $navigationRoles = ['admin', 'manager', 'supervisor', 'accountant', 'general_accountant'];
 
     protected static bool $shouldRegisterNavigation = true;
 

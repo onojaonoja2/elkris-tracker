@@ -2,7 +2,9 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\OrderExporter;
 use App\Models\Order;
+use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -63,6 +65,10 @@ class SalesAssignedOrdersWidget extends TableWidget
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(OrderExporter::class),
+            ])
             ->paginated([10, 25]);
     }
 }

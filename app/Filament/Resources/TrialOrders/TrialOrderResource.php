@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\TrialOrders;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\TrialOrders\Pages\CreateTrialOrder;
 use App\Filament\Resources\TrialOrders\Pages\EditTrialOrder;
 use App\Filament\Resources\TrialOrders\Pages\ListTrialOrders;
@@ -18,7 +19,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TrialOrderResource extends Resource
 {
-    use HasViewModal;
+    use HasRoleBasedNavigationGroup, HasViewModal;
+
+    protected static array $navigationRoles = ['admin', 'manager', 'general_manager'];
 
     protected static ?string $model = TrialOrder::class;
 

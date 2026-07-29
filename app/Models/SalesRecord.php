@@ -5,10 +5,12 @@ namespace App\Models;
 use App\Models\Concerns\HasSanitization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class SalesRecord extends Model
+class SalesRecord extends Model implements Auditable
 {
-    use HasSanitization;
+    use AuditableTrait, HasSanitization;
 
     protected array $sanitizableFields = [
         'vendor_name',

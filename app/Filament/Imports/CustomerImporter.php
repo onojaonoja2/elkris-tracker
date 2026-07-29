@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\Customer;
 use App\Models\User;
+use App\Rules\UniquePhoneWithOwner;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -23,7 +24,7 @@ class CustomerImporter extends Importer
             ImportColumn::make('phone_number')
                 ->label('Phone Number')
                 ->requiredMapping()
-                ->rules(['required', 'max:11', 'unique:customers,phone_number']),
+                ->rules(['required', 'max:11', new UniquePhoneWithOwner]),
             ImportColumn::make('address')
                 ->label('Address'),
             ImportColumn::make('city')

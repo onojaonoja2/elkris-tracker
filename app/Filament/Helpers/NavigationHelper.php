@@ -21,6 +21,7 @@ class NavigationHelper
             'accountant' => '/admin/accountant-dashboard',
             'general_accountant' => '/admin/general-accountant-dashboard',
             'general_manager' => '/admin/general-manager-dashboard',
+            'production_management' => '/admin/production-dashboard',
             default => '/admin',
         };
     }
@@ -46,6 +47,7 @@ class NavigationHelper
             'accountant' => 'Accountant Dashboard',
             'general_accountant' => 'General Accountant Dashboard',
             'general_manager' => 'General Manager Dashboard',
+            'production_management' => 'Production Dashboard',
             default => 'Dashboard',
         };
     }
