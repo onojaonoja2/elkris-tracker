@@ -3,8 +3,8 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Exports\SalesRecordExporter;
-use App\Models\AgentStock;
 use App\Models\SalesRecord;
+use App\Services\SalesRecordService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
@@ -15,7 +15,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
 class AccountantSalesRecordsWidget extends TableWidget
@@ -34,7 +34,7 @@ class AccountantSalesRecordsWidget extends TableWidget
 
     protected function getFilteredQuery()
     {
-        $query = SalesRecord::where('status', 'receipt_uploaded')
+        $query = SalesRecord::where('status', 'pending')
             ->orderBy('created_at', 'desc');
 
         $filters = $this->tableFilters['date_range'] ?? [];
@@ -118,74 +118,47 @@ class AccountantSalesRecordsWidget extends TableWidget
                         ];
                     })
                     ->action(function (SalesRecord $record, array $data) {
-                        $products = $record->products ?? [];
+                        try {
+                            SalesRecordService::approve($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Approval failed')
+                                ->body($e->getMessage())
+                                ->send();
 
-                        DB::transaction(function () use ($record, $products, $data) {
-                            foreach ($products as $product) {
-                                $productName = $product['product_name'] ?? null;
-                                $grammage = $product['grammage'] ?? null;
-                                $quantity = $product['quantity'] ?? 0;
+                            return;
+                        }
 
-                                if (! $productName || ! $grammage || $quantity <= 0) {
-                                    continue;
-                                }
-
-                                if ($record->agent_id) {
-                                    $agentStock = AgentStock::where('user_id', $record->agent_id)
-                                        ->where('product_name', $productName)
-                                        ->where('grammage', $grammage)
-                                        ->lockForUpdate()
-                                        ->first();
-
-                                    if (! $agentStock || $agentStock->quantity < $quantity) {
-                                        Notification::make()
-                                            ->danger()
-                                            ->title('Insufficient agent stock')
-                                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0))
-                                            ->send();
-
-                                        return;
-                                    }
-
-                                    $agentStock->decrement('quantity', $quantity);
-                                }
-                            }
-
-                            if ($record->agent_id) {
-                                $record->agent?->increment('stock_balance', $record->total_value);
-                            }
-
-                            $record->update([
-                                'status' => 'approved',
-                                'accountant_verified_at' => now(),
-                                'accountant_verified_by' => auth()->id(),
-                                'accountant_notes' => $data['accountant_notes'] ?? null,
-                            ]);
-                        });
-
-                        Notification::make()->title('Sales record approved and stock deducted')->success()->send();
+                        Notification::make()->title('Sales record approved')->success()->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Approve Sales Record')
-                    ->modalDescription('Confirm approval. Stock will be deducted from the creator\'s stock.'),
+                    ->modalDescription('Confirm approval. Stock was already deducted when the sale was submitted.'),
 
                 Action::make('rejectByAccountant')
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->form([
-                        Textarea::make('accountant_notes')
+                        Textarea::make('rejection_reason')
                             ->label('Reason for Rejection')
                             ->required(),
                     ])
                     ->action(function (SalesRecord $record, array $data) {
-                        $record->update([
-                            'status' => 'rejected',
-                            'accountant_verified_at' => now(),
-                            'accountant_verified_by' => auth()->id(),
-                            'accountant_notes' => $data['accountant_notes'] ?? null,
-                        ]);
-                        Notification::make()->title('Sales record rejected')->danger()->send();
+                        try {
+                            SalesRecordService::reject($record, $data['rejection_reason'], auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Rejection failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Sales record rejected and stock restored')->danger()->send();
                     })
                     ->requiresConfirmation(),
 

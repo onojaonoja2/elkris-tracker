@@ -2,12 +2,16 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AgentCreditSalesWidget;
 use App\Filament\Widgets\AgentStockBalanceWidget;
 use App\Filament\Widgets\AgentStockCardsWidget;
 use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Filament\Widgets\FieldAgentDailySubmissionsWidget;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
+use App\Filament\Widgets\WarehouseReturnFormWidget;
 use App\Models\Inventory;
 use App\Models\Lga;
 use App\Models\ProductType;
@@ -23,6 +27,9 @@ use Filament\Pages\Dashboard as BaseDashboard;
 
 class AgentDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
+
     protected static string $routePath = '/agent-dashboard';
 
     protected static ?string $slug = 'agent-dashboard';
@@ -46,6 +53,7 @@ class AgentDashboard extends BaseDashboard
         return [
             FieldAgentDailySubmissionsWidget::class,
             AgentStockCardsWidget::class,
+            OrderStatsWidget::class,
         ];
     }
 
@@ -56,12 +64,17 @@ class AgentDashboard extends BaseDashboard
             AgentCreditSalesWidget::class,
             AgentStockBalanceWidget::class,
             DamagedStockReturnFormWidget::class,
+            WarehouseReturnFormWidget::class,
         ];
     }
 
     protected function getHeaderActions(): array
     {
         return [
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
+            $this->getCreditBreakdownAction(),
+            $this->getOrderBreakdownAction(),
             Action::make('newSalesRecord')
                 ->label('New Sales Record')
                 ->icon('heroicon-o-plus-circle')

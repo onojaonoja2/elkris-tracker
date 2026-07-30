@@ -2,9 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Widgets\AgentCustomerViewWidget;
+use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\SupervisorCreditSalesWidget;
 use App\Filament\Widgets\SupervisorCsrListWidget;
 use App\Filament\Widgets\SupervisorDamagedReturnsWidget;
@@ -24,6 +27,8 @@ use Illuminate\Support\Facades\Session;
 
 class SupervisorDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+
     protected static string $routePath = '/supervisor-dashboard';
 
     protected static ?string $slug = 'supervisor-dashboard';
@@ -64,6 +69,8 @@ class SupervisorDashboard extends BaseDashboard
         return [
             SupervisorStatsWidget::class,
             SupervisorStockWidget::class,
+            CreditSalesOutstandingStatsWidget::class,
+            OrderStatsWidget::class,
         ];
     }
 
@@ -85,6 +92,9 @@ class SupervisorDashboard extends BaseDashboard
     protected function getHeaderActions(): array
     {
         return [
+            $this->getCreditBreakdownAction(),
+            $this->getOrderBreakdownAction(),
+
             Action::make('addCsr')
                 ->label('Add CSR')
                 ->icon('heroicon-o-user-plus')

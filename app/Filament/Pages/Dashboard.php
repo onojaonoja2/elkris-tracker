@@ -2,8 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -11,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 
 class Dashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+
     protected static ?int $navigationSort = -2;
 
     public static function shouldRegisterNavigation(): bool
@@ -94,6 +98,20 @@ class Dashboard extends BaseDashboard
         if ($role === 'production_management') {
             return redirect()->to(ProductionDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
+    }
+
+    public function getHeaderWidgets(): array
+    {
+        return [
+            OrderStatsWidget::class,
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->getOrderBreakdownAction(),
+        ];
     }
 
     public function getWidgets(): array

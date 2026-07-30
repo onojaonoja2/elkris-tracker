@@ -3,14 +3,17 @@
 namespace App\Filament\Resources\ProductionRuns\Tables;
 
 use App\Models\ProductionRun;
+use App\Services\ProductionRunService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
 
 class ProductionRunsTable
 {
@@ -22,12 +25,27 @@ class ProductionRunsTable
                     ->label('Run #')
                     ->sortable(),
 
-                TextColumn::make('rawMaterial.name')
-                    ->label('Raw Material')
-                    ->searchable()
-                    ->sortable(),
+                TextColumn::make('rawMaterials')
+                    ->label('Raw Materials')
+                    ->formatStateUsing(function (ProductionRun $record): string {
+                        return $record->getMaterialsSummary()
+                            ? collect($record->getMaterialsSummary())
+                                ->map(fn ($m) => "{$m['name']}: {$m['quantity_used']} {$m['unit']}")
+                                ->implode(', ')
+                            : '-';
+                    })
+                    ->limit(50)
+                    ->tooltip(function (ProductionRun $record): ?string {
+                        $summary = $record->getMaterialsSummary();
 
-                TextColumn::make('quantity_used')
+                        return empty($summary) ? null : collect($summary)
+                            ->map(fn ($m) => "{$m['name']}: {$m['quantity_used']} {$m['unit']}")
+                            ->implode("\n");
+                    }),
+
+                TextColumn::make('total_quantity_used')
+                    ->label('Total Used')
+                    ->state(fn (ProductionRun $record): float => $record->getTotalQuantityUsed())
                     ->numeric(decimalPlaces: 4)
                     ->sortable(),
 
@@ -84,7 +102,30 @@ class ProductionRunsTable
             ->defaultSort('created_at', 'desc')
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn (ProductionRun $record): bool => ! $record->isLocked()),
+                    ->visible(fn (ProductionRun $record): bool => ! $record->isLocked())
+                    ->mutateRecordDataUsing(function (array $data, ProductionRun $record): array {
+                        $data['raw_materials'] = collect($record->getMaterialsSummary())
+                            ->map(fn ($m) => [
+                                'raw_material_id' => $m['raw_material_id'],
+                                'quantity_used' => $m['quantity_used'],
+                            ])
+                            ->toArray();
+
+                        return $data;
+                    })
+                    ->using(function (ProductionRun $record, array $data): ProductionRun {
+                        try {
+                            return ProductionRunService::update($record, $data);
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Update failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            throw $e;
+                        }
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

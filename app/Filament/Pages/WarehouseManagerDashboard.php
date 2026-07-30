@@ -6,6 +6,7 @@ use App\Filament\Widgets\WarehouseDamagedReturnsWidget;
 use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
+use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
 use App\Models\Inventory;
 use App\Models\ProductType;
 use App\Models\Setting;
@@ -63,6 +64,7 @@ class WarehouseManagerDashboard extends BaseDashboard
         return [
             WarehouseManagerStockBreakdownWidget::class,
             WarehouseDamagedReturnsWidget::class,
+            WarehouseReturnApprovalsWidget::class,
             WarehouseRecentMovementsWidget::class,
         ];
     }

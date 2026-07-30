@@ -21,7 +21,7 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
+        $pendingSalesRecords = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
 
         $totalSalesRecordsValue = SalesRecord::where('status', 'approved')
             ->sum('total_value');

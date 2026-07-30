@@ -7,6 +7,7 @@ use App\Models\AgentStock;
 use App\Models\Order;
 use App\Services\OrderAssignmentService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -59,6 +60,13 @@ class CsrAssignedOrdersWidget extends TableWidget
                     ->label('Value')
                     ->money('NGN')
                     ->sortable(),
+
+                TextColumn::make('payment_proof_status')
+                    ->label('Payment Proof')
+                    ->badge()
+                    ->state(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
 
                 TextColumn::make('assignment_status')
                     ->label('Status')
@@ -115,12 +123,52 @@ class CsrAssignedOrdersWidget extends TableWidget
                         $this->dispatch('refresh-dashboard');
                     }),
 
+                Action::make('uploadPaymentProof')
+                    ->label('Upload Payment Proof')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('warning')
+                    ->size('sm')
+                    ->visible(fn (Order $record): bool => $record->assignment_status === AssignmentStatus::Accepted && ! $record->hasPaymentProof())
+                    ->form([
+                        FileUpload::make('payment_proof_path')
+                            ->label('Payment Proof')
+                            ->image()
+                            ->maxSize(2048)
+                            ->disk('s3')
+                            ->directory('receipts/payment-proofs')
+                            ->visibility('private')
+                            ->imageEditor()
+                            ->required(),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        OrderAssignmentService::attachPaymentProof($record, $data['payment_proof_path'], auth()->id());
+
+                        Notification::make()
+                            ->title('Payment proof uploaded')
+                            ->success()
+                            ->send();
+
+                        $this->dispatch('refresh-dashboard');
+                    })
+                    ->modalHeading('Upload Payment Proof')
+                    ->modalDescription('Attach proof of payment before confirming delivery.'),
+
+                Action::make('viewPaymentProof')
+                    ->label('View Payment Proof')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->size('sm')
+                    ->visible(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->modalContent(fn (Order $record) => view('filament.payment-proof', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
+
                 Action::make('confirmDelivery')
                     ->label('Confirm Delivery')
                     ->icon('heroicon-o-truck')
                     ->color('primary')
                     ->size('sm')
-                    ->visible(fn (Order $record): bool => $record->assignment_status === AssignmentStatus::Accepted)
+                    ->visible(fn (Order $record): bool => $record->assignment_status === AssignmentStatus::Accepted && $record->hasPaymentProof())
                     ->requiresConfirmation()
                     ->modalHeading('Confirm Delivery')
                     ->modalDescription('Confirm that this order has been delivered. Stock will be deducted from your inventory and the value attributed to you.')

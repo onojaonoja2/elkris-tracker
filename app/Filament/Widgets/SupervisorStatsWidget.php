@@ -30,7 +30,7 @@ class SupervisorStatsWidget extends StatsOverviewWidget
         $salesCount = (clone $salesQuery)->count();
         $salesRevenue = (clone $salesQuery)->sum('total_value');
         $pendingCount = SalesRecord::whereIn('agent_id', $csrIds)
-            ->where('status', 'receipt_uploaded')
+            ->whereIn('status', ['pending', 'receipt_uploaded'])
             ->count();
         $stockUnits = AgentStock::whereIn('user_id', $csrIds)->sum('quantity');
 

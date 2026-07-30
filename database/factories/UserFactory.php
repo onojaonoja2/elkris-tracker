@@ -102,4 +102,18 @@ class UserFactory extends Factory
             'role' => UserRole::ProductionManagement->value,
         ]);
     }
+
+    public function warehouseManager(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::WarehouseManager->value,
+        ]);
+    }
+
+    public function generalManager(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::GeneralManager->value,
+        ]);
+    }
 }

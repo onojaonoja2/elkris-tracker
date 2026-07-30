@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\ManagerAgentManagementWidget;
 use App\Filament\Widgets\ManagerAnalyticsWidget;
@@ -16,8 +18,10 @@ use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
 use App\Filament\Widgets\RevenueTrendChart;
+use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
 use App\Models\Customer;
 use App\Models\Lga;
 use App\Models\Order;
@@ -37,6 +41,8 @@ use Illuminate\Support\Str;
 
 class ManagerDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+
     protected static string $routePath = '/manager-dashboard';
 
     protected static ?string $slug = 'manager-dashboard';
@@ -73,6 +79,8 @@ class ManagerDashboard extends BaseDashboard
             ManagerStatsWidget::class,
             ManagerAnalyticsWidget::class,
             ProductionActivityWidget::class,
+            CreditSalesOutstandingStatsWidget::class,
+            OrderStatsWidget::class,
             ManagerCustomerSubmissionsWidget::class,
         ];
     }
@@ -90,6 +98,7 @@ class ManagerDashboard extends BaseDashboard
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            WarehouseReturnApprovalsWidget::class,
             RevenueTrendChart::class,
             OrdersPerCityChart::class,
         ];
@@ -98,6 +107,8 @@ class ManagerDashboard extends BaseDashboard
     public function getHeaderActions(): array
     {
         return [
+            $this->getCreditBreakdownAction(),
+            $this->getOrderBreakdownAction(),
             Action::make('create_user')
                 ->label('Add Agent')
                 ->icon('heroicon-o-user-plus')
@@ -215,7 +226,7 @@ class ManagerDashboard extends BaseDashboard
                         $totalOrders = Order::where('created_at', '>=', $from)->where('is_migrated_order', false)->count();
                         $orderRevenue = Order::where('created_at', '>=', $from)->where('is_migrated_order', false)->sum('total_price');
                         $salesRecords = SalesRecord::where('created_at', '>=', $from)->count();
-                        $pendingSales = SalesRecord::where('status', 'receipt_uploaded')->count();
+                        $pendingSales = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
                         $activeAgents = User::whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])->active()->count();
 
                         fputcsv($handle, ['Sales', 'Total Customers', $totalCustomers]);

@@ -24,6 +24,9 @@ class Order extends Model implements Auditable
         'is_migrated_order',
         'expected_delivery_date',
         'total_price',
+        'payment_proof_path',
+        'payment_proof_uploaded_by',
+        'payment_proof_uploaded_at',
         'preferred_payment_option',
         'preferred_delivery_date',
         'delivery_details',
@@ -40,6 +43,7 @@ class Order extends Model implements Auditable
             'status' => OrderStatus::class,
             'expected_delivery_date' => 'date',
             'assigned_at' => 'datetime',
+            'payment_proof_uploaded_at' => 'datetime',
             'assignment_status' => AssignmentStatus::class,
         ];
     }
@@ -64,9 +68,19 @@ class Order extends Model implements Auditable
         return $this->belongsTo(User::class, 'assigned_by');
     }
 
+    public function paymentProofUploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'payment_proof_uploaded_by');
+    }
+
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function hasPaymentProof(): bool
+    {
+        return ! empty($this->payment_proof_path);
     }
 
     public function isAssigned(): bool

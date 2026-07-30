@@ -2,31 +2,37 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\SalesAssignedOrdersWidget;
 use App\Filament\Widgets\SalesCsrOverviewWidget;
 use App\Filament\Widgets\SalesDamagedReturnWidget;
 use App\Filament\Widgets\SalesInventoryStatsWidget;
 use App\Filament\Widgets\SalesPendingOrdersWidget;
 use App\Filament\Widgets\SalesStockRequestWidget;
-use App\Models\AgentStock;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\ProductType;
-use App\Models\SalesRecord;
 use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
+use App\Services\SalesRecordService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SalesOrdersDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
+
     protected static string $routePath = '/sales-orders-dashboard';
 
     protected static ?string $slug = 'sales-orders-dashboard';
@@ -61,6 +67,7 @@ class SalesOrdersDashboard extends BaseDashboard
     {
         return [
             SalesInventoryStatsWidget::class,
+            OrderStatsWidget::class,
         ];
     }
 
@@ -78,6 +85,9 @@ class SalesOrdersDashboard extends BaseDashboard
     protected function getHeaderActions(): array
     {
         return [
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
+            $this->getOrderBreakdownAction(),
             $this->buildRequestStockAction(),
             $this->buildRecordOfficeSaleAction(),
             $this->buildInitiateOrderAction(),
@@ -213,33 +223,23 @@ class SalesOrdersDashboard extends BaseDashboard
                 TextInput::make('customer_phone')
                     ->label('Customer Phone (optional)')
                     ->tel(),
+                FileUpload::make('receipt_path')
+                    ->label('Receipt / Payment Proof (optional)')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/sales-records')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->columnSpanFull(),
             ])
             ->action(function (array $data) {
                 $user = auth()->user();
-
-                $stock = AgentStock::where('user_id', $user->id)
-                    ->where('product_type_id', $data['product_type_id'])
-                    ->where('grammage', $data['grammage'])
-                    ->first();
-
-                if (! $stock || $stock->quantity < $data['quantity']) {
-                    Notification::make()
-                        ->title('Insufficient stock')
-                        ->body('You only have '.($stock->quantity ?? 0).' units of this product.')
-                        ->danger()
-                        ->send();
-
-                    return;
-                }
-
                 $pt = ProductType::find($data['product_type_id']);
                 $lineTotal = (int) $data['quantity'] * (float) $data['price'];
 
-                DB::transaction(function () use ($data, $user, $stock, $pt, $lineTotal) {
-                    $stock->decrement('quantity', $data['quantity']);
-
-                    SalesRecord::create([
-                        'agent_id' => $user->id,
+                try {
+                    SalesRecordService::submitSale([
                         'agent_type' => 'sales',
                         'products' => [
                             [
@@ -250,16 +250,24 @@ class SalesOrdersDashboard extends BaseDashboard
                             ],
                         ],
                         'total_value' => $lineTotal,
-                        'status' => 'approved',
+                        'receipt_path' => $data['receipt_path'] ?? null,
                         'vendor_name' => $data['customer_name'] ?? null,
                         'customer_name' => $data['customer_name'] ?? null,
                         'customer_phone' => $data['customer_phone'] ?? null,
-                    ]);
-                });
+                    ], $user->id);
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->title('Insufficient stock')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
 
                 Notification::make()
-                    ->title('Office sale recorded')
-                    ->body("Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) recorded successfully.")
+                    ->title('Office sale submitted')
+                    ->body("Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) submitted for accountant approval.")
                     ->success()
                     ->send();
             })

@@ -20,8 +20,8 @@ class EditSalesRecord extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        if ($this->record->status !== 'approved') {
-            $data['status'] = 'receipt_uploaded';
+        if (! in_array($this->record->status, ['approved', 'rejected'], true)) {
+            $data['status'] = 'pending';
         }
 
         return $data;

@@ -10,25 +10,107 @@ use Illuminate\Validation\ValidationException;
 class ProductionRunService
 {
     /**
-     * Create a production run and deduct the raw material quantity atomically.
+     * Create a production run and deduct all raw material quantities atomically.
      *
      * @param  array<string, mixed>  $data
      */
     public static function create(array $data): ProductionRun
     {
         return DB::transaction(function () use ($data) {
-            $rawMaterial = RawMaterial::lockForUpdate()->findOrFail($data['raw_material_id']);
-            $quantityUsed = (float) $data['quantity_used'];
+            $materials = $data['raw_materials'] ?? [];
 
-            if ($rawMaterial->quantity < $quantityUsed) {
+            if (empty($materials)) {
                 throw ValidationException::withMessages([
-                    'quantity_used' => "Only {$rawMaterial->quantity} {$rawMaterial->unit_of_measure} available.",
+                    'raw_materials' => 'At least one raw material is required.',
                 ]);
             }
 
-            $rawMaterial->decrement('quantity', $quantityUsed);
+            $deductions = [];
+            foreach ($materials as $index => $material) {
+                $rawMaterial = RawMaterial::lockForUpdate()->findOrFail($material['raw_material_id']);
+                $quantityUsed = (float) $material['quantity_used'];
 
-            return ProductionRun::create($data);
+                if ($rawMaterial->quantity < $quantityUsed) {
+                    throw ValidationException::withMessages([
+                        "raw_materials.{$index}.quantity_used" => "Only {$rawMaterial->quantity} {$rawMaterial->unit_of_measure} of {$rawMaterial->name} available.",
+                    ]);
+                }
+
+                $deductions[] = ['material' => $rawMaterial, 'quantity' => $quantityUsed];
+            }
+
+            foreach ($deductions as $deduction) {
+                $deduction['material']->decrement('quantity', $deduction['quantity']);
+            }
+
+            $data['status'] = $data['status'] ?? 'pending_review';
+
+            $run = ProductionRun::create($data);
+
+            $syncData = [];
+            foreach ($materials as $material) {
+                $syncData[$material['raw_material_id']] = ['quantity_used' => $material['quantity_used']];
+            }
+            $run->rawMaterials()->sync($syncData);
+
+            return $run;
+        });
+    }
+
+    /**
+     * Update a production run, restoring old material quantities and applying new ones.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function update(ProductionRun $run, array $data): ProductionRun
+    {
+        if ($run->isLocked()) {
+            throw ValidationException::withMessages([
+                'status' => 'This production run has already been reviewed and cannot be edited.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($run, $data) {
+            $materials = $data['raw_materials'] ?? [];
+
+            if (empty($materials)) {
+                throw ValidationException::withMessages([
+                    'raw_materials' => 'At least one raw material is required.',
+                ]);
+            }
+
+            // Restore previous quantities.
+            foreach ($run->rawMaterials as $existingMaterial) {
+                $existingMaterial->increment('quantity', (float) $existingMaterial->pivot->quantity_used);
+            }
+
+            $deductions = [];
+            foreach ($materials as $index => $material) {
+                $rawMaterial = RawMaterial::lockForUpdate()->findOrFail($material['raw_material_id']);
+                $quantityUsed = (float) $material['quantity_used'];
+
+                if ($rawMaterial->quantity < $quantityUsed) {
+                    throw ValidationException::withMessages([
+                        "raw_materials.{$index}.quantity_used" => "Only {$rawMaterial->quantity} {$rawMaterial->unit_of_measure} of {$rawMaterial->name} available.",
+                    ]);
+                }
+
+                $deductions[] = ['material' => $rawMaterial, 'quantity' => $quantityUsed];
+            }
+
+            foreach ($deductions as $deduction) {
+                $deduction['material']->decrement('quantity', $deduction['quantity']);
+            }
+
+            $run->update($data);
+
+            $syncData = [];
+            foreach ($materials as $material) {
+                $syncData[$material['raw_material_id']] = ['quantity_used' => $material['quantity_used']];
+            }
+            $run->rawMaterials()->sync($syncData);
+
+            return $run;
         });
     }
 
@@ -53,5 +135,12 @@ class ProductionRunService
         ]);
 
         return $run;
+    }
+
+    public static function restoreMaterials(ProductionRun $run): void
+    {
+        foreach ($run->rawMaterials as $material) {
+            $material->increment('quantity', (float) $material->pivot->quantity_used);
+        }
     }
 }

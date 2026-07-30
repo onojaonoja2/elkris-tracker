@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\OrderAssignmentService;
 use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -69,17 +70,65 @@ class SalesPendingOrdersWidget extends TableWidget
                     ->label('Payment')
                     ->formatStateUsing(fn ($state): string => $state ? ucfirst(str_replace('_', ' ', $state)) : '-'),
 
+                TextColumn::make('payment_proof_status')
+                    ->label('Payment Proof')
+                    ->badge()
+                    ->state(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
+
                 TextColumn::make('created_at')
                     ->label('Date')
                     ->dateTime()
                     ->sortable(),
             ])
             ->recordActions([
+                Action::make('uploadPaymentProof')
+                    ->label('Upload Payment Proof')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('warning')
+                    ->size('sm')
+                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending && ! $record->hasPaymentProof())
+                    ->form([
+                        FileUpload::make('payment_proof_path')
+                            ->label('Payment Proof')
+                            ->image()
+                            ->maxSize(2048)
+                            ->disk('s3')
+                            ->directory('receipts/payment-proofs')
+                            ->visibility('private')
+                            ->imageEditor()
+                            ->required(),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        OrderAssignmentService::attachPaymentProof($record, $data['payment_proof_path'], auth()->id());
+
+                        Notification::make()
+                            ->title('Payment proof uploaded')
+                            ->success()
+                            ->send();
+
+                        $this->dispatch('refresh-dashboard');
+                    })
+                    ->modalHeading('Upload Payment Proof')
+                    ->modalDescription('Attach proof of payment before processing this order.'),
+
+                Action::make('viewPaymentProof')
+                    ->label('View Payment Proof')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->size('sm')
+                    ->visible(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->modalContent(fn (Order $record) => view('filament.payment-proof', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
+
                 Action::make('processOrder')
                     ->label('Process')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->size('sm')
+                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending && $record->hasPaymentProof())
                     ->requiresConfirmation()
                     ->modalHeading('Process Order')
                     ->modalDescription('Mark this order as delivered. Stock will be deducted from your inventory and the value will be attributed to the original initiator.')

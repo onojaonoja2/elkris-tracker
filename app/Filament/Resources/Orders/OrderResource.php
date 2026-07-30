@@ -7,13 +7,16 @@ use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
 use App\Filament\Traits\HasViewModal;
 use App\Models\Order;
+use App\Services\OrderAssignmentService;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -22,6 +25,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
 
 class OrderResource extends Resource
 {
@@ -71,6 +75,12 @@ class OrderResource extends Resource
                     ->color(fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('total_price')
                     ->money('NGN'),
+                TextColumn::make('payment_proof_status')
+                    ->label('Payment Proof')
+                    ->badge()
+                    ->state(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('created_at')
                     ->label('Submitted Date')
                     ->dateTime()
@@ -142,6 +152,51 @@ class OrderResource extends Resource
             ])
             ->recordActions([
                 HasViewModal::getViewActionForResource(static::class),
+
+                Action::make('uploadPaymentProof')
+                    ->label('Upload Payment Proof')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('warning')
+                    ->visible(fn (Order $record): bool => ! $record->hasPaymentProof()
+                        && auth()->user()->hasAnyRole(['admin', 'sales', 'rep', 'lead']))
+                    ->form([
+                        FileUpload::make('payment_proof_path')
+                            ->label('Payment Proof')
+                            ->image()
+                            ->maxSize(2048)
+                            ->disk('s3')
+                            ->directory('receipts/payment-proofs')
+                            ->visibility('private')
+                            ->imageEditor()
+                            ->required(),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        try {
+                            OrderAssignmentService::attachPaymentProof($record, $data['payment_proof_path'], auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Upload failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Payment proof uploaded')->success()->send();
+                    })
+                    ->modalHeading('Upload Payment Proof')
+                    ->modalDescription('Attach proof of payment for this order.'),
+
+                Action::make('viewPaymentProof')
+                    ->label('View Payment Proof')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->visible(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->modalContent(fn (Order $record) => view('filament.payment-proof', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
+
                 Action::make('view_customer')
                     ->label('View Customer')
                     ->icon('heroicon-o-user')

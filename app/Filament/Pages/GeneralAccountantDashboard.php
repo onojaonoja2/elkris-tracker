@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AccountantCreditSalesWidget;
 use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
@@ -10,6 +12,7 @@ use App\Filament\Widgets\AccountantStockCountApprovalWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
 use App\Filament\Widgets\AccountantStockReceiveRequestsWidget;
+use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\GeneralAccountantStatsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
@@ -21,6 +24,9 @@ use Filament\Pages\Dashboard as BaseDashboard;
 
 class GeneralAccountantDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
+
     protected static string $routePath = '/general-accountant-dashboard';
 
     protected static ?string $slug = 'general-accountant-dashboard';
@@ -50,6 +56,16 @@ class GeneralAccountantDashboard extends BaseDashboard
     {
         return [
             GeneralAccountantStatsWidget::class,
+            CreditSalesOutstandingStatsWidget::class,
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
+            $this->getCreditBreakdownAction(),
         ];
     }
 

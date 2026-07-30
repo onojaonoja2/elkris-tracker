@@ -20,6 +20,7 @@ class SalesRecord extends Model implements Auditable
         'customer_name',
         'customer_phone',
         'credit_notes',
+        'rejection_reason',
     ];
 
     protected $fillable = [
@@ -31,7 +32,12 @@ class SalesRecord extends Model implements Auditable
         'business_name',
         'receipt_path',
         'receipt_original_name',
+        'payment_proof_path',
+        'payment_proof_uploaded_by',
+        'payment_proof_uploaded_at',
         'status',
+        'stock_deducted_at',
+        'rejection_reason',
         'accountant_verified_at',
         'accountant_verified_by',
         'supervisor_verified_at',
@@ -53,6 +59,8 @@ class SalesRecord extends Model implements Auditable
         return [
             'products' => 'array',
             'total_value' => 'decimal:2',
+            'stock_deducted_at' => 'datetime',
+            'payment_proof_uploaded_at' => 'datetime',
             'accountant_verified_at' => 'datetime',
             'supervisor_verified_at' => 'datetime',
             'is_credit' => 'boolean',
@@ -91,5 +99,15 @@ class SalesRecord extends Model implements Auditable
     public function collector(): BelongsTo
     {
         return $this->belongsTo(User::class, 'collected_by');
+    }
+
+    public function paymentProofUploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'payment_proof_uploaded_by');
+    }
+
+    public function hasPaymentProof(): bool
+    {
+        return $this->payment_proof_path !== null;
     }
 }

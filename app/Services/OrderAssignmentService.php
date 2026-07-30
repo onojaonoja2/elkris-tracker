@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\StockTransaction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OrderAssignmentService
 {
@@ -58,8 +59,25 @@ class OrderAssignmentService
         });
     }
 
+    public static function attachPaymentProof(Order $order, string $path, int $uploadedBy): void
+    {
+        DB::transaction(function () use ($order, $path, $uploadedBy) {
+            $order->update([
+                'payment_proof_path' => $path,
+                'payment_proof_uploaded_by' => $uploadedBy,
+                'payment_proof_uploaded_at' => now(),
+            ]);
+        });
+    }
+
     public static function confirmDeliveryByCsr(Order $order): void
     {
+        if (! $order->hasPaymentProof()) {
+            throw ValidationException::withMessages([
+                'payment_proof' => 'A payment proof must be uploaded before this order can be marked as delivered.',
+            ]);
+        }
+
         DB::transaction(function () use ($order) {
             $processor = $order->assignedTo;
 
@@ -99,6 +117,12 @@ class OrderAssignmentService
 
     public static function confirmDeliveryBySales(Order $order): void
     {
+        if (! $order->hasPaymentProof()) {
+            throw ValidationException::withMessages([
+                'payment_proof' => 'A payment proof must be uploaded before this order can be marked as delivered.',
+            ]);
+        }
+
         DB::transaction(function () use ($order) {
             $processor = $order->assignedTo;
 

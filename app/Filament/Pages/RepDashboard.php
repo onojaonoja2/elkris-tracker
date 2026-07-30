@@ -2,7 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\CsrOverviewWidget;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\RepOrderAssignmentWidget;
 use App\Filament\Widgets\RepPendingAssignmentsWidget;
 use App\Filament\Widgets\RepPortfolioWidget;
@@ -12,6 +15,9 @@ use Filament\Pages\Dashboard as BaseDashboard;
 
 class RepDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
+
     protected static string $routePath = '/rep-dashboard';
 
     protected static ?string $slug = 'rep-dashboard';
@@ -46,6 +52,16 @@ class RepDashboard extends BaseDashboard
     {
         return [
             RepStatsWidget::class,
+            OrderStatsWidget::class,
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
+            $this->getOrderBreakdownAction(),
         ];
     }
 

@@ -30,7 +30,7 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
         $aggregates = SalesRecord::select(
             DB::raw('lga_state.name as state_name'),
             DB::raw('COUNT(*) as total'),
-            DB::raw("SUM(CASE WHEN status = 'receipt_uploaded' THEN 1 ELSE 0 END) as pending"),
+            DB::raw("SUM(CASE WHEN status IN ('pending', 'receipt_uploaded') THEN 1 ELSE 0 END) as pending"),
             DB::raw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved"),
             DB::raw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected"),
             DB::raw('COALESCE(SUM(total_value), 0) as total_value'),

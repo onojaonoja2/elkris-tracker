@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AgentCreditSalesWidget;
 use App\Filament\Widgets\CsrAssignedOrdersWidget;
 use App\Filament\Widgets\CsrDailySalesWidget;
@@ -10,6 +12,8 @@ use App\Filament\Widgets\CsrSalesRecordsWidget;
 use App\Filament\Widgets\CsrStatsWidget;
 use App\Filament\Widgets\CsrStocksWidget;
 use App\Filament\Widgets\DamagedStockReturnFormWidget;
+use App\Filament\Widgets\OrderStatsWidget;
+use App\Filament\Widgets\WarehouseReturnFormWidget;
 use App\Models\AgentStock;
 use App\Models\ProductType;
 use App\Models\Setting;
@@ -28,6 +32,9 @@ use Filament\Pages\Dashboard as BaseDashboard;
 
 class CsrDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
+
     protected static string $routePath = '/csr-dashboard';
 
     protected static ?string $slug = 'csr-dashboard';
@@ -51,6 +58,7 @@ class CsrDashboard extends BaseDashboard
         return [
             CsrDailySalesWidget::class,
             CsrStatsWidget::class,
+            OrderStatsWidget::class,
             AgentCreditSalesWidget::class,
             CsrStocksWidget::class,
         ];
@@ -63,12 +71,18 @@ class CsrDashboard extends BaseDashboard
             CsrPendingDispatchesWidget::class,
             CsrSalesRecordsWidget::class,
             DamagedStockReturnFormWidget::class,
+            WarehouseReturnFormWidget::class,
         ];
     }
 
     protected function getHeaderActions(): array
     {
         $actions = [];
+
+        $actions[] = $this->getDateFilterAction();
+        $actions[] = $this->getClearDateFilterAction();
+        $actions[] = $this->getCreditBreakdownAction();
+        $actions[] = $this->getOrderBreakdownAction();
 
         $actions[] = Action::make('newSalesRecord')
             ->label('New Sales Record')

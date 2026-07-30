@@ -79,7 +79,7 @@ class ManagerStatsWidget extends BaseWidget
             ->whereDate('created_at', '<=', $to)
             ->count();
 
-        $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
+        $pendingSalesRecords = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
 
         $calls = CallLog::whereDate('called_at', '>=', $from)
             ->whereDate('called_at', '<=', $to)

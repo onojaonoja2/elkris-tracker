@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductionRuns\Schemas;
 
 use App\Models\RawMaterial;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -16,23 +17,31 @@ class ProductionRunForm
     {
         return $schema
             ->components([
-                Select::make('raw_material_id')
-                    ->label('Raw Material')
-                    ->relationship('rawMaterial', 'name')
-                    ->options(fn () => RawMaterial::where('is_active', true)->pluck('name', 'id'))
-                    ->required()
-                    ->searchable()
-                    ->live(),
+                Repeater::make('raw_materials')
+                    ->label('Raw Materials')
+                    ->schema([
+                        Select::make('raw_material_id')
+                            ->label('Raw Material')
+                            ->options(fn () => RawMaterial::where('is_active', true)->pluck('name', 'id'))
+                            ->required()
+                            ->searchable()
+                            ->live(),
 
-                TextInput::make('quantity_used')
-                    ->label('Quantity Used')
-                    ->numeric()
-                    ->required()
-                    ->minValue(0.0001)
-                    ->step(0.0001)
-                    ->rules(['decimal:0,4'])
-                    ->hint(fn (Get $get): ?string => self::stockHint($get('raw_material_id')))
-                    ->live(),
+                        TextInput::make('quantity_used')
+                            ->label('Quantity Used')
+                            ->numeric()
+                            ->required()
+                            ->minValue(0.0001)
+                            ->step(0.0001)
+                            ->rules(['decimal:0,4'])
+                            ->hint(fn (Get $get): ?string => self::stockHint($get('raw_material_id')))
+                            ->live(),
+                    ])
+                    ->minItems(1)
+                    ->addActionLabel('Add Raw Material')
+                    ->defaultItems(1)
+                    ->columns(2)
+                    ->collapsible(),
 
                 DatePicker::make('production_date')
                     ->label('Production Date')

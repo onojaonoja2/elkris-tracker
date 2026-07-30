@@ -19,11 +19,7 @@ class ProductionRunFactory extends Factory
      */
     public function definition(): array
     {
-        $quantityUsed = $this->faker->randomFloat(4, 10, 100);
-
         return [
-            'raw_material_id' => RawMaterial::factory(),
-            'quantity_used' => $quantityUsed,
             'production_date' => $this->faker->dateTimeBetween('-30 days', 'now'),
             'output_name' => $this->faker->words(2, true),
             'output_quantity' => $this->faker->randomFloat(4, 5, 50),
@@ -32,6 +28,20 @@ class ProductionRunFactory extends Factory
             'notes' => $this->faker->optional()->sentence(),
             'created_by' => User::factory(),
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (ProductionRun $run) {
+            if ($run->rawMaterials()->count() === 0) {
+                $material = RawMaterial::factory()->create([
+                    'quantity' => 1000.0000,
+                ]);
+                $quantityUsed = $this->faker->randomFloat(4, 10, 100);
+                $run->rawMaterials()->attach($material->id, ['quantity_used' => $quantityUsed]);
+                $material->decrement('quantity', $quantityUsed);
+            }
+        });
     }
 
     public function reviewed(): self
