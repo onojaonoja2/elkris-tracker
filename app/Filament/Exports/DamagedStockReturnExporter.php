@@ -38,4 +38,9 @@ class DamagedStockReturnExporter extends Exporter
 
         return $body;
     }
+
+    public function getJobConnection(): ?string
+    {
+        return 'sync';
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\DashboardDateScope;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
@@ -51,8 +52,11 @@ class OrderStatsWidget extends BaseWidget
      */
     private function agentStats(int $userId): array
     {
+        [$from, $to] = DashboardDateScope::fromSession();
+
         $baseQuery = Order::where('user_id', $userId)
-            ->where('is_migrated_order', false);
+            ->where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to]);
 
         $total = (clone $baseQuery)->sum('total_price');
         $pending = (clone $baseQuery)->where('status', OrderStatus::Pending)->sum('total_price');
@@ -82,9 +86,12 @@ class OrderStatsWidget extends BaseWidget
      */
     private function supervisorStats(): array
     {
+        [$from, $to] = DashboardDateScope::fromSession();
+
         $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
         $baseQuery = Order::whereIn('user_id', $csrIds)
-            ->where('is_migrated_order', false);
+            ->where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to]);
 
         $total = (clone $baseQuery)->sum('total_price');
         $pending = (clone $baseQuery)->where('status', OrderStatus::Pending)->sum('total_price');
@@ -114,7 +121,10 @@ class OrderStatsWidget extends BaseWidget
      */
     private function managementStats(): array
     {
-        $baseQuery = Order::where('is_migrated_order', false);
+        [$from, $to] = DashboardDateScope::fromSession();
+
+        $baseQuery = Order::where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to]);
 
         $total = (clone $baseQuery)->sum('total_price');
         $pending = (clone $baseQuery)->where('status', OrderStatus::Pending)->sum('total_price');
@@ -149,8 +159,18 @@ class OrderStatsWidget extends BaseWidget
                 ->whereHas('user', fn ($q) => $q->where('role', $category['role']))
                 ->sum('total_price');
 
+            $categoryPending = (clone $baseQuery)
+                ->where('status', OrderStatus::Pending)
+                ->whereHas('user', fn ($q) => $q->where('role', $category['role']))
+                ->sum('total_price');
+
+            $categoryDelivered = (clone $baseQuery)
+                ->where('status', OrderStatus::Delivered)
+                ->whereHas('user', fn ($q) => $q->where('role', $category['role']))
+                ->sum('total_price');
+
             $stats[] = Stat::make($category['label'], '₦'.number_format($categoryTotal))
-                ->description('Total order value')
+                ->description('Pending: ₦'.number_format($categoryPending).' | Delivered: ₦'.number_format($categoryDelivered))
                 ->icon($category['icon'])
                 ->color('primary')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-order-breakdown', { category: '{$category['role']}' })"]);

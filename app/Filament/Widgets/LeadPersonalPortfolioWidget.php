@@ -30,16 +30,12 @@ class LeadPersonalPortfolioWidget extends TableWidget
 
     public function table(Table $table): Table
     {
+        $leadId = auth()->id();
+
         return $table
             ->query(fn (): Builder => Customer::query()
-                ->where('rep_acceptance_status', 'accepted')
-                ->where(function ($q) {
-                    $q->where('rep_id', auth()->id())
-                        ->orWhere(function ($sub) {
-                            $sub->where('lead_id', auth()->id())
-                                ->whereNull('rep_id');
-                        });
-                }))
+                ->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
+                ->whereDoesntHave('reps'))
             ->columns([
                 TextColumn::make('customer_name')
                     ->label('Customer Name')

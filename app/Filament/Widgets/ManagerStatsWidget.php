@@ -3,14 +3,11 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\OrderStatus;
-use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\CallLogs\CallLogResource;
 use App\Filament\Resources\Customers\CustomerResource;
-use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
 use App\Filament\Resources\StockTransfers\StockTransferResource;
-use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\AgentStock;
 use App\Models\CallLog;
@@ -19,7 +16,6 @@ use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\SalesRecord;
 use App\Models\StockTransfer;
-use App\Models\TrialOrder;
 use App\Models\User;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -69,12 +65,6 @@ class ManagerStatsWidget extends BaseWidget
             ->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))
             ->count();
 
-        $trialOrders = TrialOrder::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->count();
-
-        $pendingTrialOrders = TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)->count();
-
         $salesRecords = SalesRecord::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->count();
@@ -122,22 +112,17 @@ class ManagerStatsWidget extends BaseWidget
                 ->description('Total revenue')
                 ->icon('heroicon-o-banknotes')
                 ->color('success')
-                ->url(OrderResource::getUrl('index')),
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-order-breakdown', { category: 'total' })"]),
             Stat::make('Orders', $orders)
                 ->description('Orders placed')
                 ->icon('heroicon-o-shopping-cart')
                 ->color('info')
-                ->url(OrderResource::getUrl('index')),
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-order-breakdown', { category: 'total' })"]),
             Stat::make('Total Agents', $totalAgents)
                 ->description('Field agents & sales')
                 ->icon('heroicon-o-user-group')
                 ->color('primary')
                 ->url(UserResource::getUrl('index')),
-            Stat::make('Trial Orders', $trialOrders)
-                ->description($pendingTrialOrders.' pending verification')
-                ->icon('heroicon-o-beaker')
-                ->color('warning')
-                ->url(TrialOrderResource::getUrl('index')),
             Stat::make('Sales Records', $salesRecords)
                 ->description($pendingSalesRecords.' pending verification')
                 ->icon('heroicon-o-document-text')
@@ -166,7 +151,8 @@ class ManagerStatsWidget extends BaseWidget
             Stat::make('Credit Sales', self::formatCurrency($creditSalesOutstanding))
                 ->description('Pending credit collection')
                 ->icon('heroicon-o-clock')
-                ->color('danger'),
+                ->color('danger')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-credit-breakdown', { category: 'total' })"]),
         ];
     }
 

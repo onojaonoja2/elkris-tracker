@@ -42,7 +42,8 @@ trait HasDashboardBreakdownModals
             ->modalCancelActionLabel('Close')
             ->modalContent(function (): View {
                 return view('filament.credit-breakdown-modal', [
-                    'records' => $this->creditBreakdownQuery()->limit(100)->get(),
+                    'type' => 'credit',
+                    'category' => $this->breakdownCategory,
                 ]);
             })
             ->visible(fn (): bool => auth()->user()->hasAnyRole([
@@ -68,7 +69,8 @@ trait HasDashboardBreakdownModals
             ->modalCancelActionLabel('Close')
             ->modalContent(function (): View {
                 return view('filament.order-breakdown-modal', [
-                    'records' => $this->orderBreakdownQuery()->limit(100)->get(),
+                    'type' => 'order',
+                    'category' => $this->breakdownCategory,
                 ]);
             })
             ->visible(fn (): bool => auth()->user()->hasAnyRole([

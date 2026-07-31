@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Models\AgentStock;
 use App\Models\SalesRecord;
 use App\Models\User;
+use App\Support\DashboardDateScope;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -30,6 +31,7 @@ class CsrOverviewWidget extends TableWidget
         $user = auth()->user();
 
         $pairedCsrIds = $this->getPairedCsrIds($user);
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $stockCounts = AgentStock::whereIn('user_id', $pairedCsrIds)
             ->selectRaw('user_id, SUM(quantity) as total_qty')
@@ -38,6 +40,7 @@ class CsrOverviewWidget extends TableWidget
 
         $salesCounts = SalesRecord::whereIn('agent_id', $pairedCsrIds)
             ->where('status', 'approved')
+            ->whereBetween('created_at', [$from, $to])
             ->selectRaw('agent_id, COUNT(*) as count, COALESCE(SUM(total_value), 0) as total_value')
             ->groupBy('agent_id')
             ->get()
@@ -116,7 +119,10 @@ class CsrOverviewWidget extends TableWidget
         if ($user->hasRole('lead')) {
             $repIds = User::where('lead_id', $user->id)->where('role', 'rep')->pluck('id')->toArray();
 
-            return User::whereIn('portfolio_agent_id', $repIds)
+            return User::where(function ($query) use ($repIds, $user) {
+                $query->whereIn('portfolio_agent_id', $repIds)
+                    ->orWhere('portfolio_agent_id', $user->id);
+            })
                 ->where('role', 'community_sales_representative')
                 ->pluck('id');
         }

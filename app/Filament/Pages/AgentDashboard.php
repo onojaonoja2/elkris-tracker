@@ -9,7 +9,7 @@ use App\Filament\Widgets\AgentStockBalanceWidget;
 use App\Filament\Widgets\AgentStockCardsWidget;
 use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Filament\Widgets\FieldAgentDailySubmissionsWidget;
-use App\Filament\Widgets\OrderStatsWidget;
+use App\Filament\Widgets\SalesInventoryStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use App\Filament\Widgets\WarehouseReturnFormWidget;
 use App\Models\Inventory;
@@ -53,7 +53,7 @@ class AgentDashboard extends BaseDashboard
         return [
             FieldAgentDailySubmissionsWidget::class,
             AgentStockCardsWidget::class,
-            OrderStatsWidget::class,
+            SalesInventoryStatsWidget::class,
         ];
     }
 
@@ -73,8 +73,6 @@ class AgentDashboard extends BaseDashboard
         return [
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
-            $this->getCreditBreakdownAction(),
-            $this->getOrderBreakdownAction(),
             Action::make('newSalesRecord')
                 ->label('New Sales Record')
                 ->icon('heroicon-o-plus-circle')

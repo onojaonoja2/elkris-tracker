@@ -34,9 +34,13 @@ class LeadPortfolioWidget extends TableWidget
         return $table
             ->query(function (): Builder {
                 $leadId = auth()->id();
+                $repIds = User::where('lead_id', $leadId)->where('role', 'rep')->pluck('id')->toArray();
 
                 return Customer::query()
-                    ->whereHas('leads', fn ($q) => $q->where('users.id', $leadId));
+                    ->where(function ($query) use ($leadId, $repIds) {
+                        $query->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
+                            ->orWhereHas('reps', fn ($q) => $q->whereIn('users.id', $repIds));
+                    });
             })
             ->columns([
                 TextColumn::make('customer_name')

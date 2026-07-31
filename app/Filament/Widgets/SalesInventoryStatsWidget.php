@@ -2,12 +2,16 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\OrderStatus;
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
+use App\Models\Order;
 use App\Models\SalesRecord;
 use App\Models\StockTransfer;
+use App\Support\DashboardDateScope;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Livewire\Attributes\On;
 
 class SalesInventoryStatsWidget extends StatsOverviewWidget
 {
@@ -15,9 +19,13 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
+
     protected function getStats(): array
     {
         $userId = auth()->id();
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $totalStock = AgentStock::where('user_id', $userId)->sum('quantity');
 
@@ -34,13 +42,26 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
             ->where('status', 'pending')
             ->count();
 
-        $todaySales = SalesRecord::where('agent_id', $userId)
-            ->whereDate('created_at', today())
-            ->where('status', 'approved')
-            ->get();
+        $salesQuery = SalesRecord::where('agent_id', $userId)
+            ->whereBetween('created_at', [$from, $to])
+            ->where('status', 'approved');
 
-        $todaySalesCount = $todaySales->count();
-        $todaySalesValue = $todaySales->sum('total_value');
+        $salesCount = $salesQuery->count();
+        $salesValue = $salesQuery->sum('total_value');
+
+        $ordersQuery = Order::where('user_id', $userId)
+            ->where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to]);
+
+        $totalOrders = $ordersQuery->count();
+        $pendingOrders = (clone $ordersQuery)->where('status', OrderStatus::Pending)->count();
+        $deliveredOrders = (clone $ordersQuery)->where('status', OrderStatus::Delivered)->count();
+        $unassignedOrders = Order::where('user_id', $userId)
+            ->where('is_migrated_order', false)
+            ->whereNull('assigned_to')
+            ->where('status', OrderStatus::Pending)
+            ->whereBetween('created_at', [$from, $to])
+            ->count();
 
         return [
             Stat::make('Total Stock Units', number_format($totalStock))
@@ -53,10 +74,20 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
                 ->color('info')
                 ->descriptionIcon('heroicon-o-tag'),
 
-            Stat::make("Today's Sales", number_format($todaySalesCount))
-                ->description('₦'.number_format($todaySalesValue, 2).' value')
-                ->color($todaySalesCount > 0 ? 'success' : 'gray')
+            Stat::make('Sales', number_format($salesCount))
+                ->description('₦'.number_format($salesValue, 2).' value in selected range')
+                ->color($salesCount > 0 ? 'success' : 'gray')
                 ->descriptionIcon('heroicon-o-currency-dollar'),
+
+            Stat::make('Total Orders', number_format($totalOrders))
+                ->description('Pending: '.$pendingOrders.' | Delivered: '.$deliveredOrders)
+                ->color('primary')
+                ->descriptionIcon('heroicon-o-shopping-cart'),
+
+            Stat::make('Unassigned Orders', number_format($unassignedOrders))
+                ->description('Pending orders not yet assigned')
+                ->color($unassignedOrders > 0 ? 'warning' : 'gray')
+                ->descriptionIcon('heroicon-o-inbox-stack'),
 
             Stat::make('Pending Requests', number_format($pendingRequests))
                 ->description('Stock requests awaiting approval')

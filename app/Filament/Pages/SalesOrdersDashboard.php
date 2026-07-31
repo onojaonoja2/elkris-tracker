@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\AssignmentStatus;
+use App\Enums\OrderStatus;
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\OrderStatsWidget;
@@ -292,11 +294,12 @@ class SalesOrdersDashboard extends BaseDashboard
                 TextInput::make('new_customer_name')
                     ->label('Or create new customer name')
                     ->hidden(fn (callable $get) => filled($get('customer_id')))
-                    ->requiredWithout('customer_id'),
+                    ->required(fn (callable $get) => ! filled($get('customer_id'))),
                 TextInput::make('new_customer_phone')
                     ->label('New Customer Phone')
                     ->tel()
-                    ->hidden(fn (callable $get) => filled($get('customer_id'))),
+                    ->hidden(fn (callable $get) => filled($get('customer_id')))
+                    ->required(fn (callable $get) => ! filled($get('customer_id'))),
                 Repeater::make('items')
                     ->label('Order Items')
                     ->schema([
@@ -363,8 +366,9 @@ class SalesOrdersDashboard extends BaseDashboard
                 $order = Order::create([
                     'customer_id' => $customerId,
                     'user_id' => $user->id,
-                    'status' => 'pending',
+                    'status' => OrderStatus::Pending,
                     'total_price' => $totalPrice,
+                    'assignment_status' => AssignmentStatus::None,
                 ]);
 
                 foreach ($data['items'] as $item) {

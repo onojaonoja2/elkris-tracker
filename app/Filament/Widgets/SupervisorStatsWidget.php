@@ -10,10 +10,14 @@ use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\On;
 
 class SupervisorStatsWidget extends StatsOverviewWidget
 {
     protected static ?int $sort = 0;
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     protected function getStats(): array
     {
@@ -31,6 +35,7 @@ class SupervisorStatsWidget extends StatsOverviewWidget
         $salesRevenue = (clone $salesQuery)->sum('total_value');
         $pendingCount = SalesRecord::whereIn('agent_id', $csrIds)
             ->whereIn('status', ['pending', 'receipt_uploaded'])
+            ->whereBetween('created_at', [$from, $to])
             ->count();
         $stockUnits = AgentStock::whereIn('user_id', $csrIds)->sum('quantity');
 
@@ -38,10 +43,19 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             ->where('is_credit', true)
             ->where('status', 'approved')
             ->where('credit_status', 'pending_payment')
+            ->whereBetween('created_at', [$from, $to])
             ->sum('total_value');
 
-        $pendingOrders = Order::where('status', 'pending')->count();
-        $ordersValue = Order::where('status', 'pending')->sum('total_price');
+        $pendingOrders = Order::whereIn('user_id', $csrIds)
+            ->where('status', 'pending')
+            ->where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to])
+            ->count();
+        $ordersValue = Order::whereIn('user_id', $csrIds)
+            ->where('status', 'pending')
+            ->where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to])
+            ->sum('total_price');
 
         return [
             Stat::make('CSRs', number_format($csrCount))
@@ -63,7 +77,8 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             Stat::make('Pending Orders', number_format($pendingOrders))
                 ->description('₦'.number_format($ordersValue, 2).' total value')
                 ->icon('heroicon-o-shopping-cart')
-                ->color($pendingOrders > 0 ? 'warning' : 'gray'),
+                ->color($pendingOrders > 0 ? 'warning' : 'gray')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-order-breakdown', { category: 'pending' })"]),
 
             Stat::make('Pending Approvals', number_format($pendingCount))
                 ->description('Receipts awaiting approval')
@@ -73,7 +88,8 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             Stat::make('Credit Outstanding', '₦'.number_format($creditOutstanding))
                 ->description('Pending credit collection')
                 ->icon('heroicon-o-clock')
-                ->color('danger'),
+                ->color('danger')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-credit-breakdown', { category: 'csr' })"]),
 
             Stat::make('Stock Units', number_format($stockUnits))
                 ->description('Total CSR stock on hand')
