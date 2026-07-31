@@ -30,6 +30,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -99,6 +100,17 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentCopilotPlugin::make(),
-            ]);
+            ])
+            ->renderHook(PanelsRenderHook::STYLES_AFTER, function (): string {
+                return <<<'HTML'
+                    <style>
+                        .fi-header-actions-ctn {
+                            flex-wrap: wrap;
+                            flex-shrink: 1;
+                            min-width: 0;
+                        }
+                    </style>
+                    HTML;
+            });
     }
 }

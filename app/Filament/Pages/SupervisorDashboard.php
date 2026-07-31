@@ -68,9 +68,9 @@ class SupervisorDashboard extends BaseDashboard
     {
         return [
             SupervisorStatsWidget::class,
-            SupervisorStockWidget::class,
             CreditSalesOutstandingStatsWidget::class,
             OrderStatsWidget::class,
+            SupervisorStockWidget::class,
         ];
     }
 

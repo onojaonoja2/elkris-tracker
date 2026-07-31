@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\DamagedInventory;
 use App\Models\DamagedStockReturn;
 use App\Models\Warehouse;
 use Filament\Actions\Action;
@@ -111,6 +112,17 @@ class WarehouseDamagedReturnsWidget extends TableWidget
                             'return_received_at' => now(),
                             'status' => 'returned',
                         ]);
+
+                        DamagedInventory::firstOrCreate(
+                            ['damaged_stock_return_id' => $record->id],
+                            [
+                                'warehouse_id' => $record->warehouse_id,
+                                'product_type_id' => $record->product_type_id,
+                                'grammage' => $record->grammage,
+                                'quantity' => $record->quantity,
+                                'status' => 'in_stock',
+                            ]
+                        );
 
                         Notification::make()->title('Damaged stock return completed')->success()->send();
                     }),

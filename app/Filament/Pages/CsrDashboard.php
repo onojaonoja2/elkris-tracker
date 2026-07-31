@@ -18,6 +18,7 @@ use App\Models\AgentStock;
 use App\Models\ProductType;
 use App\Models\Setting;
 use App\Models\StockCount;
+use App\Models\StockTransaction;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -194,6 +195,17 @@ class CsrDashboard extends BaseDashboard
                             ['quantity' => 0]
                         );
                         $agentStock->increment('quantity', $item['quantity']);
+
+                        StockTransaction::create([
+                            'type' => 'received',
+                            'transaction_date' => now()->toDateString(),
+                            'product_type_id' => $item['product_type_id'],
+                            'product_name' => $productName,
+                            'grammage' => $item['grammage'],
+                            'quantity' => $item['quantity'],
+                            'disbursed_to' => 'Additional stock count #'.$stockCount->id,
+                            'user_id' => $userId,
+                        ]);
                     }
 
                     Notification::make()

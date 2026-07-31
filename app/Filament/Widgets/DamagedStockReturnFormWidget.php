@@ -7,6 +7,7 @@ use App\Models\DamagedStockReturn;
 use App\Models\Inventory;
 use App\Models\ProductType;
 use App\Models\Warehouse;
+use App\Support\WarehouseOptions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -71,13 +72,7 @@ class DamagedStockReturnFormWidget extends TableWidget
                     ->form([
                         Select::make('warehouse_id')
                             ->label('Return To Warehouse')
-                            ->options(function () {
-                                $user = auth()->user();
-                                $stateId = $user->state_id;
-
-                                return Warehouse::where('state_id', $stateId)
-                                    ->pluck('name', 'id');
-                            })
+                            ->options(fn () => WarehouseOptions::for(auth()->user()))
                             ->searchable()
                             ->required(),
                         Select::make('product_type_id')

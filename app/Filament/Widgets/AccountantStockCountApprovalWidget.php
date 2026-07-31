@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
+use App\Models\Inventory;
 use App\Models\StockCount;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -49,16 +50,29 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                             ]);
 
                             if (! $record->is_additional_count) {
-                                foreach ($record->items as $item) {
-                                    AgentStock::updateOrCreate(
-                                        [
-                                            'user_id' => $record->user_id,
-                                            'product_type_id' => $item->product_type_id,
-                                            'product_name' => $item->product_name,
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        ['quantity' => $item->quantity]
-                                    );
+                                if ($record->warehouse_id) {
+                                    foreach ($record->items as $item) {
+                                        Inventory::updateOrCreate(
+                                            [
+                                                'warehouse_id' => $record->warehouse_id,
+                                                'product_type_id' => $item->product_type_id,
+                                                'grammage' => $item->grammage,
+                                            ],
+                                            ['quantity' => $item->quantity]
+                                        );
+                                    }
+                                } else {
+                                    foreach ($record->items as $item) {
+                                        AgentStock::updateOrCreate(
+                                            [
+                                                'user_id' => $record->user_id,
+                                                'product_type_id' => $item->product_type_id,
+                                                'product_name' => $item->product_name,
+                                                'grammage' => $item->grammage,
+                                            ],
+                                            ['quantity' => $item->quantity]
+                                        );
+                                    }
                                 }
                             }
                         });

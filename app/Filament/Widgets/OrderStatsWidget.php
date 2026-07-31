@@ -25,6 +25,8 @@ class OrderStatsWidget extends BaseWidget
             'open_market',
             'retail_market',
             'supervisor',
+            'accountant',
+            'general_accountant',
             'manager',
             'general_manager',
             'admin',

@@ -77,10 +77,10 @@ class ManagerDashboard extends BaseDashboard
     {
         return [
             ManagerStatsWidget::class,
-            ManagerAnalyticsWidget::class,
             ProductionActivityWidget::class,
             CreditSalesOutstandingStatsWidget::class,
             OrderStatsWidget::class,
+            ManagerAnalyticsWidget::class,
             ManagerCustomerSubmissionsWidget::class,
         ];
     }
