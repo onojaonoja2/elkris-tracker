@@ -2,16 +2,14 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\AgentStock;
-use App\Models\Inventory;
 use App\Models\StockTransfer;
+use App\Services\StockTransferService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 
 class AccountantStockReceiveRequestsWidget extends TableWidget
@@ -93,42 +91,18 @@ class AccountantStockReceiveRequestsWidget extends TableWidget
                     ->modalHeading('Approve Stock Receive')
                     ->modalDescription('This will add the stock to the destination warehouse inventory.')
                     ->action(function (StockTransfer $record) {
-                        DB::transaction(function () use ($record) {
-                            foreach ($record->items as $item) {
-                                if ($record->to_agent_id) {
-                                    $agentStock = AgentStock::firstOrCreate(
-                                        [
-                                            'user_id' => $record->to_agent_id,
-                                            'product_name' => $item->productType->name ?? $item->product_type_id,
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        [
-                                            'product_type_id' => $item->product_type_id,
-                                            'quantity' => 0,
-                                        ]
-                                    );
-                                    $agentStock->increment('quantity', $item->quantity);
-                                } else {
-                                    $inv = Inventory::firstOrCreate(
-                                        [
-                                            'warehouse_id' => $record->to_warehouse_id,
-                                            'product_type_id' => $item->product_type_id,
-                                            'grammage' => $item->grammage,
-                                        ],
-                                        ['quantity' => 0]
-                                    );
-                                    $inv->increment('quantity', $item->quantity);
-                                }
-                            }
+                        $itemsData = $record->items->map(fn ($item) => [
+                            'item_id' => $item->id,
+                            'accepted_quantity' => $item->quantity,
+                            'rejected_quantity' => 0,
+                        ])->toArray();
 
-                            $record->update([
-                                'status' => 'received',
-                                'approved_by' => auth()->id(),
-                                'approved_at' => now(),
-                                'received_by' => auth()->id(),
-                                'received_at' => now(),
-                            ]);
-                        });
+                        StockTransferService::receive($record, $itemsData);
+
+                        $record->update([
+                            'approved_by' => auth()->id(),
+                            'approved_at' => now(),
+                        ]);
 
                         Notification::make()->title('Stock receive approved and inventory updated')->success()->send();
                     }),

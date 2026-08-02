@@ -83,26 +83,45 @@ class OrderAssignmentService
 
             if ($processor) {
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where([
-                        'user_id' => $processor->id,
-                        'product_name' => $product->product_name,
-                        'grammage' => $product->grammage,
-                    ])->first();
+                    $stock = AgentStock::where('user_id', $processor->id)
+                        ->where(function ($q) use ($product) {
+                            $q->where('product_type_id', $product->product_type_id)
+                                ->orWhere('product_name', $product->product_name);
+                        })
+                        ->where('grammage', $product->grammage)
+                        ->lockForUpdate()
+                        ->first();
 
-                    if ($stock && $stock->quantity >= $product->quantity) {
-                        $stock->decrement('quantity', $product->quantity);
-
-                        StockTransaction::create([
-                            'type' => 'disbursed',
-                            'transaction_date' => now()->toDateString(),
-                            'product_type_id' => $product->product_type_id,
-                            'product_name' => $product->product_name,
-                            'grammage' => $product->grammage,
-                            'quantity' => $product->quantity,
-                            'disbursed_to' => 'Order #'.$order->id.' delivery',
-                            'user_id' => $processor->id,
+                    if (! $stock || $stock->quantity < $product->quantity) {
+                        $available = $stock?->quantity ?? 0;
+                        throw ValidationException::withMessages([
+                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
+                }
+
+                foreach ($order->products as $product) {
+                    $stock = AgentStock::where('user_id', $processor->id)
+                        ->where(function ($q) use ($product) {
+                            $q->where('product_type_id', $product->product_type_id)
+                                ->orWhere('product_name', $product->product_name);
+                        })
+                        ->where('grammage', $product->grammage)
+                        ->lockForUpdate()
+                        ->first();
+
+                    $stock?->decrement('quantity', $product->quantity);
+
+                    StockTransaction::create([
+                        'type' => 'disbursed',
+                        'transaction_date' => now()->toDateString(),
+                        'product_type_id' => $product->product_type_id,
+                        'product_name' => $product->product_name,
+                        'grammage' => $product->grammage,
+                        'quantity' => $product->quantity,
+                        'disbursed_to' => 'Order #'.$order->id.' delivery',
+                        'user_id' => $processor->id,
+                    ]);
                 }
 
                 $processor->increment('stock_balance', $order->total_price);
@@ -128,26 +147,45 @@ class OrderAssignmentService
 
             if ($processor) {
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where([
-                        'user_id' => $processor->id,
-                        'product_name' => $product->product_name,
-                        'grammage' => $product->grammage,
-                    ])->first();
+                    $stock = AgentStock::where('user_id', $processor->id)
+                        ->where(function ($q) use ($product) {
+                            $q->where('product_type_id', $product->product_type_id)
+                                ->orWhere('product_name', $product->product_name);
+                        })
+                        ->where('grammage', $product->grammage)
+                        ->lockForUpdate()
+                        ->first();
 
-                    if ($stock && $stock->quantity >= $product->quantity) {
-                        $stock->decrement('quantity', $product->quantity);
-
-                        StockTransaction::create([
-                            'type' => 'disbursed',
-                            'transaction_date' => now()->toDateString(),
-                            'product_type_id' => $product->product_type_id,
-                            'product_name' => $product->product_name,
-                            'grammage' => $product->grammage,
-                            'quantity' => $product->quantity,
-                            'disbursed_to' => 'Order #'.$order->id.' delivery',
-                            'user_id' => $processor->id,
+                    if (! $stock || $stock->quantity < $product->quantity) {
+                        $available = $stock?->quantity ?? 0;
+                        throw ValidationException::withMessages([
+                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
+                }
+
+                foreach ($order->products as $product) {
+                    $stock = AgentStock::where('user_id', $processor->id)
+                        ->where(function ($q) use ($product) {
+                            $q->where('product_type_id', $product->product_type_id)
+                                ->orWhere('product_name', $product->product_name);
+                        })
+                        ->where('grammage', $product->grammage)
+                        ->lockForUpdate()
+                        ->first();
+
+                    $stock?->decrement('quantity', $product->quantity);
+
+                    StockTransaction::create([
+                        'type' => 'disbursed',
+                        'transaction_date' => now()->toDateString(),
+                        'product_type_id' => $product->product_type_id,
+                        'product_name' => $product->product_name,
+                        'grammage' => $product->grammage,
+                        'quantity' => $product->quantity,
+                        'disbursed_to' => 'Order #'.$order->id.' delivery',
+                        'user_id' => $processor->id,
+                    ]);
                 }
             }
 

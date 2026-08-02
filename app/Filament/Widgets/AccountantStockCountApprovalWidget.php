@@ -49,7 +49,32 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                                 'approved_at' => now(),
                             ]);
 
-                            if (! $record->is_additional_count) {
+                            if ($record->is_additional_count) {
+                                if ($record->warehouse_id) {
+                                    foreach ($record->items as $item) {
+                                        Inventory::firstOrCreate(
+                                            [
+                                                'warehouse_id' => $record->warehouse_id,
+                                                'product_type_id' => $item->product_type_id,
+                                                'grammage' => $item->grammage,
+                                            ],
+                                            ['quantity' => 0]
+                                        )->increment('quantity', $item->quantity);
+                                    }
+                                } else {
+                                    foreach ($record->items as $item) {
+                                        AgentStock::firstOrCreate(
+                                            [
+                                                'user_id' => $record->user_id,
+                                                'product_type_id' => $item->product_type_id,
+                                                'product_name' => $item->product_name ?? $item->productType?->name ?? 'Unknown',
+                                                'grammage' => $item->grammage,
+                                            ],
+                                            ['quantity' => 0]
+                                        )->increment('quantity', $item->quantity);
+                                    }
+                                }
+                            } else {
                                 if ($record->warehouse_id) {
                                     foreach ($record->items as $item) {
                                         Inventory::updateOrCreate(
@@ -67,7 +92,7 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                                             [
                                                 'user_id' => $record->user_id,
                                                 'product_type_id' => $item->product_type_id,
-                                                'product_name' => $item->product_name,
+                                                'product_name' => $item->product_name ?? $item->productType?->name ?? 'Unknown',
                                                 'grammage' => $item->grammage,
                                             ],
                                             ['quantity' => $item->quantity]

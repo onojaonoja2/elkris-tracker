@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
-use App\Models\Inventory;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -64,21 +63,14 @@ class AccountantDamagedReturnsWidget extends TableWidget
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Approve Damaged Stock Return')
-                    ->modalDescription('This will add the damaged stock to the warehouse inventory.')
+                    ->modalDescription('This approves the damaged stock return and deducts stock from the agent.')
                     ->action(function (DamagedStockReturn $record) {
                         DB::transaction(function () use ($record) {
-                            $inv = Inventory::firstOrCreate(
-                                [
-                                    'warehouse_id' => $record->warehouse_id,
-                                    'product_type_id' => $record->product_type_id,
-                                    'grammage' => $record->grammage,
-                                ],
-                                ['quantity' => 0]
-                            );
-                            $inv->increment('quantity', $record->quantity);
-
                             $agentStock = AgentStock::where('user_id', $record->user_id)
-                                ->where('product_type_id', $record->product_type_id)
+                                ->where(function ($q) use ($record) {
+                                    $q->where('product_type_id', $record->product_type_id)
+                                        ->orWhere('product_name', $record->productType?->name);
+                                })
                                 ->where('grammage', $record->grammage)
                                 ->first();
 
@@ -93,7 +85,7 @@ class AccountantDamagedReturnsWidget extends TableWidget
                             ]);
                         });
 
-                        Notification::make()->title('Damaged stock return approved and inventory updated')->success()->send();
+                        Notification::make()->title('Damaged stock return approved and agent stock deducted')->success()->send();
                     }),
 
                 Action::make('rejectDamagedReturn')

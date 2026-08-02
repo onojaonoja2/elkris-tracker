@@ -118,8 +118,8 @@ class Order extends Model implements Auditable
             $order->sanitizeFields($order->sanitizableFields);
         });
 
-        static::updated(function (Order $order) {
-            if ($order->isDirty('status') && $order->status === OrderStatus::Delivered) {
+        static::created(function (Order $order) {
+            if ($order->status === OrderStatus::Delivered && $order->customer) {
                 $customer = $order->customer;
                 $purchases = $customer->lifetime_purchases ?? [];
 
@@ -128,6 +128,34 @@ class Order extends Model implements Auditable
                     $purchases[$key] = ($purchases[$key] ?? 0) + $product->quantity;
                 }
 
+                $customer->update(['lifetime_purchases' => $purchases]);
+            }
+        });
+
+        static::updated(function (Order $order) {
+            if (! $order->isDirty('status') || ! $order->customer) {
+                return;
+            }
+
+            $customer = $order->customer;
+            $purchases = $customer->lifetime_purchases ?? [];
+            $wasDelivered = $order->getOriginal('status') === OrderStatus::Delivered || $order->getOriginal('status') === OrderStatus::Delivered->value;
+            $isDelivered = $order->status === OrderStatus::Delivered;
+
+            if ($isDelivered && ! $wasDelivered) {
+                foreach ($order->products as $product) {
+                    $key = $product->product_name.' - '.$product->grammage.'g';
+                    $purchases[$key] = ($purchases[$key] ?? 0) + $product->quantity;
+                }
+                $customer->update(['lifetime_purchases' => $purchases]);
+            } elseif (! $isDelivered && $wasDelivered) {
+                foreach ($order->products as $product) {
+                    $key = $product->product_name.' - '.$product->grammage.'g';
+                    $purchases[$key] = max(0, ($purchases[$key] ?? 0) - $product->quantity);
+                    if ($purchases[$key] === 0) {
+                        unset($purchases[$key]);
+                    }
+                }
                 $customer->update(['lifetime_purchases' => $purchases]);
             }
         });

@@ -56,18 +56,6 @@ class StockTransferService
                             ['quantity' => 0]
                         )->increment('quantity', $accepted);
                     }
-
-                    if ($record->requested_by && $record->requested_by !== $record->to_agent_id) {
-                        AgentStock::firstOrCreate(
-                            [
-                                'user_id' => $record->requested_by,
-                                'product_type_id' => $item->product_type_id,
-                                'product_name' => $item->productType?->name ?? 'Unknown',
-                                'grammage' => $item->grammage,
-                            ],
-                            ['quantity' => 0]
-                        )->increment('quantity', $accepted);
-                    }
                 }
             }
 
@@ -85,28 +73,27 @@ class StockTransferService
                 foreach ($record->items as $item) {
                     $key = "{$record->from_warehouse_id}-{$item->product_type_id}-{$item->grammage}";
                     if (isset($inventories[$key])) {
-                        $inventories[$key]->decrement('quantity', $item->quantity - $item->rejected_quantity);
+                        $deductQty = max(0, $item->quantity - $item->rejected_quantity);
+                        $inventories[$key]->decrement('quantity', $deductQty);
                     }
                 }
             }
 
             if ($record->from_agent_id) {
-                $agentKeys = $record->items->map(fn ($item) => [
-                    'user_id' => $record->from_agent_id,
-                    'product_name' => $item->productType?->name ?? 'Unknown',
-                    'grammage' => $item->grammage,
-                ])->toArray();
-
                 $agentStocks = AgentStock::where('user_id', $record->from_agent_id)
                     ->whereIn('grammage', $record->items->pluck('grammage'))
-                    ->whereIn('product_name', $record->items->map(fn ($i) => $i->productType?->name ?? 'Unknown'))
-                    ->get()->keyBy(fn ($s) => "{$s->user_id}-{$s->product_name}-{$s->grammage}");
+                    ->get()->keyBy(fn ($s) => "{$s->user_id}-{$s->product_type_id}-{$s->grammage}");
 
                 foreach ($record->items as $item) {
-                    $productName = $item->productType?->name ?? 'Unknown';
-                    $key = "{$record->from_agent_id}-{$productName}-{$item->grammage}";
-                    if (isset($agentStocks[$key])) {
-                        $agentStocks[$key]->decrement('quantity', $item->quantity - $item->rejected_quantity);
+                    $key = "{$record->from_agent_id}-{$item->product_type_id}-{$item->grammage}";
+                    $stock = $agentStocks[$key] ?? AgentStock::where('user_id', $record->from_agent_id)
+                        ->where('product_name', $item->productType?->name ?? 'Unknown')
+                        ->where('grammage', $item->grammage)
+                        ->first();
+
+                    if ($stock) {
+                        $deductQty = max(0, $item->quantity - $item->rejected_quantity);
+                        $stock->decrement('quantity', $deductQty);
                     }
                 }
             }
