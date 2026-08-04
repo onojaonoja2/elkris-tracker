@@ -7,6 +7,7 @@ use App\Services\SalesRecordService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -59,6 +60,7 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->formatStateUsing(fn (?string $state): string => str_replace('_', ' ', ucfirst($state ?? '')))
                     ->color(fn (?string $state): string => match ($state) {
                         'pending_payment' => 'warning',
+                        'partially_collected' => 'info',
                         'collected' => 'success',
                         'overdue' => 'danger',
                         default => 'gray',
@@ -84,7 +86,7 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->label('Upload Payment Proof')
                     ->icon('heroicon-o-document-arrow-up')
                     ->color('warning')
-                    ->visible(fn (SalesRecord $record): bool => $record->credit_status === 'pending_payment' && ! $record->hasPaymentProof())
+                    ->visible(fn (SalesRecord $record): bool => $record->isOutstanding() && ! $record->hasPaymentProof())
                     ->form([
                         FileUpload::make('payment_proof_path')
                             ->label('Payment Proof')
@@ -125,7 +127,7 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->label('Mark as Collected')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-                    ->visible(fn (SalesRecord $record): bool => $record->credit_status === 'pending_payment' && $record->hasPaymentProof())
+                    ->visible(fn (SalesRecord $record): bool => $record->isOutstanding() && $record->hasPaymentProof())
                     ->form([
                         Textarea::make('credit_notes')
                             ->label('Collection Notes'),
@@ -148,6 +150,37 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->requiresConfirmation()
                     ->modalHeading('Mark Credit as Collected')
                     ->modalDescription('Confirm payment has been received. The agent\'s stock balance will be credited.'),
+
+                Action::make('recordCollection')
+                    ->label('Record Payment')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('primary')
+                    ->visible(fn (SalesRecord $record): bool => $record->isOutstanding() && $record->hasPaymentProof())
+                    ->form([
+                        TextInput::make('collected_amount')
+                            ->label('Amount Collected (₦)')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(fn (SalesRecord $record): float => $record->outstandingAmount())
+                            ->required(),
+                        Textarea::make('credit_notes')
+                            ->label('Collection Notes'),
+                    ])
+                    ->action(function (SalesRecord $record, array $data) {
+                        try {
+                            SalesRecordService::recordCollection($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Collection failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Payment recorded')->success()->send();
+                    }),
             ]);
     }
 }

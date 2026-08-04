@@ -7,8 +7,10 @@ use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AgentCreditSalesWidget;
 use App\Filament\Widgets\AgentStockBalanceWidget;
 use App\Filament\Widgets\AgentStockCardsWidget;
+use App\Filament\Widgets\CsrPendingDispatchesWidget;
 use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Filament\Widgets\FieldAgentDailySubmissionsWidget;
+use App\Filament\Widgets\OverdueCreditSalesWidget;
 use App\Filament\Widgets\SalesInventoryStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use App\Filament\Widgets\WarehouseReturnFormWidget;
@@ -61,7 +63,9 @@ class AgentDashboard extends BaseDashboard
     {
         return [
             UpcomingFollowUps::class,
+            CsrPendingDispatchesWidget::class,
             AgentCreditSalesWidget::class,
+            OverdueCreditSalesWidget::class,
             AgentStockBalanceWidget::class,
             DamagedStockReturnFormWidget::class,
             WarehouseReturnFormWidget::class,

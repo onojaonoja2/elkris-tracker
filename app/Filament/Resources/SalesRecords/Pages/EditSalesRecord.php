@@ -20,6 +20,15 @@ class EditSalesRecord extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (($data['is_credit'] ?? false) && blank($this->record->credit_status)) {
+            $data['credit_status'] = 'pending_payment';
+        }
+
+        if (empty($data['is_credit'])) {
+            $data['credit_status'] = null;
+            $data['expected_collection_date'] = null;
+        }
+
         if (! in_array($this->record->status, ['approved', 'rejected'], true)) {
             $data['status'] = 'pending';
         }

@@ -46,6 +46,8 @@ class CsrOverviewWidget extends TableWidget
             ->get()
             ->keyBy('agent_id');
 
+        $revenueByAgent = SalesRecord::revenueByAgent($pairedCsrIds->all(), $from, $to);
+
         $isAttached = fn (int $csrId): bool => $pairedCsrIds->contains($csrId);
 
         $pairedCsrIdsList = $pairedCsrIds->toArray();
@@ -91,7 +93,7 @@ class CsrOverviewWidget extends TableWidget
                 TextColumn::make('sales_value')
                     ->label('Sales Value')
                     ->getStateUsing(fn (User $record) => $isAttached($record->id)
-                        ? '₦'.number_format($salesCounts->get($record->id)?->total_value ?? 0, 2)
+                        ? '₦'.number_format($revenueByAgent->get($record->id)?->revenue ?? 0, 2)
                         : '-')
                     ->sortable(),
 

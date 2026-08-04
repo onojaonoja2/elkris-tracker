@@ -52,9 +52,4 @@ class ReviewProductionRunAction extends Action
 
         return $user->hasAnyRole(['admin', 'general_accountant', 'accountant']);
     }
-
-    public static function make(?string $name = null): static
-    {
-        return app(static::class, ['name' => $name ?? 'reviewProductionRun']);
-    }
 }

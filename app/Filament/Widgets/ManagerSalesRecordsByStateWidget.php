@@ -33,7 +33,6 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
             DB::raw("SUM(CASE WHEN status IN ('pending', 'receipt_uploaded') THEN 1 ELSE 0 END) as pending"),
             DB::raw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved"),
             DB::raw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected"),
-            DB::raw('COALESCE(SUM(total_value), 0) as total_value'),
         )
             ->leftJoin('users', 'sales_records.agent_id', '=', 'users.id')
             ->leftJoin('lgas', 'users.lga_id', '=', 'lgas.id')
@@ -42,6 +41,8 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
             ->orderBy('state_name')
             ->get()
             ->keyBy('state_name');
+
+        $revenueByState = SalesRecord::revenueByState();
 
         return $table
             ->query(fn (): Builder => State::query()->orderBy('name'))
@@ -72,7 +73,7 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
                     ->color('danger'),
                 TextColumn::make('total_value')
                     ->label('Total Value (₦)')
-                    ->getStateUsing(fn ($record): float => $aggregates->get($record->name)?->total_value ?? 0)
+                    ->getStateUsing(fn ($record): float => $revenueByState->get($record->name)?->revenue ?? 0)
                     ->money('NGN')
                     ->sortable(),
             ])

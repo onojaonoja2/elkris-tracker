@@ -36,10 +36,8 @@ class CsrStatsWidget extends StatsOverviewWidget
             ->count();
         $pairedAgent = $user->portfolioAgent?->name ?? 'Not paired';
 
-        $creditPending = SalesRecord::where('agent_id', $user->id)
-            ->where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
+        $creditPending = SalesRecord::outstanding()
+            ->where('agent_id', $user->id)
             ->whereBetween('created_at', [$from, $to])
             ->sum('total_value');
 

@@ -47,7 +47,7 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
             ->where('status', 'approved');
 
         $salesCount = $salesQuery->count();
-        $salesValue = $salesQuery->sum('total_value');
+        $salesValue = SalesRecord::revenue([$userId], $from, $to);
 
         $ordersQuery = Order::where('user_id', $userId)
             ->where('is_migrated_order', false)

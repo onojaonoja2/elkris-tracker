@@ -31,10 +31,7 @@ class GeneralAccountantStatsWidget extends BaseWidget
         $revenue = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
 
         $pendingSalesRecords = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
-        $creditSalesOutstanding = SalesRecord::where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
-            ->sum('total_value');
+        $creditSalesOutstanding = SalesRecord::outstanding()->sum('total_value');
 
         $warehouseStock = Inventory::sum('quantity');
         $agentStock = AgentStock::sum('quantity');

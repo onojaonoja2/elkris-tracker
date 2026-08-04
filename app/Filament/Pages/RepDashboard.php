@@ -17,6 +17,8 @@ use App\Models\Order;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Illuminate\Contracts\View\View;
+use Livewire\Attributes\On;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RepDashboard extends BaseDashboard
@@ -27,6 +29,26 @@ class RepDashboard extends BaseDashboard
     protected static string $routePath = '/rep-dashboard';
 
     protected static ?string $slug = 'rep-dashboard';
+
+    #[On('open-team-sales-breakdown')]
+    public function openTeamSalesBreakdown(): void
+    {
+        $this->mountAction('teamSalesBreakdown');
+    }
+
+    protected function getTeamSalesBreakdownAction(): Action
+    {
+        return Action::make('teamSalesBreakdown')
+            ->label('Team Sales Breakdown')
+            ->icon('heroicon-o-currency-dollar')
+            ->modalHeading('Team Sales Breakdown')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.team-sales-breakdown-modal');
+            })
+            ->visible(fn (): bool => auth()->user()->hasRole('rep'));
+    }
 
     protected static ?string $navigationLabel = 'Dashboard';
 
@@ -68,6 +90,7 @@ class RepDashboard extends BaseDashboard
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
             $this->getOrderBreakdownAction(),
+            $this->getTeamSalesBreakdownAction(),
             Action::make('exportReport')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')

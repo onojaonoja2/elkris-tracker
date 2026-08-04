@@ -13,6 +13,7 @@ use App\Filament\Widgets\CsrStatsWidget;
 use App\Filament\Widgets\CsrStocksWidget;
 use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Filament\Widgets\OrderStatsWidget;
+use App\Filament\Widgets\OverdueCreditSalesWidget;
 use App\Filament\Widgets\WarehouseReturnFormWidget;
 use App\Models\AgentStock;
 use App\Models\ProductType;
@@ -71,6 +72,7 @@ class CsrDashboard extends BaseDashboard
             CsrAssignedOrdersWidget::class,
             CsrPendingDispatchesWidget::class,
             CsrSalesRecordsWidget::class,
+            OverdueCreditSalesWidget::class,
             DamagedStockReturnFormWidget::class,
             WarehouseReturnFormWidget::class,
         ];

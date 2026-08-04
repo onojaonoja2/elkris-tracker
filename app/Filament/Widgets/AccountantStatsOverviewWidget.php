@@ -28,10 +28,6 @@ class AccountantStatsOverviewWidget extends BaseWidget
             ->whereBetween('created_at', [$from, $to])
             ->count();
 
-        $totalSalesRecordsValue = SalesRecord::where('status', 'approved')
-            ->whereBetween('created_at', [$from, $to])
-            ->sum('total_value');
-
         $repSalesValue = Order::where('status', OrderStatus::Delivered)
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to])
@@ -42,11 +38,9 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
         $totalAgentStock = AgentStock::sum('quantity');
 
-        $totalChannelValue = $totalSalesRecordsValue;
+        $totalChannelValue = SalesRecord::revenue(null, $from, $to);
 
-        $creditSalesOutstanding = SalesRecord::where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
+        $creditSalesOutstanding = SalesRecord::outstanding()
             ->whereBetween('created_at', [$from, $to])
             ->sum('total_value');
 

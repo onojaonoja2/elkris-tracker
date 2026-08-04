@@ -31,4 +31,22 @@ class NotificationService
             }
         }
     }
+
+    /**
+     * Notify all users holding any of the given roles.
+     *
+     * @param  array<int, string>  $roles
+     */
+    public static function notifyRoles(array $roles, string $type, string $title, string $message, ?int $resourceId = null, ?string $resourceType = null): void
+    {
+        $users = User::whereIn('role', $roles)->get();
+
+        foreach ($users as $user) {
+            try {
+                $user->notify(new NewSubmissionNotification($type, $title, $message, $resourceId, $resourceType));
+            } catch (\Throwable $e) {
+                Log::error("Failed to send notification to user {$user->id}: {$e->getMessage()}");
+            }
+        }
+    }
 }

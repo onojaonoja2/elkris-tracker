@@ -49,6 +49,11 @@ class SalesRecordsTable
                     ->label('Customer')
                     ->placeholder('-')
                     ->searchable(),
+                TextColumn::make('customer.customer_name')
+                    ->label('Linked Customer')
+                    ->placeholder('-')
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('vendor_name')
                     ->label('Market / Vendor')
                     ->placeholder('-'),
@@ -74,6 +79,7 @@ class SalesRecordsTable
                     ->formatStateUsing(fn (?string $state): string => str_replace('_', ' ', ucfirst($state ?? '')))
                     ->color(fn (?string $state): string => match ($state) {
                         'pending_payment' => 'warning',
+                        'partially_collected' => 'info',
                         'collected' => 'success',
                         'overdue' => 'danger',
                         default => 'gray',
@@ -85,6 +91,12 @@ class SalesRecordsTable
                     ->state(fn (SalesRecord $record): bool => $record->hasPaymentProof())
                     ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
                     ->color(fn (bool $state): string => $state ? 'success' : 'danger')
+                    ->visible(fn (): bool => auth()->user()->hasAnyRole(['accountant', 'general_accountant', 'supervisor', 'admin'])),
+                TextColumn::make('proof_review_status')
+                    ->label('Proof Review')
+                    ->badge()
+                    ->state(fn (SalesRecord $record): string => $record->hasPendingProofReview() ? 'Pending' : 'Not Requested')
+                    ->color(fn (SalesRecord $record): string => $record->hasPendingProofReview() ? 'danger' : 'gray')
                     ->visible(fn (): bool => auth()->user()->hasAnyRole(['accountant', 'general_accountant', 'supervisor', 'admin'])),
                 TextColumn::make('status')
                     ->badge()
@@ -158,6 +170,7 @@ class SalesRecordsTable
                             ->label('Status')
                             ->options([
                                 'pending_payment' => 'Pending Payment',
+                                'partially_collected' => 'Partially Collected',
                                 'collected' => 'Collected',
                                 'overdue' => 'Overdue',
                             ])
@@ -166,7 +179,14 @@ class SalesRecordsTable
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
-                                ($data['credit_status_filter'] ?? null) !== null && ($data['credit_status_filter'] ?? null) !== '',
+                                ($data['credit_status_filter'] ?? null) === 'overdue',
+                                fn (Builder $query) => $query->whereIn('credit_status', ['pending_payment', 'partially_collected'])
+                                    ->where('expected_collection_date', '<', now()->toDateString()),
+                            )
+                            ->when(
+                                ($data['credit_status_filter'] ?? null) !== null
+                                    && ($data['credit_status_filter'] ?? null) !== ''
+                                    && ($data['credit_status_filter'] ?? null) !== 'overdue',
                                 fn (Builder $query) => $query->where('credit_status', $data['credit_status_filter']),
                             );
                     }),
@@ -241,7 +261,7 @@ class SalesRecordsTable
                     ->color('warning')
                     ->visible(fn (SalesRecord $record): bool => $record->is_credit
                         && $record->status === 'approved'
-                        && $record->credit_status === 'pending_payment'
+                        && $record->isOutstanding()
                         && self::canAttachPaymentProof($record))
                     ->form([
                         FileUpload::make('payment_proof_path')
@@ -283,6 +303,36 @@ class SalesRecordsTable
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
 
+                // AGENT: Request payment proof review from accountants
+                Action::make('requestProofReview')
+                    ->label('Request Proof Review')
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->color('danger')
+                    ->visible(fn (SalesRecord $record): bool => $record->is_credit
+                        && $record->status === 'approved'
+                        && $record->isOutstanding()
+                        && ! $record->hasPaymentProof()
+                        && ! $record->hasPendingProofReview()
+                        && $record->agent_id === auth()->id())
+                    ->action(function (SalesRecord $record) {
+                        try {
+                            SalesRecordService::requestProofReview($record, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Request failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Proof review requested')->success()->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Request Payment Proof Review')
+                    ->modalDescription('Notify accountants that you need a payment proof review for this outstanding credit sale.'),
+
                 // ACCOUNTANT: Mark Credit Sale as Collected
                 Action::make('markCollected')
                     ->label('Mark as Collected')
@@ -290,7 +340,7 @@ class SalesRecordsTable
                     ->color('success')
                     ->visible(fn (SalesRecord $record) => $record->is_credit
                         && $record->status === 'approved'
-                        && $record->credit_status === 'pending_payment'
+                        && $record->isOutstanding()
                         && $record->hasPaymentProof()
                         && auth()->user()->hasRole('accountant'))
                     ->form([

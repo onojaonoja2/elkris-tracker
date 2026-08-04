@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\SalesRecords\Schemas;
 
+use App\Models\Customer;
 use App\Models\ProductType;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -42,6 +43,22 @@ class SalesRecordForm
                 Section::make('Credit Sale Details')
                     ->description('Customer information for credit sales.')
                     ->schema([
+                        Select::make('customer_id')
+                            ->label('Customer')
+                            ->relationship('customer', 'customer_name')
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                if (! $state) {
+                                    return;
+                                }
+
+                                $customer = Customer::find($state);
+                                $set('customer_name', $customer?->customer_name);
+                                $set('customer_phone', $customer?->phone_number);
+                            }),
+
                         TextInput::make('customer_name')
                             ->label('Customer Name')
                             ->required()

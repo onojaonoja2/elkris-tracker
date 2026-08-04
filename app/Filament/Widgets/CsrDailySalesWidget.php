@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\Order;
 use App\Models\SalesRecord;
+use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -17,23 +18,21 @@ class CsrDailySalesWidget extends BaseWidget
     protected function getStats(): array
     {
         $user = auth()->user();
-        $today = now()->toDateString();
+        $today = Carbon::today();
+        $thisWeekStart = Carbon::now()->startOfWeek();
+        $thisWeekEnd = Carbon::now()->endOfWeek();
 
         $orderValueToday = Order::where('user_id', $user->id)
             ->whereDate('created_at', $today)
             ->sum('total_price');
 
-        $salesValueToday = SalesRecord::where('agent_id', $user->id)
-            ->whereDate('created_at', $today)
-            ->sum('total_value');
+        $salesValueToday = SalesRecord::revenue([$user->id], $today, Carbon::now());
 
         $orderValueWeek = Order::where('user_id', $user->id)
-            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
+            ->whereBetween('created_at', [$thisWeekStart, $thisWeekEnd])
             ->sum('total_price');
 
-        $salesValueWeek = SalesRecord::where('agent_id', $user->id)
-            ->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])
-            ->sum('total_value');
+        $salesValueWeek = SalesRecord::revenue([$user->id], $thisWeekStart, $thisWeekEnd);
 
         return [
             Stat::make('Today\'s Order Value', '₦'.number_format($orderValueToday, 2))

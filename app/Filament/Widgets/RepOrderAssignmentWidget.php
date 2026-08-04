@@ -34,7 +34,8 @@ class RepOrderAssignmentWidget extends TableWidget
 
         return $table
             ->query(
-                fn () => Order::whereNull('assigned_to')
+                fn () => Order::where('user_id', $repId)
+                    ->whereNull('assigned_to')
                     ->where('status', 'pending')
                     ->with(['customer', 'user', 'products'])
                     ->orderBy('created_at', 'desc')

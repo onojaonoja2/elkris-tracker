@@ -61,7 +61,7 @@ class GeneralManagerStatsWidget extends BaseWidget
         $totalUsers = User::count();
         $pendingTrialOrders = TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)->count();
         $pendingSalesRecords = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
-        $creditOutstanding = SalesRecord::where('is_credit', true)->where('status', 'approved')->where('credit_status', 'pending_payment')->sum('total_value');
+        $creditOutstanding = SalesRecord::outstanding()->sum('total_value');
 
         return [
             Stat::make('Total Customers', $totalCustomers)

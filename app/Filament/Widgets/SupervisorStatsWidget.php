@@ -7,6 +7,7 @@ use App\Models\AgentStock;
 use App\Models\Order;
 use App\Models\SalesRecord;
 use App\Models\User;
+use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Session;
@@ -32,17 +33,15 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             ->whereBetween('created_at', [$from, $to]);
 
         $salesCount = (clone $salesQuery)->count();
-        $salesRevenue = (clone $salesQuery)->sum('total_value');
+        $salesRevenue = SalesRecord::revenue($csrIds->all(), Carbon::parse($from), Carbon::parse($to));
         $pendingCount = SalesRecord::whereIn('agent_id', $csrIds)
             ->whereIn('status', ['pending', 'receipt_uploaded'])
             ->whereBetween('created_at', [$from, $to])
             ->count();
         $stockUnits = AgentStock::whereIn('user_id', $csrIds)->sum('quantity');
 
-        $creditOutstanding = SalesRecord::whereIn('agent_id', $csrIds)
-            ->where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
+        $creditOutstanding = SalesRecord::outstanding()
+            ->whereIn('agent_id', $csrIds)
             ->whereBetween('created_at', [$from, $to])
             ->sum('total_value');
 

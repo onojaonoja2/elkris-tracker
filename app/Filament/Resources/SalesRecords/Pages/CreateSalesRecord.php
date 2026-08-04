@@ -5,7 +5,10 @@ namespace App\Filament\Resources\SalesRecords\Pages;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Models\SalesRecord;
 use App\Services\SalesRecordService;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
+use Illuminate\Support\Arr;
+use Illuminate\Validation\ValidationException;
 
 class CreateSalesRecord extends CreateRecord
 {
@@ -21,11 +24,29 @@ class CreateSalesRecord extends CreateRecord
 
     protected function handleRecordCreation(array $data): SalesRecord
     {
-        return SalesRecordService::submitSale($data);
+        try {
+            return SalesRecordService::submitSale($data);
+        } catch (ValidationException $e) {
+            Notification::make()
+                ->danger()
+                ->title('Sales record could not be created')
+                ->body(implode(' ', Arr::flatten($e->errors())))
+                ->send();
+
+            throw $e;
+        }
     }
 
     protected function afterCreate(): void
     {
         $this->dispatch('refresh-dashboard');
+    }
+
+    protected function getCreatedNotification(): ?Notification
+    {
+        return Notification::make()
+            ->success()
+            ->title('Sales record submitted successfully')
+            ->body('Stock deducted and record is pending verification.');
     }
 }

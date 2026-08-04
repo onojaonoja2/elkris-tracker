@@ -34,12 +34,12 @@ class ManagerCreditSalesWidget extends TableWidget
         $aggregates = SalesRecord::select(
             DB::raw('lga_state.name as state_name'),
             DB::raw('COALESCE(SUM(total_value), 0) as total_credit_value'),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN 1 ELSE 0 END) as pending_count"),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN total_value ELSE 0 END) as pending_value"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') THEN 1 ELSE 0 END) as pending_count"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') THEN total_value ELSE 0 END) as pending_value"),
             DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN 1 ELSE 0 END) as collected_count"),
             DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN total_value ELSE 0 END) as collected_value"),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
         )
             ->leftJoin('users', 'sales_records.agent_id', '=', 'users.id')
             ->leftJoin('lgas', 'users.lga_id', '=', 'lgas.id')

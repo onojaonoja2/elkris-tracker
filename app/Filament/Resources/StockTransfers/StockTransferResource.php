@@ -139,7 +139,10 @@ class StockTransferResource extends Resource
         }
 
         if (auth()->user()->hasAnyRole(['community_sales_representative', 'open_market', 'retail_market'])) {
-            $query->where('requested_by', $user->id);
+            $query->where(function (Builder $q) use ($user) {
+                $q->where('requested_by', $user->id)
+                    ->orWhere('to_agent_id', $user->id);
+            });
         }
 
         if ($user->hasRole('sales')) {

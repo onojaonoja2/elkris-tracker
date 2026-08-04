@@ -26,6 +26,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Validation\ValidationException;
@@ -399,6 +400,10 @@ class SalesOrdersDashboard extends BaseDashboard
             ->icon('heroicon-o-clipboard-document-check')
             ->color('info')
             ->form([
+                Toggle::make('is_additional_count')
+                    ->label('This is an additional count (adds to existing stock)')
+                    ->default(false)
+                    ->live(),
                 Repeater::make('items')
                     ->label('Physical Stock Count')
                     ->schema([
@@ -443,8 +448,11 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->label('Notes'),
             ])
             ->action(function (array $data) {
+                $isAdditional = $data['is_additional_count'] ?? false;
+
                 $stockCount = StockCount::create([
                     'user_id' => auth()->id(),
+                    'is_additional_count' => $isAdditional,
                     'status' => 'pending',
                     'notes' => $data['notes'] ?? null,
                 ]);
@@ -453,7 +461,7 @@ class SalesOrdersDashboard extends BaseDashboard
                     $pt = ProductType::find($item['product_type_id']);
                     $stockCount->items()->create([
                         'product_type_id' => $item['product_type_id'],
-                        'product_name' => $pt->name,
+                        'product_name' => $pt?->name ?? 'Unknown Product',
                         'grammage' => $item['grammage'],
                         'quantity' => $item['quantity'],
                     ]);

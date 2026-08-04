@@ -34,12 +34,12 @@ class SupervisorCreditSalesWidget extends TableWidget
         $aggregates = SalesRecord::select(
             'agent_id',
             DB::raw('COALESCE(SUM(total_value), 0) as total_credit_value'),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN 1 ELSE 0 END) as pending_count"),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN total_value ELSE 0 END) as pending_value"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') THEN 1 ELSE 0 END) as pending_count"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') THEN total_value ELSE 0 END) as pending_value"),
             DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN 1 ELSE 0 END) as collected_count"),
             DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN total_value ELSE 0 END) as collected_value"),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
-            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
+            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
         )
             ->whereIn('agent_id', $csrIds)
             ->where('is_credit', true)
@@ -100,12 +100,12 @@ class SupervisorCreditSalesWidget extends TableWidget
                         $aggregates = SalesRecord::select(
                             'agent_id',
                             DB::raw('COALESCE(SUM(total_value), 0) as total_credit_value'),
-                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN 1 ELSE 0 END) as pending_count"),
-                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' THEN total_value ELSE 0 END) as pending_value"),
+                            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') THEN 1 ELSE 0 END) as pending_count"),
+                            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') THEN total_value ELSE 0 END) as pending_value"),
                             DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN 1 ELSE 0 END) as collected_count"),
                             DB::raw("SUM(CASE WHEN credit_status = 'collected' THEN total_value ELSE 0 END) as collected_value"),
-                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
-                            DB::raw("SUM(CASE WHEN credit_status = 'pending_payment' AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
+                            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') AND expected_collection_date < CURDATE() THEN 1 ELSE 0 END) as overdue_count"),
+                            DB::raw("SUM(CASE WHEN credit_status IN ('pending_payment', 'partially_collected') AND expected_collection_date < CURDATE() THEN total_value ELSE 0 END) as overdue_value"),
                         )
                             ->whereIn('agent_id', $csrIds)
                             ->where('is_credit', true)

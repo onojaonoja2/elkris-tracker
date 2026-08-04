@@ -35,9 +35,7 @@ class CreditSalesOutstandingStatsWidget extends BaseWidget
         $role = $user->getPrimaryRole();
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $baseQuery = SalesRecord::where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
+        $baseQuery = SalesRecord::outstanding()
             ->whereBetween('created_at', [$from, $to]);
 
         if (in_array($role, ['community_sales_representative', 'open_market', 'retail_market'], true)) {

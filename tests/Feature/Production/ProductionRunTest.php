@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Production;
 
+use App\Filament\Resources\ProductionRuns\Pages\ManageProductionRuns;
 use App\Models\ProductionRun;
 use App\Models\RawMaterial;
 use App\Models\User;
 use App\Services\ProductionRunService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use OwenIt\Auditing\Contracts\Auditable;
 use Tests\TestCase;
 
@@ -196,5 +198,49 @@ class ProductionRunTest extends TestCase
         $run = new ProductionRun;
 
         $this->assertInstanceOf(Auditable::class, $run);
+    }
+
+    public function test_review_action_is_configured_with_schema(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $run = ProductionRun::factory()->create(['status' => 'pending_review']);
+
+        $this->actingAs($accountant);
+
+        Livewire::test(ManageProductionRuns::class)
+            ->callTableAction('reviewProductionRun', $run->id)
+            ->assertFormFieldExists('status')
+            ->assertFormFieldExists('accountant_notes');
+    }
+
+    public function test_accountant_can_review_via_table_action(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $run = ProductionRun::factory()->create(['status' => 'pending_review']);
+
+        $this->actingAs($accountant);
+
+        Livewire::test(ManageProductionRuns::class)
+            ->callTableAction('reviewProductionRun', $run->id, [
+                'status' => 'reviewed',
+                'accountant_notes' => 'Approved by accountant',
+            ]);
+
+        $run->refresh();
+        $this->assertEquals('reviewed', $run->status);
+        $this->assertEquals($accountant->id, $run->accountant_reviewed_by);
+        $this->assertNotNull($run->accountant_reviewed_at);
+        $this->assertEquals('Approved by accountant', $run->accountant_notes);
+    }
+
+    public function test_non_reviewer_role_does_not_see_review_action(): void
+    {
+        $user = User::factory()->productionManagement()->create();
+        $run = ProductionRun::factory()->create(['status' => 'pending_review']);
+
+        $this->actingAs($user);
+
+        Livewire::test(ManageProductionRuns::class)
+            ->assertTableActionHidden('reviewProductionRun', $run->id);
     }
 }

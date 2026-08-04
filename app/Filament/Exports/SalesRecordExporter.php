@@ -16,6 +16,7 @@ class SalesRecordExporter extends Exporter
     {
         return [
             ExportColumn::make('agent.name')->label('Agent'),
+            ExportColumn::make('customer.customer_name')->label('Customer'),
             ExportColumn::make('agent_type')->label('Type'),
             ExportColumn::make('total_value')->label('Total Value (₦)'),
             ExportColumn::make('vendor_name')->label('Vendor'),

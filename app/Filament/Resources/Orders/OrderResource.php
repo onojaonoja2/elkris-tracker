@@ -6,7 +6,9 @@ use App\Enums\OrderStatus;
 use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
 use App\Filament\Traits\HasViewModal;
+use App\Models\Customer;
 use App\Models\Order;
+use App\Models\ProductType;
 use App\Services\OrderAssignmentService;
 use BackedEnum;
 use Carbon\Carbon;
@@ -14,10 +16,15 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -53,6 +60,11 @@ class OrderResource extends Resource
     {
         return $schema
             ->components([
+                Select::make('customer_id')
+                    ->label('Customer')
+                    ->options(fn () => Customer::pluck('customer_name', 'id'))
+                    ->searchable()
+                    ->required(),
                 Select::make('status')
                     ->options(OrderStatus::class)
                     ->required(),
@@ -60,7 +72,129 @@ class OrderResource extends Resource
                     ->label('Expected Delivery Date')
                     ->native(false)
                     ->displayFormat('d/m/Y'),
+                Section::make('Order Items')
+                    ->schema([
+                        Repeater::make('products')
+                            ->relationship()
+                            ->schema([
+                                Select::make('product_name')
+                                    ->label('Product')
+                                    ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'name'))
+                                    ->searchable()
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, Get $get): void {
+                                        $set('grammage', null);
+                                        $pt = ProductType::where('name', $get('product_name'))->first();
+                                        $set('product_type_id', $pt?->id);
+                                    }),
+                                TextInput::make('product_type_id')
+                                    ->hidden()
+                                    ->dehydrated(),
+                                Select::make('grammage')
+                                    ->label('Weight (g)')
+                                    ->options(function (Get $get): array {
+                                        $pt = ProductType::where('name', $get('product_name'))->first();
+                                        if (! $pt) {
+                                            return [];
+                                        }
+
+                                        return collect($pt->available_grammages)
+                                            ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                            ->toArray();
+                                    })
+                                    ->required(),
+                                TextInput::make('quantity')
+                                    ->numeric()
+                                    ->required()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                                TextInput::make('price')
+                                    ->label('Unit Price (₦)')
+                                    ->numeric()
+                                    ->prefix('₦')
+                                    ->required()
+                                    ->default(0)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                                Select::make('promotion_type')
+                                    ->label('Promotion')
+                                    ->options([
+                                        'buy_2_get_1_free' => 'Buy 2 Get 1 Free',
+                                        'buy_3_get_1_free' => 'Buy 3 Get 1 Free',
+                                    ])
+                                    ->nullable()
+                                    ->live()
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                                TextInput::make('free_quantity')
+                                    ->label('Free Qty')
+                                    ->numeric()
+                                    ->readOnly()
+                                    ->default(0),
+                                TextInput::make('line_total')
+                                    ->label('Line Total (₦)')
+                                    ->numeric()
+                                    ->prefix('₦')
+                                    ->readOnly()
+                                    ->dehydrated(false)
+                                    ->default(0),
+                            ])
+                            ->columns(7)
+                            ->reorderable(false),
+                    ])
+                    ->columns(1),
+                TextInput::make('total_price')
+                    ->label('Total Price (₦)')
+                    ->numeric()
+                    ->prefix('₦')
+                    ->readOnly()
+                    ->dehydrated()
+                    ->default(0),
             ]);
+    }
+
+    private static function recalculateLineTotal(Set $set, Get $get): void
+    {
+        $quantity = (float) ($get('quantity') ?? 1);
+        $price = (float) ($get('price') ?? 0);
+        $promotionType = $get('promotion_type');
+
+        $freeQty = 0;
+        if ($promotionType === 'buy_2_get_1_free' && $quantity >= 2) {
+            $freeQty = floor($quantity / 2);
+        } elseif ($promotionType === 'buy_3_get_1_free' && $quantity >= 3) {
+            $freeQty = floor($quantity / 3);
+        }
+        $set('free_quantity', $freeQty);
+
+        $set('line_total', $quantity * $price);
+        self::recalculateTotalPrice($set, $get);
+    }
+
+    private static function recalculateTotalPrice(Set $set, Get $get): void
+    {
+        $products = $get('../../products');
+        $isItemContext = is_array($products);
+
+        if (! $isItemContext) {
+            $products = $get('products') ?? [];
+        }
+
+        $newTotal = 0;
+        foreach ($products as $product) {
+            $qty = (float) ($product['quantity'] ?? 1);
+            $price = (float) ($product['price'] ?? 0);
+            $newTotal += $qty * $price;
+        }
+
+        if ($isItemContext) {
+            $set('../../total_price', $newTotal);
+        } else {
+            $set('total_price', $newTotal);
+        }
     }
 
     public static function table(Table $table): Table

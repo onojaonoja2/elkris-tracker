@@ -51,10 +51,7 @@ class LeadStatsWidget extends StatsOverviewWidget
             ->where('role', 'community_sales_representative')
             ->pluck('id');
 
-        $teamSalesValue = SalesRecord::whereIn('agent_id', $csrIds)
-            ->where('status', 'approved')
-            ->whereBetween('created_at', [$from, $to])
-            ->sum('total_value');
+        $teamSalesValue = SalesRecord::revenue($csrIds->all(), $from, $to);
 
         $orderValueAccrued = Order::whereIn('user_id', $repIds)
             ->where('is_migrated_order', false)
@@ -90,7 +87,8 @@ class LeadStatsWidget extends StatsOverviewWidget
             Stat::make('CSR Sales Value', '₦'.number_format($teamSalesValue, 2))
                 ->description('From CSRs under your team in selected range')
                 ->icon('heroicon-o-currency-dollar')
-                ->color('success'),
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-team-sales-breakdown')"]),
             Stat::make('Order Value Accrued', '₦'.number_format($orderValueAccrued, 2))
                 ->description('Team orders in selected range')
                 ->icon('heroicon-o-banknotes')

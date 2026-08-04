@@ -49,10 +49,7 @@ class RepStatsWidget extends StatsOverviewWidget
             ->where('role', 'community_sales_representative')
             ->pluck('id');
 
-        $teamSalesValue = SalesRecord::whereIn('agent_id', $attachedCsrIds)
-            ->where('status', 'approved')
-            ->whereBetween('created_at', [$from, $to])
-            ->sum('total_value');
+        $teamSalesValue = SalesRecord::revenue($attachedCsrIds->all(), $from, $to);
 
         $orderValueAccrued = Order::where('user_id', $repId)
             ->where('is_migrated_order', false)
@@ -63,9 +60,10 @@ class RepStatsWidget extends StatsOverviewWidget
 
         if ($attachedCsrIds->isNotEmpty()) {
             $stats[] = Stat::make('Team Sales Value', '₦'.number_format($teamSalesValue, 2))
-                ->description('From '.$attachedCsrIds->count().' attached CSR(s)')
+                ->description('From '.$attachedCsrIds->count().' attached CSR(s) in selected range')
                 ->icon('heroicon-o-currency-dollar')
-                ->color('success');
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-team-sales-breakdown')"]);
         }
 
         $stats[] = Stat::make('Pending Assignments', $pendingCount)

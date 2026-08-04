@@ -6,8 +6,10 @@ use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\CsrOverviewWidget;
 use App\Filament\Widgets\LeadAgentSubmissionsWidget;
+use App\Filament\Widgets\LeadAssignedCsrOrdersWidget;
 use App\Filament\Widgets\LeadCsrAssignmentWidget;
 use App\Filament\Widgets\LeadCsrSubmissionsWidget;
+use App\Filament\Widgets\LeadOrderAssignmentWidget;
 use App\Filament\Widgets\LeadOrdersStatsWidget;
 use App\Filament\Widgets\LeadOrdersWidget;
 use App\Filament\Widgets\LeadPendingAssignmentsWidget;
@@ -20,6 +22,8 @@ use App\Models\Customer;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Illuminate\Contracts\View\View;
+use Livewire\Attributes\On;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeadDashboard extends BaseDashboard
@@ -57,6 +61,26 @@ class LeadDashboard extends BaseDashboard
         }
     }
 
+    #[On('open-team-sales-breakdown')]
+    public function openTeamSalesBreakdown(): void
+    {
+        $this->mountAction('teamSalesBreakdown');
+    }
+
+    protected function getTeamSalesBreakdownAction(): Action
+    {
+        return Action::make('teamSalesBreakdown')
+            ->label('Team Sales Breakdown')
+            ->icon('heroicon-o-currency-dollar')
+            ->modalHeading('Team Sales Breakdown')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.team-sales-breakdown-modal');
+            })
+            ->visible(fn (): bool => auth()->user()->hasRole('lead'));
+    }
+
     public function getHeaderWidgets(): array
     {
         return [
@@ -68,6 +92,8 @@ class LeadDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            LeadOrderAssignmentWidget::class,
+            LeadAssignedCsrOrdersWidget::class,
             LeadCsrAssignmentWidget::class,
             LeadAgentSubmissionsWidget::class,
             LeadCsrSubmissionsWidget::class,
@@ -87,6 +113,7 @@ class LeadDashboard extends BaseDashboard
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
             $this->getOrderBreakdownAction(),
+            $this->getTeamSalesBreakdownAction(),
             Action::make('exportPersonalPortfolio')
                 ->label('Export')
                 ->icon('heroicon-o-document-arrow-down')

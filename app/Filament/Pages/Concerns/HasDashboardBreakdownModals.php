@@ -89,10 +89,7 @@ trait HasDashboardBreakdownModals
 
     private function creditBreakdownQuery(): Builder
     {
-        $query = SalesRecord::where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
-            ->with('agent');
+        $query = SalesRecord::outstanding()->with('agent');
 
         $user = auth()->user();
         $role = $user->getPrimaryRole();

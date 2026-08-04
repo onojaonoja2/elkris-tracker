@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Customers\RelationManagers;
 
 use App\Enums\OrderStatus;
+use App\Models\ProductType;
 use App\Models\Setting;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -79,21 +80,30 @@ class OrdersRelationManager extends RelationManager
                     ->relationship()
                     ->schema([
                         Select::make('product_name')
-                            ->options([
-                                'Elkris Oat Flour' => 'Elkris Oat Flour',
-                                'Elkris Plantain' => 'Elkris Plantain',
-                                'Elkris Poundo Yam' => 'Elkris Poundo Yam',
-                            ])
+                            ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'name'))
+                            ->searchable()
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn (Set $set) => $set('grammage', null)),
+                            ->afterStateUpdated(function (Set $set, Get $get): void {
+                                $set('grammage', null);
+                                $pt = ProductType::where('name', $get('product_name'))->first();
+                                $set('product_type_id', $pt?->id);
+                            }),
+                        TextInput::make('product_type_id')
+                            ->hidden()
+                            ->dehydrated(),
                         Select::make('grammage')
                             ->label('Grammage (g)')
-                            ->options(fn (Get $get): array => match ($get('product_name')) {
-                                'Elkris Oat Flour' => ['5000' => '5000g', '1300' => '1300g', '650' => '650g'],
-                                'Elkris Plantain' => ['1800' => '1800g', '900' => '900g'],
-                                'Elkris Poundo Yam' => ['1800' => '1800g'],
-                                default => [],
+                            ->options(function (Get $get): array {
+                                $pt = ProductType::where('name', $get('product_name'))->first();
+                                if (! $pt) {
+                                    return [];
+                                }
+
+                                return collect($pt->available_grammages)
+                                    ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                    ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                    ->toArray();
                             })
                             ->required(),
                         TextInput::make('quantity')

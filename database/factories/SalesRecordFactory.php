@@ -28,4 +28,45 @@ class SalesRecordFactory extends Factory
             'status' => 'pending',
         ];
     }
+
+    public function approved(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => 'approved',
+            'accountant_verified_at' => now(),
+        ]);
+    }
+
+    public function credit(): static
+    {
+        return $this->state(fn (): array => [
+            'is_credit' => true,
+            'credit_status' => 'pending_payment',
+            'status' => 'approved',
+            'accountant_verified_at' => now(),
+            'expected_collection_date' => now()->addDays(7)->toDateString(),
+        ]);
+    }
+
+    public function collected(): static
+    {
+        return $this->credit()->state(fn (): array => [
+            'credit_status' => 'collected',
+            'collected_at' => now(),
+        ]);
+    }
+
+    public function partiallyCollected(): static
+    {
+        return $this->credit()->state(fn (): array => [
+            'credit_status' => 'partially_collected',
+        ]);
+    }
+
+    public function overdue(): static
+    {
+        return $this->credit()->state(fn (): array => [
+            'expected_collection_date' => now()->subDays(3)->toDateString(),
+        ]);
+    }
 }

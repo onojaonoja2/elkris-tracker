@@ -97,10 +97,7 @@ class ManagerStatsWidget extends BaseWidget
         $warehouseStockUnits = Inventory::sum('quantity');
         $agentStockUnits = AgentStock::sum('quantity');
 
-        $creditSalesOutstanding = SalesRecord::where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
-            ->sum('total_value');
+        $creditSalesOutstanding = SalesRecord::outstanding()->sum('total_value');
 
         return [
             Stat::make('Total Customers', $totalCustomers)

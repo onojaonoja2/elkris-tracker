@@ -23,22 +23,13 @@ class AgentCreditSalesWidget extends BaseWidget
     {
         $userId = auth()->id();
 
-        $totalCreditValue = SalesRecord::where('agent_id', $userId)
-            ->where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
-            ->sum('total_value');
+        $baseQuery = SalesRecord::outstanding()->where('agent_id', $userId);
 
-        $pendingCount = SalesRecord::where('agent_id', $userId)
-            ->where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
-            ->count();
+        $totalCreditValue = (clone $baseQuery)->sum('total_value');
 
-        $overdueCount = SalesRecord::where('agent_id', $userId)
-            ->where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
+        $pendingCount = (clone $baseQuery)->count();
+
+        $overdueCount = (clone $baseQuery)
             ->where('expected_collection_date', '<', now()->toDateString())
             ->count();
 

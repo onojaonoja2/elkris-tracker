@@ -97,7 +97,7 @@ class DashboardBreakdownTable extends Component
         } elseif ($this->statusFilter) {
             $query->where('credit_status', $this->statusFilter);
         } else {
-            $query->where('credit_status', 'pending_payment');
+            $query->whereIn('credit_status', ['pending_payment', 'partially_collected']);
         }
 
         $this->applySearch($query, ['customer_name'], 'agent');
