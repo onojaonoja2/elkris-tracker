@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Dashboards;
 
+use App\Filament\Pages\AccountantDashboard;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class DashboardBreakdownTest extends TestCase
@@ -25,6 +27,15 @@ class DashboardBreakdownTest extends TestCase
 
         $this->actingAs($user)
             ->get('/admin/agent-dashboard')
+            ->assertOk();
+    }
+
+    public function test_lead_dashboard_renders(): void
+    {
+        $user = User::factory()->lead()->create();
+
+        $this->actingAs($user)
+            ->get('/admin/lead-dashboard')
             ->assertOk();
     }
 
@@ -62,5 +73,16 @@ class DashboardBreakdownTest extends TestCase
         $this->actingAs($user)
             ->get('/admin/accountant-dashboard')
             ->assertOk();
+    }
+
+    public function test_accountant_dashboard_opens_office_sales_breakdown(): void
+    {
+        $user = User::factory()->accountant()->create();
+
+        $this->actingAs($user);
+
+        Livewire::test(AccountantDashboard::class)
+            ->call('openOfficeSalesBreakdown')
+            ->assertSet('breakdownType', 'office_sales');
     }
 }

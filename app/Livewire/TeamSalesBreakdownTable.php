@@ -5,12 +5,16 @@ namespace App\Livewire;
 use App\Models\SalesRecord;
 use App\Models\User;
 use App\Support\DashboardDateScope;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class TeamSalesBreakdownTable extends Component
 {
+    use WithPagination;
+
     public ?int $selectedAgentId = null;
 
     public string $search = '';
@@ -26,25 +30,28 @@ class TeamSalesBreakdownTable extends Component
     public function updatedSearch(): void
     {
         $this->search = trim($this->search);
+        $this->resetPage();
     }
 
     public function selectAgent(int $agentId): void
     {
         $this->selectedAgentId = $agentId;
         $this->search = '';
+        $this->resetPage();
     }
 
     public function backToSummary(): void
     {
         $this->selectedAgentId = null;
         $this->search = '';
+        $this->resetPage();
     }
 
     /**
-     * @return Collection<int, array{id: int, name: string, total: float, count: int}>
+     * @return LengthAwarePaginator<int, array{id: int, name: string, total: float, count: int}>
      */
     #[Computed]
-    public function summaryRows(): Collection
+    public function summaryRows(): LengthAwarePaginator
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
@@ -77,6 +84,17 @@ class TeamSalesBreakdownTable extends Component
 
                 return $rows->filter(fn (array $row): bool => str_contains(strtolower($row['name']), $search))
                     ->values();
+            })
+            ->pipe(function (Collection $rows): LengthAwarePaginator {
+                $page = $this->getPage();
+
+                return new LengthAwarePaginator(
+                    $rows->forPage($page, 10)->values(),
+                    $rows->count(),
+                    10,
+                    $page,
+                    ['path' => LengthAwarePaginator::resolveCurrentPath()],
+                );
             });
     }
 
@@ -126,13 +144,13 @@ class TeamSalesBreakdownTable extends Component
     }
 
     /**
-     * @return Collection<int, SalesRecord>
+     * @return LengthAwarePaginator<int, SalesRecord>
      */
     #[Computed]
-    public function detailRecords(): Collection
+    public function detailRecords(): LengthAwarePaginator
     {
         if ($this->selectedAgentId === null) {
-            return collect();
+            return new LengthAwarePaginator([], 0, 10, $this->getPage(), ['path' => LengthAwarePaginator::resolveCurrentPath()]);
         }
 
         [$from, $to] = DashboardDateScope::fromSession();
@@ -152,7 +170,7 @@ class TeamSalesBreakdownTable extends Component
             });
         }
 
-        return $query->get();
+        return $query->paginate(10);
     }
 
     public function render()

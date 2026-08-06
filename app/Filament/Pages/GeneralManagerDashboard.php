@@ -16,6 +16,7 @@ use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerSalesRecordsByStateWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
@@ -58,6 +59,7 @@ class GeneralManagerDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             GeneralManagerStatsWidget::class,
             ManagerAnalyticsWidget::class,
             ProductionActivityWidget::class,
@@ -90,6 +92,7 @@ class GeneralManagerDashboard extends BaseDashboard
         return [
             $this->getCreditBreakdownAction(),
             $this->getOrderBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
             Action::make('filter_date')
                 ->label('Filter by Date')
                 ->icon('heroicon-o-calendar')

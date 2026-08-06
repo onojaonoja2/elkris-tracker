@@ -94,6 +94,7 @@ class SupervisorDashboard extends BaseDashboard
         return [
             $this->getCreditBreakdownAction(),
             $this->getOrderBreakdownAction(),
+            $this->getApprovalBreakdownAction(),
 
             Action::make('addCsr')
                 ->label('Add CSR')

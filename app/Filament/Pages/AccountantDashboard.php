@@ -14,8 +14,10 @@ use App\Filament\Widgets\AccountantStockCountApprovalWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
 use App\Filament\Widgets\AccountantStockReceiveRequestsWidget;
+use App\Filament\Widgets\AccountantStockTransferApprovalWidget;
 use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
 use App\Models\SalesRecord;
@@ -56,6 +58,7 @@ class AccountantDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             AccountantStatsOverviewWidget::class,
             CreditSalesOutstandingStatsWidget::class,
             OrderStatsWidget::class,
@@ -69,6 +72,7 @@ class AccountantDashboard extends BaseDashboard
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
             $this->getCreditBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
             Action::make('exportReport')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')
@@ -118,6 +122,7 @@ class AccountantDashboard extends BaseDashboard
     {
         return [
             AccountantStockReceiveRequestsWidget::class,
+            AccountantStockTransferApprovalWidget::class,
             AccountantStockCountApprovalWidget::class,
             AccountantDamagedReturnsWidget::class,
             DamagedReturnsBreakdownWidget::class,

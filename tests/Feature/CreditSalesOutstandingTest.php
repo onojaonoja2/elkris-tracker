@@ -107,6 +107,8 @@ class CreditSalesOutstandingTest extends TestCase
             'status' => 'pending',
             'credit_status' => null,
             'total_value' => 8000.00,
+            'supervisor_verified_at' => now(),
+            'supervisor_verified_by' => $accountant->id,
         ]);
 
         SalesRecordService::approve($record, [], $accountant->id);
@@ -129,6 +131,8 @@ class CreditSalesOutstandingTest extends TestCase
             'status' => 'pending',
             'credit_status' => 'partially_collected',
             'total_value' => 8000.00,
+            'supervisor_verified_at' => now(),
+            'supervisor_verified_by' => $accountant->id,
         ]);
 
         SalesRecordService::approve($record, [], $accountant->id);

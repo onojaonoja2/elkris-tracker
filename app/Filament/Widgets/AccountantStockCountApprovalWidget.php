@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\UserRole;
 use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\StockCount;
@@ -23,7 +24,11 @@ class AccountantStockCountApprovalWidget extends BaseWidget
         return $table
             ->query(
                 StockCount::where('status', 'pending')
-                    ->where('supervisor_status', 'verified')
+                    ->where(function ($query) {
+                        $query->where('supervisor_status', 'verified')
+                            ->orWhereNotNull('warehouse_id')
+                            ->orWhereHas('user', fn ($query) => $query->where('role', '!=', UserRole::CommunitySalesRepresentative->value));
+                    })
                     ->with('user', 'items.productType')
             )
             ->columns([

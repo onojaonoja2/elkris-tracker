@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\UserRole;
 use App\Models\StockCount;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -22,6 +23,7 @@ class SupervisorStockCountApprovalWidget extends BaseWidget
             ->query(
                 StockCount::where('status', 'pending')
                     ->whereNull('supervisor_status')
+                    ->whereHas('user', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value))
                     ->with('user', 'items.productType')
             )
             ->columns([

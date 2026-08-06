@@ -13,9 +13,9 @@ use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
 use Livewire\Attributes\On;
 
-class SupervisorStockTransferApprovalWidget extends BaseWidget
+class AccountantStockTransferApprovalWidget extends BaseWidget
 {
-    protected static ?string $heading = 'Pending Stock Transfer Approvals';
+    protected static ?string $heading = 'Pending Agent Stock Transfer Approvals';
 
     protected int|string|array $columnSpan = 'full';
 
@@ -24,7 +24,7 @@ class SupervisorStockTransferApprovalWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasRole('supervisor');
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     public function table(Table $table): Table
@@ -33,7 +33,10 @@ class SupervisorStockTransferApprovalWidget extends BaseWidget
             ->query(fn () => StockTransfer::where('status', StockTransferStatus::Requested)
                 ->whereNull('supervisor_approved_by')
                 ->where('requires_approval', true)
-                ->whereHas('requester', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value))
+                ->whereHas('requester', fn ($query) => $query->whereIn('role', [
+                    UserRole::OpenMarket->value,
+                    UserRole::RetailMarket->value,
+                ]))
                 ->with(['requester', 'fromWarehouse', 'toAgent', 'items.productType'])
                 ->orderBy('created_at', 'desc'))
             ->columns([
@@ -62,7 +65,7 @@ class SupervisorStockTransferApprovalWidget extends BaseWidget
                     ->badge(),
             ])
             ->recordActions([
-                Action::make('supervisorApprove')
+                Action::make('accountantApprove')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
@@ -71,8 +74,8 @@ class SupervisorStockTransferApprovalWidget extends BaseWidget
                     ->modalDescription('Approve this stock request so the warehouse can dispatch the items.')
                     ->action(function (StockTransfer $record) {
                         $record->update([
-                            'supervisor_approved_by' => auth()->id(),
-                            'supervisor_approved_at' => now(),
+                            'approved_by' => auth()->id(),
+                            'approved_at' => now(),
                             'status' => StockTransferStatus::Approved,
                         ]);
 
@@ -82,7 +85,7 @@ class SupervisorStockTransferApprovalWidget extends BaseWidget
                             ->success()
                             ->send();
                     }),
-                Action::make('supervisorReject')
+                Action::make('accountantReject')
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\UserRole;
 use App\Filament\Exports\SalesRecordExporter;
 use App\Models\SalesRecord;
 use App\Services\SalesRecordService;
@@ -34,7 +35,14 @@ class AccountantSalesRecordsWidget extends TableWidget
 
     protected function getFilteredQuery()
     {
-        $query = SalesRecord::where('status', 'pending')
+        $query = SalesRecord::where(function ($query) {
+            $query->where(function ($query) {
+                $query->whereHas('agent', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value))
+                    ->whereNotNull('supervisor_verified_at');
+            })
+                ->orWhereDoesntHave('agent', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value));
+        })
+            ->whereIn('status', ['pending', 'receipt_uploaded'])
             ->orderBy('created_at', 'desc');
 
         $filters = $this->tableFilters['date_range'] ?? [];

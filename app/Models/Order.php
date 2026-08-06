@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\HasSanitization;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -81,6 +82,11 @@ class Order extends Model implements Auditable
     public function hasPaymentProof(): bool
     {
         return ! empty($this->payment_proof_path);
+    }
+
+    public function scopePendingDelivery(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', [OrderStatus::Delivered, OrderStatus::Cancelled]);
     }
 
     public function isAssigned(): bool

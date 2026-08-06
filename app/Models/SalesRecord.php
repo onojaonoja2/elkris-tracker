@@ -90,6 +90,11 @@ class SalesRecord extends Model implements Auditable
         return $this->status === 'approved' || $this->status === 'rejected';
     }
 
+    public function isCsrSale(): bool
+    {
+        return $this->agent?->hasRole('community_sales_representative') ?? false;
+    }
+
     public function isOutstanding(): bool
     {
         return blank($this->credit_status)

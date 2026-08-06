@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\UserRole;
 use App\Models\DamagedStockReturn;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -30,6 +31,7 @@ class SupervisorDamagedReturnsWidget extends TableWidget
         return $table
             ->query(fn () => DamagedStockReturn::where('status', 'pending')
                 ->whereNull('supervisor_approved_by')
+                ->whereHas('user', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value))
                 ->orderBy('created_at', 'desc'))
             ->columns([
                 TextColumn::make('id')->label('#')->sortable(),

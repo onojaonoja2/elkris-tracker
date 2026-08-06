@@ -20,6 +20,7 @@ use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomersWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class GeneralAccountantDashboard extends BaseDashboard
@@ -55,6 +56,7 @@ class GeneralAccountantDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             GeneralAccountantStatsWidget::class,
             CreditSalesOutstandingStatsWidget::class,
         ];
@@ -66,6 +68,7 @@ class GeneralAccountantDashboard extends BaseDashboard
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
             $this->getCreditBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
         ];
     }
 

@@ -17,6 +17,7 @@ use App\Filament\Widgets\LeadPersonalPortfolioWidget;
 use App\Filament\Widgets\LeadPortfolioWidget;
 use App\Filament\Widgets\LeadRejectedCustomersWidget;
 use App\Filament\Widgets\LeadStatsWidget;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use App\Models\Customer;
 use App\Support\DashboardDateScope;
@@ -86,6 +87,7 @@ class LeadDashboard extends BaseDashboard
         return [
             LeadStatsWidget::class,
             LeadOrdersStatsWidget::class,
+            OrderStatsWidget::class,
         ];
     }
 

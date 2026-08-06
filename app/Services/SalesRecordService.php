@@ -88,9 +88,15 @@ class SalesRecordService
         DB::transaction(function () use ($record, $data, $accountantId) {
             $record = SalesRecord::whereKey($record->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($record->status !== 'pending') {
+            if (! in_array($record->status, ['pending', 'receipt_uploaded'], true)) {
                 throw ValidationException::withMessages([
                     'status' => 'Only pending sales records can be approved.',
+                ]);
+            }
+
+            if ($record->isCsrSale() && $record->supervisor_verified_at === null) {
+                throw ValidationException::withMessages([
+                    'status' => 'This sales record must be approved by the supervisor first.',
                 ]);
             }
 
@@ -111,6 +117,73 @@ class SalesRecordService
     }
 
     /**
+     * Approve a pending CSR sales record, forwarding it to the accountant for final approval.
+     */
+    public static function supervisorApprove(SalesRecord $record, ?string $notes, int $supervisorId): void
+    {
+        DB::transaction(function () use ($record, $notes, $supervisorId) {
+            $record = SalesRecord::whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! in_array($record->status, ['pending', 'receipt_uploaded'], true)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only pending sales records can be approved.',
+                ]);
+            }
+
+            if (! $record->isCsrSale()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only CSR sales records can be approved by the supervisor.',
+                ]);
+            }
+
+            if ($record->supervisor_verified_at !== null) {
+                throw ValidationException::withMessages([
+                    'status' => 'This sales record has already been approved by the supervisor.',
+                ]);
+            }
+
+            $record->update([
+                'supervisor_verified_at' => now(),
+                'supervisor_verified_by' => $supervisorId,
+                'supervisor_notes' => $notes,
+            ]);
+        });
+    }
+
+    /**
+     * Reject a pending CSR sales record and restore deducted stock.
+     */
+    public static function supervisorReject(SalesRecord $record, string $reason, int $supervisorId): void
+    {
+        DB::transaction(function () use ($record, $reason, $supervisorId) {
+            $record = SalesRecord::whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! in_array($record->status, ['pending', 'receipt_uploaded'], true)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only pending sales records can be rejected.',
+                ]);
+            }
+
+            if (! $record->isCsrSale()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only CSR sales records can be rejected by the supervisor.',
+                ]);
+            }
+
+            if ($record->stock_deducted_at !== null) {
+                self::restoreStock($record);
+            }
+
+            $record->update([
+                'status' => 'rejected',
+                'rejection_reason' => $reason,
+                'supervisor_verified_at' => now(),
+                'supervisor_verified_by' => $supervisorId,
+            ]);
+        });
+    }
+
+    /**
      * Reject a pending sales record and restore deducted stock.
      */
     public static function reject(SalesRecord $record, string $reason, int $accountantId): void
@@ -118,7 +191,7 @@ class SalesRecordService
         DB::transaction(function () use ($record, $reason, $accountantId) {
             $record = SalesRecord::whereKey($record->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($record->status !== 'pending') {
+            if (! in_array($record->status, ['pending', 'receipt_uploaded'], true)) {
                 throw ValidationException::withMessages([
                     'status' => 'Only pending sales records can be rejected.',
                 ]);

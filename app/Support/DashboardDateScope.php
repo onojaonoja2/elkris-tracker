@@ -21,7 +21,7 @@ class DashboardDateScope
         $from = Session::get($fromKey);
         $to = Session::get($toKey);
 
-        $from = $from ? Carbon::parse($from)->startOfDay() : now()->startOfDay();
+        $from = $from ? Carbon::parse($from)->startOfDay() : now()->startOfDay()->subYears(50);
         $to = $to ? Carbon::parse($to)->endOfDay() : now()->endOfDay();
 
         return [$from, $to];

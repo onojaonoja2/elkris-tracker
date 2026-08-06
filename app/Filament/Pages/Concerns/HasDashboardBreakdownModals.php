@@ -2,12 +2,8 @@
 
 namespace App\Filament\Pages\Concerns;
 
-use App\Models\Order;
-use App\Models\SalesRecord;
-use App\Models\User;
 use Filament\Actions\Action;
 use Illuminate\Contracts\View\View;
-use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\On;
 
 trait HasDashboardBreakdownModals
@@ -15,6 +11,8 @@ trait HasDashboardBreakdownModals
     public ?string $breakdownCategory = null;
 
     public ?string $breakdownType = null;
+
+    public ?string $breakdownApprovalType = null;
 
     #[On('open-credit-breakdown')]
     public function openCreditBreakdown(string $category): void
@@ -30,6 +28,27 @@ trait HasDashboardBreakdownModals
         $this->breakdownCategory = $category;
         $this->breakdownType = 'order';
         $this->mountAction('orderBreakdown');
+    }
+
+    #[On('open-office-sales-breakdown')]
+    public function openOfficeSalesBreakdown(): void
+    {
+        $this->breakdownType = 'office_sales';
+        $this->mountAction('officeSalesBreakdown');
+    }
+
+    #[On('open-csr-order-breakdown')]
+    public function openCsrOrderBreakdown(): void
+    {
+        $this->breakdownType = 'csr_order';
+        $this->mountAction('csrOrderBreakdown');
+    }
+
+    #[On('open-approval-breakdown')]
+    public function openApprovalBreakdown(string $type): void
+    {
+        $this->breakdownApprovalType = $type;
+        $this->mountAction('approvalBreakdown');
     }
 
     protected function getCreditBreakdownAction(): Action
@@ -87,56 +106,82 @@ trait HasDashboardBreakdownModals
             ]));
     }
 
-    private function creditBreakdownQuery(): Builder
+    protected function getOfficeSalesBreakdownAction(): Action
     {
-        $query = SalesRecord::outstanding()->with('agent');
-
-        $user = auth()->user();
-        $role = $user->getPrimaryRole();
-
-        if (in_array($role, ['community_sales_representative', 'open_market', 'retail_market'], true) || $this->breakdownCategory === 'my') {
-            $query->where('agent_id', $user->id);
-        } elseif ($role === 'supervisor' || $this->breakdownCategory === 'csr') {
-            $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
-            $query->whereIn('agent_id', $csrIds);
-        }
-
-        if (in_array($this->breakdownCategory, ['open_market', 'retail_market', 'community_sales_representative'], true)) {
-            $query->where('agent_type', $this->breakdownCategory);
-        }
-
-        if ($this->breakdownCategory === 'overdue') {
-            $query->where('expected_collection_date', '<', now()->toDateString());
-        }
-
-        return $query;
+        return Action::make('officeSalesBreakdown')
+            ->label('Office Sales Breakdown')
+            ->icon('heroicon-o-building-office')
+            ->modalHeading('Office Sales Breakdown')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.office-sales-breakdown-modal');
+            })
+            ->visible(fn (): bool => auth()->user()->hasAnyRole([
+                'sales',
+                'manager',
+                'admin',
+                'general_manager',
+                'accountant',
+                'general_accountant',
+            ]));
     }
 
-    private function orderBreakdownQuery(): Builder
+    protected function getCsrOrderBreakdownAction(): Action
     {
-        $query = Order::where('is_migrated_order', false)
-            ->with(['customer', 'user']);
+        return Action::make('csrOrderBreakdown')
+            ->label('CSR Completed Orders')
+            ->icon('heroicon-o-check-badge')
+            ->modalHeading('CSR Completed Orders Breakdown')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.csr-order-breakdown-modal');
+            })
+            ->visible(fn (): bool => auth()->user()->hasAnyRole([
+                'supervisor',
+                'manager',
+                'admin',
+                'general_manager',
+                'accountant',
+                'general_accountant',
+            ]));
+    }
 
-        $user = auth()->user();
-        $role = $user->getPrimaryRole();
+    protected function getApprovalBreakdownAction(): Action
+    {
+        return Action::make('approvalBreakdown')
+            ->label('Pending Approvals')
+            ->icon('heroicon-o-clock')
+            ->modalHeading(fn (): string => $this->getApprovalBreakdownHeading())
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.approval-breakdown-modal', [
+                    'type' => $this->breakdownApprovalType,
+                ]);
+            })
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole(['supervisor', 'manager', 'admin']));
+    }
 
-        if (in_array($role, ['rep', 'lead', 'sales', 'community_sales_representative', 'open_market', 'retail_market'], true) || $this->breakdownCategory === 'my') {
-            $query->where('user_id', $user->id);
-        } elseif ($role === 'supervisor' || $this->breakdownCategory === 'csr') {
-            $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
-            $query->whereIn('user_id', $csrIds);
+    protected function getApprovalBreakdownHeading(): string
+    {
+        $isManager = auth()->user()?->hasAnyRole(['manager', 'admin']) ?? false;
+
+        if ($isManager) {
+            return match ($this->breakdownApprovalType) {
+                'stock_count' => 'Open Market Stock Count Approvals',
+                'sales_records' => 'Open Market Sales Record Approvals',
+                'damaged_return' => 'Open Market Damaged Stock Returns',
+                default => 'Pending Stock Transfers',
+            };
         }
 
-        if ($this->breakdownCategory === 'pending') {
-            $query->where('status', 'pending');
-        } elseif ($this->breakdownCategory === 'delivered') {
-            $query->where('status', 'delivered');
-        }
-
-        if (in_array($this->breakdownCategory, ['open_market', 'retail_market', 'community_sales_representative'], true)) {
-            $query->whereHas('user', fn ($q) => $q->where('role', $this->breakdownCategory));
-        }
-
-        return $query;
+        return match ($this->breakdownApprovalType) {
+            'stock_count' => 'Pending Stock Count Approvals',
+            'sales_records' => 'Pending Sales Record Approvals',
+            'damaged_return' => 'Damaged Stock Returns Awaiting Supervisor',
+            default => 'Pending Stock Transfer Approvals',
+        };
     }
 }

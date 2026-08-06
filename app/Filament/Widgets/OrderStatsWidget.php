@@ -56,17 +56,19 @@ class OrderStatsWidget extends BaseWidget
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $baseQuery = Order::where('user_id', $userId)
+        $isCsr = auth()->user()->getPrimaryRole() === 'community_sales_representative';
+
+        $baseQuery = Order::where($isCsr ? 'assigned_to' : 'user_id', $userId)
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to]);
 
         $total = (clone $baseQuery)->sum('total_price');
-        $pending = (clone $baseQuery)->where('status', OrderStatus::Pending)->sum('total_price');
+        $pending = (clone $baseQuery)->pendingDelivery()->sum('total_price');
         $delivered = (clone $baseQuery)->where('status', OrderStatus::Delivered)->sum('total_price');
 
         return [
             Stat::make('My Total Orders', '₦'.number_format($total))
-                ->description('All-time order value')
+                ->description('Orders in selected range')
                 ->icon('heroicon-o-shopping-cart')
                 ->color('info')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-order-breakdown', { category: 'my' })"]),
@@ -91,13 +93,14 @@ class OrderStatsWidget extends BaseWidget
         [$from, $to] = DashboardDateScope::fromSession();
 
         $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
-        $baseQuery = Order::whereIn('user_id', $csrIds)
+        $baseQuery = Order::whereIn('assigned_to', $csrIds)
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to]);
 
         $total = (clone $baseQuery)->sum('total_price');
-        $pending = (clone $baseQuery)->where('status', OrderStatus::Pending)->sum('total_price');
+        $pending = (clone $baseQuery)->pendingDelivery()->sum('total_price');
         $delivered = (clone $baseQuery)->where('status', OrderStatus::Delivered)->sum('total_price');
+        $completed = (clone $baseQuery)->where('status', OrderStatus::Delivered)->count();
 
         return [
             Stat::make('CSR Orders Total', '₦'.number_format($total))
@@ -115,6 +118,11 @@ class OrderStatsWidget extends BaseWidget
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-order-breakdown', { category: 'delivered' })"]),
+            Stat::make('CSR Completed Orders', number_format($completed))
+                ->description('Number of completed orders')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-csr-order-breakdown')"]),
         ];
     }
 
@@ -125,12 +133,18 @@ class OrderStatsWidget extends BaseWidget
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
+        $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
+
         $baseQuery = Order::where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to]);
 
         $total = (clone $baseQuery)->sum('total_price');
-        $pending = (clone $baseQuery)->where('status', OrderStatus::Pending)->sum('total_price');
+        $pending = (clone $baseQuery)->pendingDelivery()->sum('total_price');
         $delivered = (clone $baseQuery)->where('status', OrderStatus::Delivered)->sum('total_price');
+        $csrCompleted = (clone $baseQuery)
+            ->where('status', OrderStatus::Delivered)
+            ->whereIn('assigned_to', $csrIds)
+            ->count();
 
         $stats = [
             Stat::make('Total Orders Value', '₦'.number_format($total))
@@ -157,18 +171,20 @@ class OrderStatsWidget extends BaseWidget
         ];
 
         foreach ($categories as $category) {
-            $categoryTotal = (clone $baseQuery)
-                ->whereHas('user', fn ($q) => $q->where('role', $category['role']))
+            if ($category['role'] === 'community_sales_representative') {
+                $categoryScoped = (clone $baseQuery)->whereIn('assigned_to', $csrIds);
+            } else {
+                $categoryScoped = (clone $baseQuery)->whereHas('user', fn ($q) => $q->where('role', $category['role']));
+            }
+
+            $categoryTotal = (clone $categoryScoped)->sum('total_price');
+
+            $categoryPending = (clone $categoryScoped)
+                ->pendingDelivery()
                 ->sum('total_price');
 
-            $categoryPending = (clone $baseQuery)
-                ->where('status', OrderStatus::Pending)
-                ->whereHas('user', fn ($q) => $q->where('role', $category['role']))
-                ->sum('total_price');
-
-            $categoryDelivered = (clone $baseQuery)
+            $categoryDelivered = (clone $categoryScoped)
                 ->where('status', OrderStatus::Delivered)
-                ->whereHas('user', fn ($q) => $q->where('role', $category['role']))
                 ->sum('total_price');
 
             $stats[] = Stat::make($category['label'], '₦'.number_format($categoryTotal))
@@ -177,6 +193,12 @@ class OrderStatsWidget extends BaseWidget
                 ->color('primary')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-order-breakdown', { category: '{$category['role']}' })"]);
         }
+
+        $stats[] = Stat::make('CSR Completed Orders', number_format($csrCompleted))
+            ->description('Number of completed orders')
+            ->icon('heroicon-o-check-badge')
+            ->color('success')
+            ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-csr-order-breakdown')"]);
 
         return $stats;
     }

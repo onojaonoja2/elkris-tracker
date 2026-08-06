@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Widgets\ManagerStatsWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
@@ -103,6 +104,7 @@ class Dashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             OrderStatsWidget::class,
         ];
     }
@@ -111,6 +113,7 @@ class Dashboard extends BaseDashboard
     {
         return [
             $this->getOrderBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
         ];
     }
 

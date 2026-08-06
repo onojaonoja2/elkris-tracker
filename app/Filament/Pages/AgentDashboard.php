@@ -63,8 +63,8 @@ class AgentDashboard extends BaseDashboard
     {
         return [
             UpcomingFollowUps::class,
-            CsrPendingDispatchesWidget::class,
             AgentCreditSalesWidget::class,
+            CsrPendingDispatchesWidget::class,
             OverdueCreditSalesWidget::class,
             AgentStockBalanceWidget::class,
             DamagedStockReturnFormWidget::class,

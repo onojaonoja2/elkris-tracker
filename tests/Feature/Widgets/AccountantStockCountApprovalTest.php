@@ -69,6 +69,33 @@ class AccountantStockCountApprovalTest extends TestCase
         ]);
     }
 
+    public function test_accountant_widget_includes_warehouse_count_but_excludes_unverified_csr_count(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $warehouse = Warehouse::factory()->create(['name' => 'Main Warehouse']);
+        $productType = ProductType::factory()->create(['available_grammages' => [100, 200]]);
+
+        $warehouseManager = User::factory()->warehouseManager()->create(['name' => 'Wale Warehouse']);
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Cara CSR']);
+
+        $this->pendingStockCount([
+            'user_id' => $warehouseManager->id,
+            'warehouse_id' => $warehouse->id,
+            'supervisor_status' => null,
+        ], $productType, 25);
+
+        $this->pendingStockCount([
+            'user_id' => $csr->id,
+            'supervisor_status' => null,
+        ], $productType, 10);
+
+        $this->actingAs($accountant);
+
+        Livewire::test(AccountantStockCountApprovalWidget::class)
+            ->assertSee('Wale Warehouse')
+            ->assertDontSee('Cara CSR');
+    }
+
     private function pendingStockCount(array $attributes, ProductType $productType, int $quantity): StockCount
     {
         $stockCount = StockCount::create(array_merge([

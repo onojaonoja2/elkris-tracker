@@ -108,6 +108,8 @@ class SalesRecordServiceTest extends TestCase
         ]);
 
         $accountant = User::factory()->accountant()->create();
+        $supervisor = User::factory()->supervisor()->create();
+        SalesRecordService::supervisorApprove($record, null, $supervisor->id);
         SalesRecordService::approve($record, [], $accountant->id);
 
         $agent->refresh();
@@ -137,6 +139,8 @@ class SalesRecordServiceTest extends TestCase
         ]);
 
         $accountant = User::factory()->accountant()->create();
+        $supervisor = User::factory()->supervisor()->create();
+        SalesRecordService::supervisorApprove($record, null, $supervisor->id);
         SalesRecordService::approve($record, [], $accountant->id);
 
         $agent->refresh();
@@ -194,6 +198,8 @@ class SalesRecordServiceTest extends TestCase
         ]);
 
         $accountant = User::factory()->accountant()->create();
+        $supervisor = User::factory()->supervisor()->create();
+        SalesRecordService::supervisorApprove($record, null, $supervisor->id);
         SalesRecordService::approve($record, [], $accountant->id);
 
         $this->expectException(ValidationException::class);
@@ -222,6 +228,8 @@ class SalesRecordServiceTest extends TestCase
         ]);
 
         $accountant = User::factory()->accountant()->create();
+        $supervisor = User::factory()->supervisor()->create();
+        SalesRecordService::supervisorApprove($record, null, $supervisor->id);
         SalesRecordService::approve($record, [], $accountant->id);
         SalesRecordService::attachPaymentProof($record, ['payment_proof_path' => 'proofs/test.jpg'], $accountant->id);
         SalesRecordService::markCollected($record, ['credit_notes' => 'Paid in cash'], $accountant->id);
@@ -259,5 +267,113 @@ class SalesRecordServiceTest extends TestCase
 
         $stock->refresh();
         $this->assertEquals(15, $stock->quantity);
+    }
+
+    public function test_approve_requires_supervisor_verification_for_csr_sale(): void
+    {
+        [$productType, $product] = $this->buildProducts();
+        $agent = User::factory()->communitySalesRepresentative()->create();
+        AgentStock::factory()->create([
+            'user_id' => $agent->id,
+            'product_type_id' => $productType->id,
+            'product_name' => $productType->name,
+            'grammage' => 100,
+            'quantity' => 20,
+        ]);
+
+        $this->actingAs($agent);
+        $record = SalesRecordService::submitSale([
+            'products' => [$product],
+            'total_value' => 5000.00,
+            'is_credit' => false,
+        ]);
+
+        $accountant = User::factory()->accountant()->create();
+
+        $this->expectException(ValidationException::class);
+        SalesRecordService::approve($record, [], $accountant->id);
+    }
+
+    public function test_approve_does_not_require_supervisor_for_non_csr_sale(): void
+    {
+        [$productType, $product] = $this->buildProducts();
+        $agent = User::factory()->openMarket()->create();
+        AgentStock::factory()->create([
+            'user_id' => $agent->id,
+            'product_type_id' => $productType->id,
+            'product_name' => $productType->name,
+            'grammage' => 100,
+            'quantity' => 20,
+        ]);
+
+        $this->actingAs($agent);
+        $record = SalesRecordService::submitSale([
+            'products' => [$product],
+            'total_value' => 5000.00,
+            'is_credit' => false,
+        ]);
+
+        $accountant = User::factory()->accountant()->create();
+        SalesRecordService::approve($record, [], $accountant->id);
+
+        $this->assertEquals('approved', $record->fresh()->status);
+    }
+
+    public function test_supervisor_approve_forwards_record_to_accountant(): void
+    {
+        [$productType, $product] = $this->buildProducts();
+        $agent = User::factory()->communitySalesRepresentative()->create();
+        AgentStock::factory()->create([
+            'user_id' => $agent->id,
+            'product_type_id' => $productType->id,
+            'product_name' => $productType->name,
+            'grammage' => 100,
+            'quantity' => 20,
+        ]);
+
+        $this->actingAs($agent);
+        $record = SalesRecordService::submitSale([
+            'products' => [$product],
+            'total_value' => 5000.00,
+            'is_credit' => false,
+        ]);
+
+        $supervisor = User::factory()->supervisor()->create();
+        SalesRecordService::supervisorApprove($record, 'Verified on site', $supervisor->id);
+
+        $this->assertDatabaseHas('sales_records', [
+            'id' => $record->id,
+            'status' => 'pending',
+            'supervisor_verified_by' => $supervisor->id,
+            'supervisor_notes' => 'Verified on site',
+        ]);
+    }
+
+    public function test_supervisor_reject_restores_stock_and_marks_rejected(): void
+    {
+        [$productType, $product] = $this->buildProducts();
+        $agent = User::factory()->communitySalesRepresentative()->create();
+        $stock = AgentStock::factory()->create([
+            'user_id' => $agent->id,
+            'product_type_id' => $productType->id,
+            'product_name' => $productType->name,
+            'grammage' => 100,
+            'quantity' => 20,
+        ]);
+
+        $this->actingAs($agent);
+        $record = SalesRecordService::submitSale([
+            'products' => [$product],
+            'total_value' => 5000.00,
+            'is_credit' => false,
+        ]);
+
+        $supervisor = User::factory()->supervisor()->create();
+        SalesRecordService::supervisorReject($record, 'Receipt missing', $supervisor->id);
+
+        $stock->refresh();
+        $this->assertEquals(20, $stock->quantity);
+        $this->assertEquals('rejected', $record->fresh()->status);
+        $this->assertEquals('Receipt missing', $record->fresh()->rejection_reason);
     }
 }

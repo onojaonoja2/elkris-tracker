@@ -47,7 +47,7 @@ class DashboardBreakdownTable extends Component
         if ($this->type === 'credit') {
             return [
                 'pending_payment' => 'Pending Payment',
-                'paid' => 'Paid',
+                'partially_collected' => 'Partially Collected',
                 'overdue' => 'Overdue',
             ];
         }
@@ -67,14 +67,12 @@ class DashboardBreakdownTable extends Component
             ? $this->creditQuery($from, $to)
             : $this->orderQuery($from, $to);
 
-        return $query->paginate(25);
+        return $query->paginate(10);
     }
 
     private function creditQuery(string $from, string $to): Builder
     {
-        $query = SalesRecord::query()
-            ->where('is_credit', true)
-            ->where('status', 'approved')
+        $query = SalesRecord::outstanding()
             ->whereBetween('created_at', [$from, $to])
             ->with('agent');
 
@@ -83,7 +81,10 @@ class DashboardBreakdownTable extends Component
 
         if (in_array($role, ['community_sales_representative', 'open_market', 'retail_market'], true) || $this->category === 'my') {
             $query->where('agent_id', $user->id);
-        } elseif ($role === 'supervisor' || $this->category === 'csr' || $this->category === 'community_sales_representative') {
+        } elseif ($role === 'supervisor' && in_array($this->category, ['csr', 'community_sales_representative'], true)) {
+            $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
+            $query->whereIn('agent_id', $csrIds);
+        } elseif ($this->category === 'csr') {
             $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
             $query->whereIn('agent_id', $csrIds);
         }
@@ -92,12 +93,10 @@ class DashboardBreakdownTable extends Component
             $query->where('agent_type', $this->category);
         }
 
-        if ($this->statusFilter === 'overdue') {
+        if ($this->category === 'overdue' || $this->statusFilter === 'overdue') {
             $query->where('expected_collection_date', '<', now()->toDateString());
         } elseif ($this->statusFilter) {
             $query->where('credit_status', $this->statusFilter);
-        } else {
-            $query->whereIn('credit_status', ['pending_payment', 'partially_collected']);
         }
 
         $this->applySearch($query, ['customer_name'], 'agent');
@@ -114,22 +113,29 @@ class DashboardBreakdownTable extends Component
 
         $user = auth()->user();
         $role = $user?->getPrimaryRole();
+        $isCsr = $role === 'community_sales_representative';
 
         if (in_array($role, ['rep', 'lead', 'sales', 'community_sales_representative', 'open_market', 'retail_market'], true) || $this->category === 'my') {
-            $query->where('user_id', $user->id);
-        } elseif ($role === 'supervisor' || $this->category === 'csr' || $this->category === 'community_sales_representative') {
+            $query->where($isCsr ? 'assigned_to' : 'user_id', $user->id);
+        } elseif ($role === 'supervisor' && $this->category !== 'total' && ! in_array($this->category, ['open_market', 'retail_market', 'community_sales_representative'], true)) {
             $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
-            $query->whereIn('user_id', $csrIds);
+            $query->whereIn('assigned_to', $csrIds);
+        } elseif ($this->category === 'csr') {
+            $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
+            $query->whereIn('assigned_to', $csrIds);
         }
 
         if ($this->category === 'pending') {
-            $query->where('status', OrderStatus::Pending);
+            $query->pendingDelivery();
         } elseif ($this->category === 'delivered') {
             $query->where('status', OrderStatus::Delivered);
         }
 
-        if (in_array($this->category, ['open_market', 'retail_market', 'community_sales_representative'], true)) {
+        if (in_array($this->category, ['open_market', 'retail_market'], true)) {
             $query->whereHas('user', fn ($q) => $q->where('role', $this->category));
+        } elseif ($this->category === 'community_sales_representative') {
+            $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
+            $query->whereIn('assigned_to', $csrIds);
         }
 
         if ($this->statusFilter) {

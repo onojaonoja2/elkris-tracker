@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\OrderStatus;
+use App\Enums\StockTransferStatus;
 use App\Filament\Resources\CallLogs\CallLogResource;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
@@ -12,9 +13,11 @@ use App\Filament\Resources\Users\UserResource;
 use App\Models\AgentStock;
 use App\Models\CallLog;
 use App\Models\Customer;
+use App\Models\DamagedStockReturn;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\SalesRecord;
+use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\User;
 use Carbon\Carbon;
@@ -99,6 +102,26 @@ class ManagerStatsWidget extends BaseWidget
 
         $creditSalesOutstanding = SalesRecord::outstanding()->sum('total_value');
 
+        $pendingTransfers = StockTransfer::where('status', StockTransferStatus::Requested)
+            ->whereNull('supervisor_approved_by')
+            ->where('requires_approval', true)
+            ->count();
+
+        $pendingOpenRetailSales = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])
+            ->whereNull('supervisor_verified_at')
+            ->whereIn('agent_type', ['open_market', 'retail_market'])
+            ->count();
+
+        $pendingOpenRetailCounts = StockCount::where('status', 'pending')
+            ->whereNull('supervisor_status')
+            ->whereHas('user', fn ($q) => $q->whereIn('role', ['open_market', 'retail_market']))
+            ->count();
+
+        $pendingOpenRetailDamaged = DamagedStockReturn::where('status', 'pending')
+            ->whereNull('supervisor_approved_by')
+            ->whereHas('user', fn ($q) => $q->whereIn('role', ['open_market', 'retail_market']))
+            ->count();
+
         return [
             Stat::make('Total Customers', $totalCustomers)
                 ->description($conversionRate.'% conversion rate')
@@ -150,6 +173,26 @@ class ManagerStatsWidget extends BaseWidget
                 ->icon('heroicon-o-clock')
                 ->color('danger')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-credit-breakdown', { category: 'total' })"]),
+            Stat::make('Pending Stock Transfers', $pendingTransfers)
+                ->description('All transfers awaiting action')
+                ->icon('heroicon-o-arrows-right-left')
+                ->color('warning')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-approval-breakdown', { type: 'stock_transfer' })"]),
+            Stat::make('Open Market Sales', $pendingOpenRetailSales)
+                ->description('Pending verification')
+                ->icon('heroicon-o-document-text')
+                ->color('warning')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-approval-breakdown', { type: 'sales_records' })"]),
+            Stat::make('Open Market Counts', $pendingOpenRetailCounts)
+                ->description('Pending stock counts')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->color('warning')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-approval-breakdown', { type: 'stock_count' })"]),
+            Stat::make('Damaged Returns', $pendingOpenRetailDamaged)
+                ->description('Open market returns')
+                ->icon('heroicon-o-arrow-uturn-left')
+                ->color('warning')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-approval-breakdown', { type: 'damaged_return' })"]),
         ];
     }
 

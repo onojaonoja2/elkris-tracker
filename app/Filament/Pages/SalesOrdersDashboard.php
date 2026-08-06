@@ -6,6 +6,7 @@ use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\SalesAssignedOrdersWidget;
 use App\Filament\Widgets\SalesCsrOverviewWidget;
@@ -69,6 +70,7 @@ class SalesOrdersDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             SalesInventoryStatsWidget::class,
             OrderStatsWidget::class,
         ];
@@ -91,6 +93,7 @@ class SalesOrdersDashboard extends BaseDashboard
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
             $this->getOrderBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
             $this->buildRequestStockAction(),
             $this->buildRecordOfficeSaleAction(),
             $this->buildInitiateOrderAction(),
@@ -339,7 +342,7 @@ class SalesOrdersDashboard extends BaseDashboard
                         TextInput::make('price')
                             ->label('Unit Price (₦)')
                             ->numeric()
-                            ->minValue(0)
+                            ->minValue(0.01)
                             ->required(),
                     ])
                     ->addActionLabel('Add Item')

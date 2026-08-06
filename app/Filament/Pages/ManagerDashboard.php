@@ -17,6 +17,7 @@ use App\Filament\Widgets\ManagerSalesRecordsByStateWidget;
 use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
@@ -76,6 +77,7 @@ class ManagerDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             ManagerStatsWidget::class,
             ProductionActivityWidget::class,
             CreditSalesOutstandingStatsWidget::class,
@@ -109,6 +111,8 @@ class ManagerDashboard extends BaseDashboard
         return [
             $this->getCreditBreakdownAction(),
             $this->getOrderBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
+            $this->getApprovalBreakdownAction(),
             Action::make('create_user')
                 ->label('Add Agent')
                 ->icon('heroicon-o-user-plus')

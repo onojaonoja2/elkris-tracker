@@ -54,7 +54,7 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
             ->whereBetween('created_at', [$from, $to]);
 
         $totalOrders = $ordersQuery->count();
-        $pendingOrders = (clone $ordersQuery)->where('status', OrderStatus::Pending)->count();
+        $pendingOrders = (clone $ordersQuery)->pendingDelivery()->count();
         $deliveredOrders = (clone $ordersQuery)->where('status', OrderStatus::Delivered)->count();
         $unassignedOrders = Order::where('user_id', $userId)
             ->where('is_migrated_order', false)

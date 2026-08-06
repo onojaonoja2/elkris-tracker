@@ -12,7 +12,7 @@
                 Back to summary
             </button>
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {{ $this->selectedAgent?->name ?? 'CSR' }} — Individual Sales
+                {{ $this->selectedAgent?->name ?? 'Agent' }} — Office Sales
             </span>
         </div>
     @endif
@@ -21,9 +21,19 @@
         <input
             type="text"
             wire:model.live.debounce.300ms="search"
-            placeholder="{{ $this->selectedAgentId !== null ? 'Search by customer or vendor...' : 'Search by CSR name...' }}"
+            placeholder="{{ $this->selectedAgentId !== null ? 'Search by customer...' : 'Search by agent name...' }}"
             class="w-full sm:w-64 px-3 py-2 text-sm border rounded-lg dark:bg-gray-800 dark:border-gray-700"
         />
+        @if($this->selectedAgentId !== null)
+            <select
+                wire:model.live="statusFilter"
+                class="w-full sm:w-48 px-3 py-2 text-sm border rounded-lg dark:bg-gray-800 dark:border-gray-700"
+            >
+                @foreach($this->statusOptions() as $value => $label)
+                    <option value="{{ $value }}">{{ $label }}</option>
+                @endforeach
+            </select>
+        @endif
     </div>
 
     <div class="overflow-auto max-h-[60vh]">
@@ -32,27 +42,30 @@
                 <thead class="bg-gray-100 dark:bg-gray-800">
                     <tr>
                         <th class="px-3 py-2">Customer</th>
-                        <th class="px-3 py-2">Products</th>
-                        <th class="px-3 py-2">Value</th>
+                        <th class="px-3 py-2">Product</th>
+                        <th class="px-3 py-2">Grammage</th>
+                        <th class="px-3 py-2">Qty</th>
+                        <th class="px-3 py-2">Unit Price</th>
+                        <th class="px-3 py-2">Total</th>
                         <th class="px-3 py-2">Status</th>
                         <th class="px-3 py-2">Date</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($this->detailRecords as $record)
+                    @forelse($this->detailRows as $row)
                         <tr class="border-b">
-                            <td class="px-3 py-2">{{ $record->customer_name ?? '-' }}</td>
-                            <td class="px-3 py-2">
-                                @php($items = collect($record->products)->map(fn ($p) => "{$p['quantity']}x {$p['product_name']} ({$p['grammage']})")->implode(', '))
-                                {{ $items }}
-                            </td>
-                            <td class="px-3 py-2">₦{{ number_format($record->total_value, 2) }}</td>
-                            <td class="px-3 py-2">{{ ucfirst($record->status) }}</td>
-                            <td class="px-3 py-2">{{ $record->created_at->format('M d, Y H:i') }}</td>
+                            <td class="px-3 py-2">{{ $row['customer'] ?? '-' }}</td>
+                            <td class="px-3 py-2">{{ $row['product'] }}</td>
+                            <td class="px-3 py-2">{{ $row['grammage'] }}</td>
+                            <td class="px-3 py-2">{{ $row['quantity'] }}</td>
+                            <td class="px-3 py-2">₦{{ number_format($row['price'], 2) }}</td>
+                            <td class="px-3 py-2">₦{{ number_format($row['line_total'], 2) }}</td>
+                            <td class="px-3 py-2">{{ ucfirst($row['status']) }}</td>
+                            <td class="px-3 py-2">{{ $row['date']->format('M d, Y H:i') }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-3 py-4 text-center text-gray-500">No sales records found.</td>
+                            <td colspan="8" class="px-3 py-4 text-center text-gray-500">No office sales records found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -61,8 +74,10 @@
             <table class="w-full text-sm text-left">
                 <thead class="bg-gray-100 dark:bg-gray-800">
                     <tr>
-                        <th class="px-3 py-2">CSR</th>
-                        <th class="px-3 py-2">Sales Count</th>
+                        <th class="px-3 py-2">Agent</th>
+                        <th class="px-3 py-2">Approved</th>
+                        <th class="px-3 py-2">Pending</th>
+                        <th class="px-3 py-2">Rejected</th>
                         <th class="px-3 py-2">Total Value</th>
                         <th class="px-3 py-2"></th>
                     </tr>
@@ -71,7 +86,9 @@
                     @forelse($this->summaryRows as $row)
                         <tr class="border-b">
                             <td class="px-3 py-2">{{ $row['name'] }}</td>
-                            <td class="px-3 py-2">{{ $row['count'] }}</td>
+                            <td class="px-3 py-2">{{ $row['approved'] }}</td>
+                            <td class="px-3 py-2">{{ $row['pending'] }}</td>
+                            <td class="px-3 py-2">{{ $row['rejected'] }}</td>
                             <td class="px-3 py-2">₦{{ number_format($row['total'], 2) }}</td>
                             <td class="px-3 py-2 text-right">
                                 <button
@@ -88,7 +105,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-3 py-4 text-center text-gray-500">No attached CSRs found.</td>
+                            <td colspan="6" class="px-3 py-4 text-center text-gray-500">No sales agents found.</td>
                         </tr>
                     @endforelse
                 </tbody>

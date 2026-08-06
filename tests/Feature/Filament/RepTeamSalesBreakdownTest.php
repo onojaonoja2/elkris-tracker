@@ -134,6 +134,51 @@ class RepTeamSalesBreakdownTest extends TestCase
             ->assertDontSee('8,000.00');
     }
 
+    public function test_drill_down_paginates_by_ten(): void
+    {
+        collect(range(1, 12))->map(
+            fn (int $i) => SalesRecord::factory()->approved()->create([
+                'agent_id' => $this->csr->id,
+                'total_value' => 1000,
+                'customer_name' => 'Rep Cust '.chr(64 + $i),
+                'created_at' => now()->addMinutes($i),
+            ])
+        );
+
+        Livewire::test(TeamSalesBreakdownTable::class)
+            ->call('selectAgent', $this->csr->id)
+            ->assertSee('Rep Cust L')
+            ->assertSee('Rep Cust C')
+            ->assertDontSee('Rep Cust A')
+            ->assertDontSee('Rep Cust B')
+            ->call('setPage', 2)
+            ->assertSee('Rep Cust A')
+            ->assertSee('Rep Cust B')
+            ->assertDontSee('Rep Cust L');
+    }
+
+    public function test_summary_paginates_by_ten(): void
+    {
+        $this->csr->update(['name' => 'Attach Zulu']);
+
+        collect(range(1, 11))->map(
+            fn (int $i) => User::factory()->communitySalesRepresentative()->create([
+                'name' => 'Attach '.chr(64 + $i),
+                'portfolio_agent_id' => $this->rep->id,
+            ])
+        );
+
+        Livewire::test(TeamSalesBreakdownTable::class)
+            ->assertSee('Attach A')
+            ->assertSee('Attach J')
+            ->assertDontSee('Attach K')
+            ->assertDontSee('Attach Zulu')
+            ->call('setPage', 2)
+            ->assertSee('Attach K')
+            ->assertSee('Attach Zulu')
+            ->assertDontSee('Attach A');
+    }
+
     public function test_component_is_forbidden_for_non_reps(): void
     {
         $sales = User::factory()->sales()->create();

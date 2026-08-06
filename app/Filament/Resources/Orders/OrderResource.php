@@ -117,7 +117,7 @@ class OrderResource extends Resource
                                     ->numeric()
                                     ->prefix('₦')
                                     ->required()
-                                    ->default(0)
+                                    ->minValue(0.01)
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
                                 Select::make('promotion_type')

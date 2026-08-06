@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\UserRole;
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
 use Filament\Actions\Action;
@@ -31,8 +32,11 @@ class AccountantDamagedReturnsWidget extends TableWidget
     {
         return $table
             ->query(fn () => DamagedStockReturn::where('status', 'pending')
-                ->whereNotNull('supervisor_approved_by')
                 ->whereNull('accountant_approved_by')
+                ->where(function ($query) {
+                    $query->whereNotNull('supervisor_approved_by')
+                        ->orWhereDoesntHave('user', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value));
+                })
                 ->orderBy('created_at', 'desc'))
             ->columns([
                 TextColumn::make('id')
