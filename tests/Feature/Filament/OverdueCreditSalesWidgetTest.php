@@ -65,4 +65,27 @@ class OverdueCreditSalesWidgetTest extends TestCase
         Livewire::test(OverdueCreditSalesWidget::class)
             ->assertCanNotSeeTableRecords([$future]);
     }
+
+    public function test_days_overdue_is_computed_correctly(): void
+    {
+        $agent = User::factory()->communitySalesRepresentative()->create();
+
+        $threeDays = SalesRecord::factory()->overdue()->create([
+            'agent_id' => $agent->id,
+            'customer_name' => 'Three Days Overdue',
+            'expected_collection_date' => now()->subDays(3)->toDateString(),
+        ]);
+
+        $tenDays = SalesRecord::factory()->overdue()->create([
+            'agent_id' => $agent->id,
+            'customer_name' => 'Ten Days Overdue',
+            'expected_collection_date' => now()->subDays(10)->toDateString(),
+        ]);
+
+        $this->actingAs($agent);
+
+        Livewire::test(OverdueCreditSalesWidget::class)
+            ->assertTableColumnStateSet('days_overdue', 3, $threeDays)
+            ->assertTableColumnStateSet('days_overdue', 10, $tenDays);
+    }
 }

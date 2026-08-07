@@ -115,6 +115,11 @@ class SalesRecord extends Model implements Auditable
             && $this->expected_collection_date->isBefore(now()->toDateString());
     }
 
+    public function daysOverdue(): int
+    {
+        return max(0, (int) ($this->expected_collection_date?->diffInDays(now()->startOfDay()) ?? 0));
+    }
+
     public function hasPendingProofReview(): bool
     {
         return $this->proof_review_requested_at !== null && ! $this->hasPaymentProof();

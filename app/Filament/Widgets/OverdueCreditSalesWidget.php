@@ -45,7 +45,7 @@ class OverdueCreditSalesWidget extends TableWidget
                     ->color(fn ($state) => $state && $state->isPast() ? 'danger' : 'gray'),
                 TextColumn::make('days_overdue')
                     ->label('Days Overdue')
-                    ->state(fn (SalesRecord $record): int => max(0, (int) now()->startOfDay()->diffInDays($record->expected_collection_date)))
+                    ->state(fn (SalesRecord $record): int => $record->daysOverdue())
                     ->numeric()
                     ->color('danger'),
             ])
