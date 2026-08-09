@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Exports\DamagedStockReturnExporter;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\DamagedStockReturn;
 use App\Models\Warehouse;
 use Filament\Actions\ExportAction;
@@ -14,6 +15,8 @@ use Livewire\Attributes\On;
 
 class DamagedReturnsBreakdownWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Damaged Stock Returns Breakdown';
 
     protected int|string|array $columnSpan = 'full';
@@ -79,6 +82,9 @@ class DamagedReturnsBreakdownWidget extends TableWidget
             ->headerActions([
                 ExportAction::make()
                     ->exporter(DamagedStockReturnExporter::class),
+            ])
+            ->recordActions([
+                $this->breakdownViewAction(),
             ])
             ->paginated(15);
     }

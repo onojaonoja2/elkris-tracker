@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Exports\SalesRecordExporter;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\SalesRecord;
 use App\Models\User;
 use App\Services\SalesRecordService;
@@ -21,6 +22,8 @@ use Livewire\Attributes\On;
 
 class SupervisorSalesRecordsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?int $sort = 5;
 
     protected static ?string $heading = 'Recent Sales Records';
@@ -79,6 +82,7 @@ class SupervisorSalesRecordsWidget extends TableWidget
                     )),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('supervisorApprove')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')

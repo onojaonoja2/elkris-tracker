@@ -95,7 +95,8 @@ class SupervisorStatsWidget extends StatsOverviewWidget
             Stat::make('Revenue', '₦'.number_format($salesRevenue, 2))
                 ->description('Total sales value in period')
                 ->icon('heroicon-o-banknotes')
-                ->color('success'),
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-revenue-breakdown')"]),
 
             Stat::make('Pending Orders', number_format($pendingOrders))
                 ->description('₦'.number_format($ordersValue, 2).' total value')

@@ -1,6 +1,15 @@
 <div class="filament-widget px-4 py-4">
     <h2 class="text-lg font-bold mb-4">Stock Levels Overview</h2>
 
+    <div class="mb-4">
+        <input
+            type="text"
+            wire:model.live.debounce.300ms="search"
+            placeholder="Search by location, product, weight or type..."
+            class="w-full sm:w-96 px-3 py-2 text-sm border rounded-lg dark:bg-gray-800 dark:border-gray-700"
+        />
+    </div>
+
     @php
         $grandQuantity = 0;
         $grandCartons = 0;
@@ -57,7 +66,23 @@
                                         {{ $row->type }}
                                     </span>
                                 </td>
-                                <td class="px-3 py-2">{{ $row->product }}</td>
+                                <td class="px-3 py-2">
+                                    @if($row->agent_id !== null || $row->warehouse_id !== null)
+                                        <button
+                                            type="button"
+                                            wire:click="$dispatch('open-stock-movement-breakdown', {{ json_encode(['entityType' => $row->agent_id !== null ? 'agent' : 'warehouse', 'entityId' => $row->agent_id ?? $row->warehouse_id, 'product' => $row->product, 'grammage' => $row->grammage]) }})"
+                                            class="inline-flex items-center gap-1 font-medium text-blue-600 hover:underline dark:text-blue-400"
+                                            title="View stock movements for this entity"
+                                        >
+                                            {{ $row->product }}
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                            </svg>
+                                        </button>
+                                    @else
+                                        {{ $row->product }}
+                                    @endif
+                                </td>
                                 <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->grammage) }}g</td>
                                 <td class="px-3 py-2 text-right font-mono text-sm text-gray-500">{{ $row->carton_quantity }} pcs</td>
                                 <td class="px-3 py-2 text-right font-mono text-sm font-semibold">{{ number_format($row->quantity) }}</td>
@@ -148,7 +173,23 @@
                                                 {{ $row->type }}
                                             </span>
                                         </td>
-                                        <td class="px-3 py-2">{{ $row->product }}</td>
+                                        <td class="px-3 py-2">
+                                            @if($row->agent_id !== null || $row->warehouse_id !== null)
+                                                <button
+                                                    type="button"
+                                            wire:click="$dispatch('open-stock-movement-breakdown', {{ json_encode(['entityType' => $row->agent_id !== null ? 'agent' : 'warehouse', 'entityId' => $row->agent_id ?? $row->warehouse_id, 'product' => $row->product, 'grammage' => $row->grammage]) }})"
+                                                    class="inline-flex items-center gap-1 font-medium text-blue-600 hover:underline dark:text-blue-400"
+                                                    title="View stock movements for this entity"
+                                                >
+                                                    {{ $row->product }}
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                                                    </svg>
+                                                </button>
+                                            @else
+                                                {{ $row->product }}
+                                            @endif
+                                        </td>
                                         <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->grammage) }}g</td>
                                         <td class="px-3 py-2 text-right font-mono text-sm text-gray-500">{{ $row->carton_quantity }} pcs</td>
                                         <td class="px-3 py-2 text-right font-mono text-sm font-semibold">{{ number_format($row->quantity) }}</td>

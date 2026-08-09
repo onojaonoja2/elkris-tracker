@@ -73,6 +73,8 @@ class AccountantDashboard extends BaseDashboard
             $this->getClearDateFilterAction(),
             $this->getCreditBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
+            $this->getRepSalesBreakdownAction(),
+            $this->getStockMovementBreakdownAction(),
             Action::make('exportReport')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')

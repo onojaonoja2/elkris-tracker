@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\StockTransferStatus;
 use App\Enums\UserRole;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\StockTransfer;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -15,6 +16,8 @@ use Livewire\Attributes\On;
 
 class AccountantStockTransferApprovalWidget extends BaseWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Pending Agent Stock Transfer Approvals';
 
     protected int|string|array $columnSpan = 'full';
@@ -65,6 +68,7 @@ class AccountantStockTransferApprovalWidget extends BaseWidget
                     ->badge(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('accountantApprove')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')

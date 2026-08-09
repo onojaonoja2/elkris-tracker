@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\UserRole;
 use App\Filament\Exports\SalesRecordExporter;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\SalesRecord;
 use App\Services\SalesRecordService;
 use Carbon\Carbon;
@@ -21,6 +22,8 @@ use Livewire\Attributes\On;
 
 class AccountantSalesRecordsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Pending Sales Record Verifications';
 
     protected int|string|array $columnSpan = 'full';
@@ -125,6 +128,7 @@ class AccountantSalesRecordsWidget extends TableWidget
                     }),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('approveByAccountant')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')

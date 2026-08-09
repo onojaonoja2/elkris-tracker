@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\UserRole;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\StockCount;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -14,6 +15,8 @@ use Livewire\Attributes\On;
 
 class SupervisorStockCountApprovalWidget extends BaseWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Pending Stock Count Approvals';
 
     protected int|string|array $columnSpan = 'full';
@@ -41,6 +44,7 @@ class SupervisorStockCountApprovalWidget extends BaseWidget
                     ->color(fn (bool $state): string => $state ? 'warning' : 'info'),
             ])
             ->actions([
+                $this->breakdownViewAction(),
                 Action::make('supervisorVerify')
                     ->label('Verify & Approve')
                     ->color('success')

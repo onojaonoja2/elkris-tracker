@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\AgentStock;
 use App\Models\ProductType;
 use App\Models\SalesRecord;
@@ -22,6 +23,8 @@ use Livewire\Attributes\On;
 
 class SupervisorCsrListWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?int $sort = 3;
 
     protected static ?string $heading = 'CSR Overview';
@@ -94,6 +97,7 @@ class SupervisorCsrListWidget extends TableWidget
                     ->sortable(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('collectStock')
                     ->label('Collect Stock')
                     ->icon('heroicon-o-arrow-down-tray')

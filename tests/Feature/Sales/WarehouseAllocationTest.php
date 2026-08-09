@@ -258,4 +258,123 @@ class WarehouseAllocationTest extends TestCase
 
         $this->assertEquals('rejected', $record->fresh()->status);
     }
+
+    public function test_approve_recovers_when_stock_request_was_standalone_approved_without_movement(): void
+    {
+        $agent = User::factory()->openMarket()->create();
+        $warehouse = $this->makeWarehouseWithStock(20);
+        $accountant = User::factory()->accountant()->create();
+
+        $this->actingAs($agent);
+
+        $record = SalesRecordService::submitSale([
+            'products' => [$this->product],
+            'total_value' => 5000.00,
+            'is_credit' => false,
+            'warehouse_id' => $warehouse->id,
+        ]);
+
+        $transfer = StockTransfer::where('sales_record_id', $record->id)->firstOrFail();
+
+        $transfer->update([
+            'status' => StockTransferStatus::Approved,
+            'approved_by' => $accountant->id,
+            'approved_at' => now(),
+        ]);
+
+        SalesRecordService::approve($record, [], $accountant->id);
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $this->productType->id,
+            'grammage' => 100,
+            'quantity' => 15,
+        ]);
+
+        $this->assertDatabaseHas('agent_stocks', [
+            'user_id' => $agent->id,
+            'product_type_id' => $this->productType->id,
+            'product_name' => $this->productType->name,
+            'grammage' => 100,
+            'quantity' => 5,
+        ]);
+
+        $transfer->refresh();
+
+        $this->assertEquals(StockTransferStatus::Received, $transfer->status);
+        $this->assertNotNull($transfer->received_at);
+
+        $this->assertEquals('approved', $record->fresh()->status);
+    }
+
+    public function test_approve_fails_when_stock_request_was_dispatched_standalone(): void
+    {
+        $agent = User::factory()->openMarket()->create();
+        $warehouse = $this->makeWarehouseWithStock(20);
+        $accountant = User::factory()->accountant()->create();
+
+        $this->actingAs($agent);
+
+        $record = SalesRecordService::submitSale([
+            'products' => [$this->product],
+            'total_value' => 5000.00,
+            'is_credit' => false,
+            'warehouse_id' => $warehouse->id,
+        ]);
+
+        $transfer = StockTransfer::where('sales_record_id', $record->id)->firstOrFail();
+
+        $transfer->update([
+            'status' => StockTransferStatus::Dispatched,
+            'dispatched_by' => $accountant->id,
+        ]);
+
+        try {
+            SalesRecordService::approve($record, [], $accountant->id);
+            $this->fail('Expected ValidationException was not thrown.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('status', $e->errors());
+        }
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $this->productType->id,
+            'grammage' => 100,
+            'quantity' => 20,
+        ]);
+
+        $this->assertDatabaseMissing('agent_stocks', ['user_id' => $agent->id]);
+    }
+
+    public function test_approve_fails_when_stock_request_was_already_received(): void
+    {
+        $agent = User::factory()->openMarket()->create();
+        $warehouse = $this->makeWarehouseWithStock(20);
+        $accountant = User::factory()->accountant()->create();
+
+        $this->actingAs($agent);
+
+        $record = SalesRecordService::submitSale([
+            'products' => [$this->product],
+            'total_value' => 5000.00,
+            'is_credit' => false,
+            'warehouse_id' => $warehouse->id,
+        ]);
+
+        SalesRecordService::approve($record, [], $accountant->id);
+
+        try {
+            SalesRecordService::approve($record, [], $accountant->id);
+            $this->fail('Expected ValidationException was not thrown.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('status', $e->errors());
+        }
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $this->productType->id,
+            'grammage' => 100,
+            'quantity' => 15,
+        ]);
+    }
 }

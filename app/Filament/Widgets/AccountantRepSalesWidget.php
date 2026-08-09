@@ -3,7 +3,9 @@
 namespace App\Filament\Widgets;
 
 use App\Models\User;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Livewire\Attributes\On;
@@ -24,22 +26,26 @@ class AccountantRepSalesWidget extends TableWidget
 
     public function table(Table $table): Table
     {
+        $role = $this->tableFilters['role']['value'] ?? 'rep';
+        $relation = $role === 'lead' ? 'leadCustomers' : 'repCustomers';
+
         return $table
             ->query(
-                User::where('role', 'rep')
+                User::where('role', $role)
                     ->with('lead')
-                    ->withCount(['repCustomers as orders_count' => function ($q) {
-                        $q->whereHas('orders', fn ($o) => $o->whereIn('status', ['delivered', 'confirmed', 'completed']));
-                    }])
-                    ->withExists(['repCustomers as has_sales' => function ($q) {
-                        $q->whereHas('orders', fn ($o) => $o->whereIn('status', ['delivered', 'confirmed', 'completed']));
+                    ->withCount(["{$relation} as orders_count" => function ($query) {
+                        $query->whereHas('orders', fn ($orders) => $orders->whereIn('status', [
+                            'delivered',
+                            'confirmed',
+                            'completed',
+                        ]));
                     }])
             )
             ->columns([
                 TextColumn::make('name')
-                    ->label('Rep'),
+                    ->label(ucfirst($role)),
                 TextColumn::make('my_id')
-                    ->label('Rep ID')
+                    ->label('ID')
                     ->placeholder('-'),
                 TextColumn::make('lead.name')
                     ->label('Team Lead')
@@ -48,16 +54,43 @@ class AccountantRepSalesWidget extends TableWidget
                     ->label('Total Sales (₦)')
                     ->money('NGN')
                     ->state(function (User $record): float {
-                        return (float) $record->repCustomers()
-                            ->whereHas('orders', fn ($q) => $q->whereIn('status', ['delivered', 'confirmed', 'completed']))
-                            ->join('orders', 'orders.customer_id', '=', 'customers.id')
-                            ->whereIn('orders.status', ['delivered', 'confirmed', 'completed'])
-                            ->sum('orders.total_price');
+                        return $this->salesTotal($record);
                     }),
                 TextColumn::make('orders_count')
                     ->label('Orders'),
             ])
+            ->filters([
+                SelectFilter::make('role')
+                    ->label('Show')
+                    ->options([
+                        'rep' => 'Reps',
+                        'lead' => 'Leads',
+                    ])
+                    ->default('rep'),
+            ])
             ->defaultSort('orders_count', 'desc')
+            ->recordActions([
+                Action::make('viewRepSales')
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->action(fn (User $record) => $this->dispatch('open-rep-sales-breakdown', userId: $record->id)),
+            ])
             ->paginated(false);
+    }
+
+    protected function salesTotal(User $record): float
+    {
+        $relation = $record->role === 'lead' ? 'leadCustomers' : 'repCustomers';
+
+        return (float) $record->{$relation}()
+            ->whereHas('orders', fn ($orders) => $orders->whereIn('status', [
+                'delivered',
+                'confirmed',
+                'completed',
+            ]))
+            ->join('orders', 'orders.customer_id', '=', 'customers.id')
+            ->whereIn('orders.status', ['delivered', 'confirmed', 'completed'])
+            ->sum('orders.total_price');
     }
 }

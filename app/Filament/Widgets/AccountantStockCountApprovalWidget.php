@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\UserRole;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\StockCount;
@@ -16,6 +17,8 @@ use Livewire\Attributes\On;
 
 class AccountantStockCountApprovalWidget extends BaseWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Stock Count Final Approvals';
 
     protected int|string|array $columnSpan = 'full';
@@ -46,6 +49,7 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                     ->color(fn (bool $state): string => $state ? 'warning' : 'info'),
             ])
             ->actions([
+                $this->breakdownViewAction(),
                 Action::make('accountantApprove')
                     ->label('Final Approve')
                     ->color('success')

@@ -577,7 +577,11 @@ class SalesRecordService
             ]);
         }
 
-        if ($transfer->status !== StockTransferStatus::Requested) {
+        $untouchedApproved = $transfer->status === StockTransferStatus::Approved
+            && blank($transfer->received_at)
+            && blank($transfer->dispatched_at);
+
+        if ($transfer->status !== StockTransferStatus::Requested && ! $untouchedApproved) {
             throw ValidationException::withMessages([
                 'status' => 'The stock request for this sales record has already been processed.',
             ]);

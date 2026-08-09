@@ -11,6 +11,7 @@ use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\SupervisorCreditSalesWidget;
 use App\Filament\Widgets\SupervisorCsrListWidget;
 use App\Filament\Widgets\SupervisorDamagedReturnsWidget;
+use App\Filament\Widgets\SupervisorDispatchStockWidget;
 use App\Filament\Widgets\SupervisorSalesByGeoWidget;
 use App\Filament\Widgets\SupervisorSalesRecordsWidget;
 use App\Filament\Widgets\SupervisorStatsWidget;
@@ -84,6 +85,7 @@ class SupervisorDashboard extends BaseDashboard
             SupervisorSalesRecordsWidget::class,
             SupervisorCreditSalesWidget::class,
             SupervisorDamagedReturnsWidget::class,
+            SupervisorDispatchStockWidget::class,
             DamagedReturnsBreakdownWidget::class,
             AgentCustomerViewWidget::class,
         ];
@@ -95,6 +97,7 @@ class SupervisorDashboard extends BaseDashboard
             $this->getCreditBreakdownAction(),
             $this->getOrderBreakdownAction(),
             $this->getApprovalBreakdownAction(),
+            $this->getRevenueBreakdownAction(),
 
             Action::make('addCsr')
                 ->label('Add CSR')

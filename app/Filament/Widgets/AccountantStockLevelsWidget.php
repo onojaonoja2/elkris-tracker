@@ -12,8 +12,12 @@ class AccountantStockLevelsWidget extends Widget
 {
     protected string $view = 'filament.widgets.stock-levels';
 
+    public string $search = '';
+
     #[On('refresh-dashboard')]
     public function refreshWidget(): void {}
+
+    public function updatedSearch(): void {}
 
     public static function canView(): bool
     {
@@ -56,6 +60,8 @@ class AccountantStockLevelsWidget extends Widget
             'carton_quantity' => $cartonQty,
             'cartons' => $cartons,
             'remaining_pieces' => $remaining,
+            'agent_id' => $data['agent_id'] ?? null,
+            'warehouse_id' => $data['warehouse_id'] ?? null,
         ];
     }
 
@@ -69,7 +75,22 @@ class AccountantStockLevelsWidget extends Widget
             'product_type_id' => $item->product_type_id,
             'grammage' => $item->grammage,
             'quantity' => $item->quantity,
+            'agent_id' => $item->user_id,
         ]);
+    }
+
+    protected function matchesSearch(object $row): bool
+    {
+        if ($this->search === '') {
+            return true;
+        }
+
+        $search = strtolower($this->search);
+
+        return str_contains(strtolower($row->location), $search)
+            || str_contains(strtolower($row->product), $search)
+            || str_contains(strtolower($row->type), $search)
+            || str_contains((string) $row->grammage, $search);
     }
 
     public function getStockLevels(): array
@@ -90,7 +111,12 @@ class AccountantStockLevelsWidget extends Widget
                 'product_type_id' => $inv->product_type_id,
                 'grammage' => $inv->grammage,
                 'quantity' => $inv->quantity,
+                'warehouse_id' => $inv->warehouse_id,
             ]);
+
+            if (! $this->matchesSearch($row)) {
+                continue;
+            }
 
             if ($inv->warehouse?->type === 'central') {
                 $centralWarehouse->push($row);
@@ -109,6 +135,10 @@ class AccountantStockLevelsWidget extends Widget
         foreach ($agentStocks as $item) {
             $role = $item->agent?->role;
             $row = $this->makeAgentRow($item);
+
+            if (! $this->matchesSearch($row)) {
+                continue;
+            }
 
             $regionName = $item->agent?->state?->region?->name ?? 'Unknown Region';
             $stateName = $item->agent?->state?->name ?? 'Unknown State';

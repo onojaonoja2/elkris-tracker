@@ -45,6 +45,11 @@ class StockTransfer extends Model implements Auditable
         return $this->belongsTo(SalesRecord::class, 'sales_record_id');
     }
 
+    public function isSalesRecordRequest(): bool
+    {
+        return $this->sales_record_id !== null;
+    }
+
     public function fromAgent(): BelongsTo
     {
         return $this->belongsTo(User::class, 'from_agent_id');

@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\UserRole;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\DamagedStockReturn;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -14,6 +15,8 @@ use Livewire\Attributes\On;
 
 class SupervisorDamagedReturnsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Damaged Stock Returns Awaiting Supervisor';
 
     protected int|string|array $columnSpan = 'full';
@@ -44,6 +47,7 @@ class SupervisorDamagedReturnsWidget extends TableWidget
                 TextColumn::make('created_at')->label('Date')->dateTime(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('supervisorApprove')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')

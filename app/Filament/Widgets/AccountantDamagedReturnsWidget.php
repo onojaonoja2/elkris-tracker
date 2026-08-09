@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\UserRole;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
 use Filament\Actions\Action;
@@ -16,6 +17,8 @@ use Livewire\Attributes\On;
 
 class AccountantDamagedReturnsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Pending Damaged Stock Returns';
 
     protected int|string|array $columnSpan = 'full';
@@ -61,6 +64,7 @@ class AccountantDamagedReturnsWidget extends TableWidget
                     ->dateTime(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('approveDamagedReturn')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')

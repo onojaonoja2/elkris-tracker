@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\StockTransfer;
 use App\Services\StockTransferService;
 use Filament\Actions\Action;
@@ -14,6 +15,8 @@ use Livewire\Attributes\On;
 
 class AccountantStockReceiveRequestsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Pending Stock Receive Requests';
 
     protected int|string|array $columnSpan = 'full';
@@ -39,9 +42,18 @@ class AccountantStockReceiveRequestsWidget extends TableWidget
                 TextColumn::make('toWarehouse.name')
                     ->label('To Warehouse')
                     ->searchable(),
+                TextColumn::make('toAgent.name')
+                    ->label('To Agent')
+                    ->placeholder('-'),
                 TextColumn::make('source_type')
                     ->label('Source')
-                    ->formatStateUsing(fn (string $state): string => $state === 'warehouse' ? 'Internal' : 'External'),
+                    ->formatStateUsing(function (string $state): string {
+                        return match ($state) {
+                            'warehouse' => 'Internal',
+                            'supervisor_dispatch' => 'Supervisor Dispatch',
+                            default => 'External',
+                        };
+                    }),
                 TextColumn::make('source_name')
                     ->label('Source Name')
                     ->placeholder('-'),
@@ -55,6 +67,7 @@ class AccountantStockReceiveRequestsWidget extends TableWidget
                     ->dateTime(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('viewDispatchPapers')
                     ->label('View Papers')
                     ->icon('heroicon-o-document-text')

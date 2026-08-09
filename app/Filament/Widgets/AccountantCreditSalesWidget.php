@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\SalesRecord;
 use App\Services\SalesRecordService;
 use Filament\Actions\Action;
@@ -17,6 +18,8 @@ use Livewire\Attributes\On;
 
 class AccountantCreditSalesWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Credit Sales';
 
     protected int|string|array $columnSpan = 'full';
@@ -79,9 +82,10 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->label('Created')
                     ->dateTime(),
             ])
-            ->defaultSort('expected_collection_date', 'asc')
+            ->defaultSort('created_at', 'desc')
             ->paginated(15)
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('uploadPaymentProof')
                     ->label('Upload Payment Proof')
                     ->icon('heroicon-o-document-arrow-up')
