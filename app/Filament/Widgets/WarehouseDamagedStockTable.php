@@ -35,7 +35,7 @@ class WarehouseDamagedStockTable extends TableWidget
         $warehouseIds = auth()->user()->managedWarehouses()->pluck('id');
 
         $excludeCurrentWarehouseOptions = fn (int $currentWarehouseId): array => array_filter(
-            WarehouseOptions::for(auth()->user()),
+            WarehouseOptions::for(),
             fn (string $name, int|string $id): bool => (int) $id !== $currentWarehouseId,
             ARRAY_FILTER_USE_BOTH
         );

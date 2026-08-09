@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -31,6 +32,8 @@ class SalesRecord extends Model implements Auditable
     protected $fillable = [
         'agent_id',
         'agent_type',
+        'warehouse_id',
+        'stock_source',
         'customer_id',
         'products',
         'total_value',
@@ -93,6 +96,12 @@ class SalesRecord extends Model implements Auditable
     public function isCsrSale(): bool
     {
         return $this->agent?->hasRole('community_sales_representative') ?? false;
+    }
+
+    public function requiresWarehouseAllocation(): bool
+    {
+        return in_array($this->agent_type, ['open_market', 'retail_market'], true)
+            && $this->stock_source !== 'held';
     }
 
     public function isOutstanding(): bool
@@ -235,6 +244,16 @@ class SalesRecord extends Model implements Auditable
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'customer_id');
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'warehouse_id');
+    }
+
+    public function stockTransfer(): HasOne
+    {
+        return $this->hasOne(StockTransfer::class, 'sales_record_id');
     }
 
     public function collections(): HasMany

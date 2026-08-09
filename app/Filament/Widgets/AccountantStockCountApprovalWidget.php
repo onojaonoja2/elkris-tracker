@@ -12,12 +12,16 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Livewire\Attributes\On;
 
 class AccountantStockCountApprovalWidget extends BaseWidget
 {
     protected static ?string $heading = 'Stock Count Final Approvals';
 
     protected int|string|array $columnSpan = 'full';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public function table(Table $table): Table
     {
@@ -111,6 +115,8 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                             ->title('Stock count approved')
                             ->success()
                             ->send();
+
+                        $this->dispatch('refresh-dashboard');
                     }),
                 Action::make('accountantReject')
                     ->label('Reject')
@@ -130,6 +136,8 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                             ->title('Stock count rejected')
                             ->danger()
                             ->send();
+
+                        $this->dispatch('refresh-dashboard');
                     }),
             ]);
     }

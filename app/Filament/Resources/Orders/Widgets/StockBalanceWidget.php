@@ -22,8 +22,8 @@ class StockBalanceWidget extends BaseWidget
             ['name' => 'Elkris Oat Flour', 'grammage' => 5000],
             ['name' => 'Elkris Oat Flour', 'grammage' => 1300],
             ['name' => 'Elkris Oat Flour', 'grammage' => 650],
-            ['name' => 'Elkris Plantain', 'grammage' => 1800],
-            ['name' => 'Elkris Plantain', 'grammage' => 900],
+            ['name' => 'Elkris Plantain Flour', 'grammage' => 1800],
+            ['name' => 'Elkris Plantain Flour', 'grammage' => 900],
             ['name' => 'Elkris Poundo Yam', 'grammage' => 1800],
         ];
 

@@ -6,6 +6,7 @@ use App\Models\Order;
 use Carbon\Carbon;
 use Filament\Widgets\ChartWidget;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\On;
 
 class RevenueTrendChart extends ChartWidget
 {
@@ -14,6 +15,9 @@ class RevenueTrendChart extends ChartWidget
     protected int|string|array $columnSpan = 'full';
 
     protected ?string $heading = 'Monthly Revenue Trend (12 Months)';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public static function canView(): bool
     {

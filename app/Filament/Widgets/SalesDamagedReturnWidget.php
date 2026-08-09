@@ -74,7 +74,7 @@ class SalesDamagedReturnWidget extends TableWidget
                     ->form([
                         Select::make('warehouse_id')
                             ->label('Return To Warehouse')
-                            ->options(fn () => WarehouseOptions::for(auth()->user()))
+                            ->options(fn () => WarehouseOptions::for())
                             ->searchable()
                             ->required(),
                         Select::make('product_type_id')

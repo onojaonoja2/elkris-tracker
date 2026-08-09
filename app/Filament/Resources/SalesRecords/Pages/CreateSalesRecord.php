@@ -44,9 +44,13 @@ class CreateSalesRecord extends CreateRecord
 
     protected function getCreatedNotification(): ?Notification
     {
+        $warehouseFulfilled = $this->record->requiresWarehouseAllocation();
+
         return Notification::make()
             ->success()
             ->title('Sales record submitted successfully')
-            ->body('Stock deducted and record is pending verification.');
+            ->body($warehouseFulfilled
+                ? 'Stock request submitted and will be fulfilled from the warehouse upon approval.'
+                : 'Stock deducted and record is pending verification.');
     }
 }

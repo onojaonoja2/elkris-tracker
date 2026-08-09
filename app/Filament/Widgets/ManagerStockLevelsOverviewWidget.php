@@ -25,6 +25,8 @@ class ManagerStockLevelsOverviewWidget extends Widget
 
     protected function makeAgentRow(AgentStock $item): object
     {
+        $cartonQuantity = $item->productType?->cartonQuantityFor($item->grammage) ?? 1;
+
         return (object) [
             'location' => $item->agent?->name ?? 'Unknown Agent',
             'type' => 'Agent',
@@ -32,6 +34,9 @@ class ManagerStockLevelsOverviewWidget extends Widget
             'product' => $item->product_name,
             'grammage' => $item->grammage,
             'quantity' => $item->quantity,
+            'carton_quantity' => $cartonQuantity,
+            'cartons' => intdiv($item->quantity, $cartonQuantity),
+            'remaining_pieces' => $item->quantity % $cartonQuantity,
         ];
     }
 
@@ -45,6 +50,8 @@ class ManagerStockLevelsOverviewWidget extends Widget
             ->get();
 
         foreach ($inventories as $inv) {
+            $cartonQuantity = $inv->productType?->cartonQuantityFor($inv->grammage) ?? 1;
+
             $row = (object) [
                 'location' => $inv->warehouse?->name ?? 'Unknown Warehouse',
                 'type' => $inv->warehouse?->type === 'central' ? 'Central Warehouse' : 'State Warehouse',
@@ -52,6 +59,9 @@ class ManagerStockLevelsOverviewWidget extends Widget
                 'product' => $inv->productType?->name ?? 'Unknown',
                 'grammage' => $inv->grammage,
                 'quantity' => $inv->quantity,
+                'carton_quantity' => $cartonQuantity,
+                'cartons' => intdiv($inv->quantity, $cartonQuantity),
+                'remaining_pieces' => $inv->quantity % $cartonQuantity,
             ];
 
             if ($inv->warehouse?->type === 'central') {

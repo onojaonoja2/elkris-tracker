@@ -25,4 +25,13 @@ class Product extends Model
     {
         return $this->belongsTo(Order::class);
     }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Product $product) {
+            if (! $product->product_type_id && $product->product_name) {
+                $product->product_type_id = ProductType::where('name', $product->product_name)->value('id');
+            }
+        });
+    }
 }

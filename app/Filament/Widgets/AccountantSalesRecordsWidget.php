@@ -71,6 +71,16 @@ class AccountantSalesRecordsWidget extends TableWidget
                         'retail_market' => 'Retail Market',
                         default => $state,
                     }),
+                TextColumn::make('stock_source')
+                    ->label('Stock Source')
+                    ->badge()
+                    ->placeholder('-')
+                    ->formatStateUsing(fn (?string $state): ?string => match ($state) {
+                        'held' => 'At Hand',
+                        'warehouse' => 'Warehouse',
+                        default => null,
+                    })
+                    ->color(fn (?string $state): string => $state === 'held' ? 'info' : 'warning'),
                 TextColumn::make('total_value')
                     ->label('Total (₦)')
                     ->money('NGN'),
@@ -142,7 +152,9 @@ class AccountantSalesRecordsWidget extends TableWidget
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Approve Sales Record')
-                    ->modalDescription('Confirm approval. Stock was already deducted when the sale was submitted.'),
+                    ->modalDescription(fn (SalesRecord $record) => $record->requiresWarehouseAllocation()
+                        ? 'Confirm approval. Stock will be allocated from the warehouse on approval.'
+                        : 'Confirm approval. Stock was already deducted when the sale was submitted.'),
 
                 Action::make('rejectByAccountant')
                     ->label('Reject')

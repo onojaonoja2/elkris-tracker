@@ -9,13 +9,48 @@ use App\Events\OrderAssignmentAccepted;
 use App\Events\OrderAssignmentRejected;
 use App\Models\AgentStock;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\StockTransaction;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class OrderAssignmentService
 {
+    /**
+     * Builds the query used to locate an agent's stock for a given order
+     * product, matching by product type when available and falling back to
+     * the product name.
+     */
+    public static function stockQueryForProduct(User $user, Product $product): Builder
+    {
+        return AgentStock::query()
+            ->where('user_id', $user->id)
+            ->where(function (Builder $query) use ($product) {
+                $query->where('product_type_id', $product->product_type_id)
+                    ->orWhere('product_name', $product->product_name);
+            })
+            ->where('grammage', $product->grammage);
+    }
+
+    /**
+     * Determines whether an agent currently holds enough stock to deliver
+     * every item on an order.
+     */
+    public static function hasSufficientStock(User $user, Order $order): bool
+    {
+        foreach ($order->products as $product) {
+            $stock = static::stockQueryForProduct($user, $product)->first();
+
+            if (! $stock || $stock->quantity < $product->quantity) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public static function assignToCsr(Order $order, User $csr, ?string $notes = null): void
     {
         DB::transaction(function () use ($order, $csr, $notes) {
@@ -83,12 +118,7 @@ class OrderAssignmentService
 
             if ($processor) {
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where('user_id', $processor->id)
-                        ->where(function ($q) use ($product) {
-                            $q->where('product_type_id', $product->product_type_id)
-                                ->orWhere('product_name', $product->product_name);
-                        })
-                        ->where('grammage', $product->grammage)
+                    $stock = static::stockQueryForProduct($processor, $product)
                         ->lockForUpdate()
                         ->first();
 
@@ -101,12 +131,7 @@ class OrderAssignmentService
                 }
 
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where('user_id', $processor->id)
-                        ->where(function ($q) use ($product) {
-                            $q->where('product_type_id', $product->product_type_id)
-                                ->orWhere('product_name', $product->product_name);
-                        })
-                        ->where('grammage', $product->grammage)
+                    $stock = static::stockQueryForProduct($processor, $product)
                         ->lockForUpdate()
                         ->first();
 
@@ -147,12 +172,7 @@ class OrderAssignmentService
 
             if ($processor) {
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where('user_id', $processor->id)
-                        ->where(function ($q) use ($product) {
-                            $q->where('product_type_id', $product->product_type_id)
-                                ->orWhere('product_name', $product->product_name);
-                        })
-                        ->where('grammage', $product->grammage)
+                    $stock = static::stockQueryForProduct($processor, $product)
                         ->lockForUpdate()
                         ->first();
 
@@ -165,12 +185,7 @@ class OrderAssignmentService
                 }
 
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where('user_id', $processor->id)
-                        ->where(function ($q) use ($product) {
-                            $q->where('product_type_id', $product->product_type_id)
-                                ->orWhere('product_name', $product->product_name);
-                        })
-                        ->where('grammage', $product->grammage)
+                    $stock = static::stockQueryForProduct($processor, $product)
                         ->lockForUpdate()
                         ->first();
 

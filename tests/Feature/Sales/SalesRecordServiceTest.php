@@ -3,8 +3,10 @@
 namespace Tests\Feature\Sales;
 
 use App\Models\AgentStock;
+use App\Models\Inventory;
 use App\Models\ProductType;
 use App\Models\User;
+use App\Models\Warehouse;
 use App\Services\SalesRecordService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -298,10 +300,10 @@ class SalesRecordServiceTest extends TestCase
     {
         [$productType, $product] = $this->buildProducts();
         $agent = User::factory()->openMarket()->create();
-        AgentStock::factory()->create([
-            'user_id' => $agent->id,
+        $warehouse = Warehouse::factory()->create();
+        Inventory::factory()->create([
+            'warehouse_id' => $warehouse->id,
             'product_type_id' => $productType->id,
-            'product_name' => $productType->name,
             'grammage' => 100,
             'quantity' => 20,
         ]);
@@ -311,12 +313,27 @@ class SalesRecordServiceTest extends TestCase
             'products' => [$product],
             'total_value' => 5000.00,
             'is_credit' => false,
+            'warehouse_id' => $warehouse->id,
         ]);
 
         $accountant = User::factory()->accountant()->create();
         SalesRecordService::approve($record, [], $accountant->id);
 
         $this->assertEquals('approved', $record->fresh()->status);
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 15,
+        ]);
+
+        $this->assertDatabaseHas('agent_stocks', [
+            'user_id' => $agent->id,
+            'product_name' => $productType->name,
+            'grammage' => 100,
+            'quantity' => 5,
+        ]);
     }
 
     public function test_supervisor_approve_forwards_record_to_accountant(): void

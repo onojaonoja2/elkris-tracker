@@ -255,6 +255,9 @@ class DashboardBreakdownTableTest extends TestCase
             fn (int $i) => $this->createOrder($user, $customer, OrderStatus::Pending, ['created_at' => now()->addMinutes($i)])
         );
 
+        session()->put('dashboard_date_from', now()->subDay()->toDateTimeString());
+        session()->put('dashboard_date_to', now()->addDay()->toDateTimeString());
+
         Livewire::test(DashboardBreakdownTable::class, ['type' => 'order', 'category' => 'pending'])
             ->assertSee('>#'.$orders[11]->id.'<', false)
             ->assertSee('>#'.$orders[2]->id.'<', false)

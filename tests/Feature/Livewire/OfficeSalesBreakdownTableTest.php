@@ -153,6 +153,9 @@ class OfficeSalesBreakdownTableTest extends TestCase
             ])
         );
 
+        session()->put('dashboard_date_from', now()->subDay()->toDateTimeString());
+        session()->put('dashboard_date_to', now()->addDay()->toDateTimeString());
+
         Livewire::test(OfficeSalesBreakdownTable::class)
             ->call('selectAgent', $sales->id)
             ->assertSee('Paged Cust L')

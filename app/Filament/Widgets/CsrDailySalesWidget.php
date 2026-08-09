@@ -7,9 +7,13 @@ use App\Models\SalesRecord;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Livewire\Attributes\On;
 
 class CsrDailySalesWidget extends BaseWidget
 {
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
+
     protected function getColumns(): int
     {
         return 3;

@@ -72,7 +72,7 @@ class DamagedStockReturnFormWidget extends TableWidget
                     ->form([
                         Select::make('warehouse_id')
                             ->label('Return To Warehouse')
-                            ->options(fn () => WarehouseOptions::for(auth()->user()))
+                            ->options(fn () => WarehouseOptions::for())
                             ->searchable()
                             ->required(),
                         Select::make('product_type_id')
@@ -149,6 +149,8 @@ class DamagedStockReturnFormWidget extends TableWidget
                         ]);
 
                         Notification::make()->title('Damaged stock return submitted')->success()->send();
+
+                        $this->dispatch('refresh-dashboard');
                     }),
             ])
             ->paginated(10);

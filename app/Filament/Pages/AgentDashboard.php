@@ -195,6 +195,8 @@ class AgentDashboard extends BaseDashboard
                     ->body('Your request has been sent for approval.')
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Request Stock')
             ->modalButton('Submit Request');

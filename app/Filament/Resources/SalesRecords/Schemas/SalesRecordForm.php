@@ -4,8 +4,11 @@ namespace App\Filament\Resources\SalesRecords\Schemas;
 
 use App\Models\Customer;
 use App\Models\ProductType;
+use App\Models\SalesRecord;
+use App\Support\WarehouseOptions;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -40,8 +43,32 @@ class SalesRecordForm
                     ->live()
                     ->columnSpanFull(),
 
-                Section::make('Credit Sale Details')
-                    ->description('Customer information for credit sales.')
+                Radio::make('stock_source')
+                    ->label('Stock Source')
+                    ->options([
+                        'warehouse' => 'Request stock from warehouse',
+                        'held' => 'Deduct from stock at hand',
+                    ])
+                    ->default('warehouse')
+                    ->helperText('Choose whether this sale should be fulfilled from your held stock or requested from the warehouse.')
+                    ->live()
+                    ->required(fn () => auth()->user()->hasAnyRole(['open_market', 'retail_market']))
+                    ->visible(fn () => auth()->user()->hasAnyRole(['open_market', 'retail_market']))
+                    ->disabled(fn (?SalesRecord $record) => $record !== null)
+                    ->columnSpanFull(),
+
+                Select::make('warehouse_id')
+                    ->label('Fulfilling Warehouse')
+                    ->helperText('Stock will be allocated from this warehouse upon approval.')
+                    ->options(fn () => WarehouseOptions::for())
+                    ->searchable()
+                    ->required(fn (Get $get): bool => auth()->user()->hasAnyRole(['open_market', 'retail_market']) && $get('stock_source') === 'warehouse')
+                    ->visible(fn (Get $get): bool => auth()->user()->hasRole('admin')
+                        || (auth()->user()->hasAnyRole(['open_market', 'retail_market']) && $get('stock_source') === 'warehouse'))
+                    ->columnSpanFull(),
+
+                Section::make('Customer Information')
+                    ->description('Required for credit sales, optional for paid sales.')
                     ->schema([
                         Select::make('customer_id')
                             ->label('Customer')
@@ -57,11 +84,12 @@ class SalesRecordForm
                                 $customer = Customer::find($state);
                                 $set('customer_name', $customer?->customer_name);
                                 $set('customer_phone', $customer?->phone_number);
-                            }),
+                            })
+                            ->visible(fn (Get $get) => (bool) $get('is_credit')),
 
                         TextInput::make('customer_name')
                             ->label('Customer Name')
-                            ->required()
+                            ->required(fn (Get $get) => (bool) $get('is_credit'))
                             ->maxLength(255),
 
                         TextInput::make('customer_phone')
@@ -72,10 +100,10 @@ class SalesRecordForm
                             ->label('Expected Collection Date')
                             ->required()
                             ->native(false)
-                            ->minDate(now()->toDateString()),
+                            ->minDate(now()->toDateString())
+                            ->visible(fn (Get $get) => (bool) $get('is_credit')),
                     ])
                     ->columns(3)
-                    ->visible(fn (Get $get) => (bool) $get('is_credit'))
                     ->columnSpanFull(),
 
                 Section::make('Products Sold')
@@ -88,7 +116,12 @@ class SalesRecordForm
                                     ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'name'))
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(fn (Set $set) => $set('grammage', null)),
+                                    ->afterStateUpdated(function (Set $set, Get $get) {
+                                        $set('grammage', null);
+                                        $set('cartons', 0);
+                                        $set('pieces', 0);
+                                        self::recalculateQuantity($set, $get);
+                                    }),
 
                                 Select::make('grammage')
                                     ->label('Weight (g)')
@@ -108,15 +141,37 @@ class SalesRecordForm
                                             ->toArray();
                                     })
                                     ->required()
-                                    ->live(),
+                                    ->live()
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateQuantity($set, $get)),
+
+                                TextInput::make('cartons')
+                                    ->label('Cartons')
+                                    ->numeric()
+                                    ->integer()
+                                    ->default(0)
+                                    ->minValue(0)
+                                    ->live()
+                                    ->dehydrated(false)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateQuantity($set, $get)),
+
+                                TextInput::make('pieces')
+                                    ->label('Units')
+                                    ->numeric()
+                                    ->integer()
+                                    ->default(0)
+                                    ->minValue(0)
+                                    ->rules(fn (Get $get): array => ((int) $get('cartons') + (int) $get('pieces')) < 1 ? ['min:1'] : [])
+                                    ->live()
+                                    ->dehydrated(false)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateQuantity($set, $get)),
 
                                 TextInput::make('quantity')
+                                    ->label('Total Pieces')
                                     ->numeric()
-                                    ->required()
+                                    ->integer()
+                                    ->readOnly()
                                     ->default(1)
-                                    ->minValue(1)
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                                    ->minValue(1),
 
                                 TextInput::make('price')
                                     ->label('Unit Price (₦)')
@@ -135,7 +190,7 @@ class SalesRecordForm
                                     ->dehydrated(false)
                                     ->default(0),
                             ])
-                            ->columns(5)
+                            ->columns(7)
                             ->live()
                             ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateTotalPrice($set, $get))
                             ->deleteAction(fn ($action) => $action->after(fn (Set $set, Get $get) => self::recalculateTotalPrice($set, $get)))
@@ -163,6 +218,26 @@ class SalesRecordForm
                     ->default(0)
                     ->columnSpanFull(),
             ]);
+    }
+
+    private static function getCartonQuantity(Get $get): int
+    {
+        $productName = $get('product_name');
+        $grammage = (int) ($get('grammage') ?? 0);
+
+        if (! $productName || $grammage <= 0) {
+            return 1;
+        }
+
+        return ProductType::where('name', $productName)->first()?->cartonQuantityFor($grammage) ?? 1;
+    }
+
+    private static function recalculateQuantity(Set $set, Get $get): void
+    {
+        $cartons = (int) ($get('cartons') ?? 0);
+        $pieces = (int) ($get('pieces') ?? 0);
+        $set('quantity', $cartons * self::getCartonQuantity($get) + $pieces);
+        self::recalculateLineTotal($set, $get);
     }
 
     private static function recalculateLineTotal(Set $set, Get $get): void

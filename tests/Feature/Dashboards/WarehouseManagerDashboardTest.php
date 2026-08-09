@@ -164,7 +164,11 @@ class WarehouseManagerDashboardTest extends TestCase
     private function dispatchStockSetup(User $manager): array
     {
         $warehouse = $this->managedWarehouse($manager);
-        $productType = ProductType::factory()->create(['available_grammages' => [100, 200, 500]]);
+        $productType = ProductType::factory()->create(['available_grammages' => [
+            ['grammage' => 100, 'carton_quantity' => 20],
+            200,
+            500,
+        ]]);
 
         Inventory::create([
             'warehouse_id' => $warehouse->id,
@@ -336,7 +340,9 @@ class WarehouseManagerDashboardTest extends TestCase
             ->set('mountedActions.0.data.items', [[
                 'product_type_id' => $productType->id,
                 'grammage' => '100',
-                'quantity' => 10,
+                'cartons' => 1,
+                'pieces' => 2,
+                'quantity' => 22,
             ]])
             ->callMountedAction()
             ->assertHasNoActionErrors();
@@ -346,6 +352,12 @@ class WarehouseManagerDashboardTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'is_additional_count' => 0,
             'status' => 'pending',
+        ]);
+
+        $this->assertDatabaseHas('stock_count_items', [
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 22,
         ]);
 
         $this->assertDatabaseHas('inventories', [
@@ -373,7 +385,9 @@ class WarehouseManagerDashboardTest extends TestCase
             ->set('mountedActions.0.data.items', [[
                 'product_type_id' => $productType->id,
                 'grammage' => '100',
-                'quantity' => 10,
+                'cartons' => 1,
+                'pieces' => 2,
+                'quantity' => 22,
             ]])
             ->callMountedAction()
             ->assertHasNoActionErrors();
@@ -389,14 +403,52 @@ class WarehouseManagerDashboardTest extends TestCase
             'warehouse_id' => $warehouse->id,
             'product_type_id' => $productType->id,
             'grammage' => 100,
-            'quantity' => 60,
+            'quantity' => 72,
         ]);
 
         $this->assertDatabaseHas('stock_transactions', [
             'type' => 'received',
             'product_type_id' => $productType->id,
-            'quantity' => 10,
+            'quantity' => 22,
             'warehouse_id' => $warehouse->id,
+        ]);
+    }
+
+    public function test_warehouse_manager_can_receive_stock_in_cartons_and_units(): void
+    {
+        $manager = $this->warehouseManager();
+        [$warehouse, $productType] = $this->dispatchStockSetup($manager);
+
+        $this->actingAs($manager);
+
+        Livewire::test(WarehouseManagerDashboard::class)
+            ->mountAction('receiveStock')
+            ->set('mountedActions.0.data.source_type', 'other')
+            ->set('mountedActions.0.data.source_name', 'Supplier ABC')
+            ->set('mountedActions.0.data.items', [[
+                'product_type_id' => $productType->id,
+                'grammage' => '100',
+                'cartons' => 2,
+                'pieces' => 3,
+                'quantity' => 43,
+            ]])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $this->assertDatabaseHas('stock_transfers', [
+            'to_warehouse_id' => $warehouse->id,
+            'source_type' => 'other',
+            'source_name' => 'Supplier ABC',
+            'status' => StockTransferStatus::Requested,
+        ]);
+
+        $transfer = StockTransfer::where('to_warehouse_id', $warehouse->id)->firstOrFail();
+
+        $this->assertDatabaseHas('stock_transfer_items', [
+            'stock_transfer_id' => $transfer->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 43,
         ]);
     }
 }

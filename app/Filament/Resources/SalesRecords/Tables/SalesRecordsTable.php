@@ -45,6 +45,16 @@ class SalesRecordsTable
                     ->badge()
                     ->formatStateUsing(fn (bool $state): string => $state ? 'Credit' : 'Paid')
                     ->color(fn (bool $state): string => $state ? 'warning' : 'success'),
+                TextColumn::make('stock_source')
+                    ->label('Stock Source')
+                    ->badge()
+                    ->placeholder('-')
+                    ->formatStateUsing(fn (?string $state): ?string => match ($state) {
+                        'held' => 'At Hand',
+                        'warehouse' => 'Warehouse',
+                        default => null,
+                    })
+                    ->color(fn (?string $state): string => $state === 'held' ? 'info' : 'warning'),
                 TextColumn::make('customer_name')
                     ->label('Customer')
                     ->placeholder('-')
@@ -57,6 +67,11 @@ class SalesRecordsTable
                 TextColumn::make('vendor_name')
                     ->label('Market / Vendor')
                     ->placeholder('-'),
+                TextColumn::make('warehouse.name')
+                    ->label('Fulfilling Warehouse')
+                    ->placeholder('-')
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('business_name')
                     ->label('Business')
                     ->placeholder('-'),

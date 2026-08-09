@@ -222,6 +222,8 @@ class CsrDashboard extends BaseDashboard
                         ->success()
                         ->send();
                 }
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Submit Physical Stock Count')
             ->modalButton('Submit Count');
@@ -344,6 +346,8 @@ class CsrDashboard extends BaseDashboard
                     ->body('Your request has been sent for approval.')
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Request Stock')
             ->modalButton('Submit Request');

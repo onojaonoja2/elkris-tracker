@@ -26,4 +26,15 @@ class ProductType extends Model implements Auditable
     {
         return $this->hasMany(Product::class, 'product_type_id');
     }
+
+    public function cartonQuantityFor(int $grammage): int
+    {
+        foreach ($this->available_grammages ?? [] as $entry) {
+            if (is_array($entry) && ($entry['grammage'] ?? null) == $grammage) {
+                return (int) ($entry['carton_quantity'] ?? 1);
+            }
+        }
+
+        return 1;
+    }
 }

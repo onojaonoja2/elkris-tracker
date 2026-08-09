@@ -23,21 +23,23 @@ class WarehouseOptionsTest extends TestCase
         ]);
     }
 
-    public function test_returns_warehouses_managed_by_user(): void
+    public function test_returns_all_active_warehouses_even_if_not_managed_by_user(): void
     {
         $user = User::factory()->sales()->create();
 
-        $warehouse = Warehouse::factory()->create([
+        $managed = Warehouse::factory()->create([
             'sales_person_id' => $user->id,
             'state_id' => null,
         ]);
+        $other = Warehouse::factory()->create(['is_active' => true]);
 
-        $options = WarehouseOptions::for($user);
+        $options = WarehouseOptions::for();
 
-        $this->assertSame($warehouse->name, $options[$warehouse->id]);
+        $this->assertArrayHasKey($managed->id, $options);
+        $this->assertArrayHasKey($other->id, $options);
     }
 
-    public function test_returns_warehouses_in_users_state(): void
+    public function test_returns_all_active_warehouses_regardless_of_state(): void
     {
         $state = $this->makeState('Test State', 'TS');
 
@@ -45,33 +47,33 @@ class WarehouseOptionsTest extends TestCase
 
         $inState = Warehouse::factory()->create(['state_id' => $state->id]);
         $otherState = Warehouse::factory()->create(['state_id' => $this->makeState('Other State', 'OS')->id]);
+        $inactive = Warehouse::factory()->create(['is_active' => false]);
 
-        $options = WarehouseOptions::for($user);
+        $options = WarehouseOptions::for();
 
         $this->assertArrayHasKey($inState->id, $options);
-        $this->assertArrayNotHasKey($otherState->id, $options);
+        $this->assertArrayHasKey($otherState->id, $options);
+        $this->assertArrayNotHasKey($inactive->id, $options);
     }
 
-    public function test_falls_back_to_active_warehouses_when_none_match(): void
+    public function test_falls_back_to_all_warehouses_when_none_active(): void
     {
         $user = User::factory()->sales()->create(['state_id' => null]);
 
-        $active = Warehouse::factory()->create(['is_active' => true]);
         $inactive = Warehouse::factory()->create(['is_active' => false]);
 
-        $options = WarehouseOptions::for($user);
+        $options = WarehouseOptions::for();
 
-        $this->assertArrayHasKey($active->id, $options);
-        $this->assertArrayNotHasKey($inactive->id, $options);
+        $this->assertArrayHasKey($inactive->id, $options);
     }
 
     public function test_never_returns_empty_options(): void
     {
-        $user = User::factory()->sales()->create(['state_id' => null]);
+        User::factory()->sales()->create(['state_id' => null]);
 
         Warehouse::factory()->create(['is_active' => false]);
 
-        $options = WarehouseOptions::for($user);
+        $options = WarehouseOptions::for();
 
         $this->assertNotEmpty($options);
     }

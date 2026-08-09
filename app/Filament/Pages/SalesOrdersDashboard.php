@@ -175,6 +175,8 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->body('Your request is pending accountant approval.')
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Request Stock from Warehouse')
             ->modalButton('Submit Request');
@@ -276,6 +278,8 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->body("Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) submitted for accountant approval.")
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Record Office Sale')
             ->modalButton('Record Sale');
@@ -391,6 +395,8 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->body("Order #{$order->id} created successfully.")
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Initiate New Order')
             ->modalButton('Create Order');
@@ -475,6 +481,8 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->body('Your physical stock count is pending accountant approval.')
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Submit Physical Stock Count')
             ->modalButton('Submit Count');

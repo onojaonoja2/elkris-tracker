@@ -147,6 +147,9 @@ class CsrOrderBreakdownTableTest extends TestCase
             fn (int $i) => $this->createOrder($csr, OrderStatus::Delivered, ['created_at' => now()->addMinutes($i)])
         );
 
+        session()->put('dashboard_date_from', now()->subDay()->toDateTimeString());
+        session()->put('dashboard_date_to', now()->addDay()->toDateTimeString());
+
         Livewire::test(CsrOrderBreakdownTable::class)
             ->call('selectCsr', $csr->id)
             ->assertSee('>#'.$orders[11]->id.'<', false)

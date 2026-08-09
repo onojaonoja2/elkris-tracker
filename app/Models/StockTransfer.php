@@ -20,7 +20,7 @@ class StockTransfer extends Model implements Auditable
         'status', 'notes',
         'requested_by', 'approved_by', 'approved_at', 'rejection_reason',
         'supervisor_approved_by', 'supervisor_approved_at',
-        'source_type', 'source_name', 'dispatch_papers_path', 'requires_approval',
+        'source_type', 'source_name', 'sales_record_id', 'dispatch_papers_path', 'requires_approval',
         'collected_at', 'collected_by',
     ];
 
@@ -38,6 +38,11 @@ class StockTransfer extends Model implements Auditable
     public function fromWarehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
+    }
+
+    public function salesRecord(): BelongsTo
+    {
+        return $this->belongsTo(SalesRecord::class, 'sales_record_id');
     }
 
     public function fromAgent(): BelongsTo

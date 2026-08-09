@@ -187,6 +187,8 @@ class ManagerDashboard extends BaseDashboard
                         ->success()
                         ->persistent()
                         ->send();
+
+                    $this->dispatch('refresh-dashboard');
                 }),
             Action::make('filter_date')
                 ->label('Filter by Date')

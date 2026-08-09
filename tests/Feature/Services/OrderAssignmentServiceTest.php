@@ -115,4 +115,73 @@ class OrderAssignmentServiceTest extends TestCase
         $this->assertEquals(AssignmentStatus::Delivered, $order->assignment_status);
         $this->assertEquals(5000.00, $creator->fresh()->stock_balance);
     }
+
+    public function test_confirm_delivery_matches_stock_via_product_type_when_name_differs(): void
+    {
+        $csr = User::factory()->communitySalesRepresentative()->create([
+            'stock_balance' => 0.00,
+        ]);
+        $creator = User::factory()->rep()->create();
+        $productType = ProductType::factory()->create(['name' => 'Elkris Plantain Flour']);
+
+        $order = Order::factory()->create([
+            'customer_id' => Customer::factory()->create()->id,
+            'user_id' => $creator->id,
+            'status' => OrderStatus::Assigned,
+            'assignment_status' => AssignmentStatus::Accepted,
+            'assigned_to' => $csr->id,
+            'assigned_by' => User::factory()->admin()->create()->id,
+            'assigned_at' => now(),
+            'total_price' => 15000.00,
+        ]);
+
+        Product::create([
+            'order_id' => $order->id,
+            'product_type_id' => $productType->id,
+            'product_name' => 'Elkris Plantain',
+            'grammage' => 1800,
+            'quantity' => 6,
+            'price' => 2500.00,
+        ]);
+
+        AgentStock::factory()->create([
+            'user_id' => $csr->id,
+            'product_type_id' => $productType->id,
+            'product_name' => 'Elkris Plantain Flour',
+            'grammage' => 1800,
+            'quantity' => 45,
+        ]);
+
+        $uploader = User::factory()->admin()->create();
+        OrderAssignmentService::attachPaymentProof($order, 'proofs/order.jpg', $uploader->id);
+
+        OrderAssignmentService::confirmDeliveryByCsr($order);
+
+        $order->refresh();
+        $this->assertEquals(OrderStatus::Delivered, $order->status);
+        $this->assertEquals(AssignmentStatus::Delivered, $order->assignment_status);
+        $this->assertEquals(39, AgentStock::first()->fresh()->quantity);
+        $this->assertEquals(15000.00, $csr->fresh()->stock_balance);
+    }
+
+    public function test_confirm_delivery_fails_when_stock_is_insufficient(): void
+    {
+        $csr = User::factory()->communitySalesRepresentative()->create();
+        $creator = User::factory()->rep()->create();
+        $order = $this->createDeliverableOrder($csr, $creator);
+
+        $uploader = User::factory()->admin()->create();
+        OrderAssignmentService::attachPaymentProof($order, 'proofs/order.jpg', $uploader->id);
+
+        AgentStock::where('user_id', $csr->id)->update(['quantity' => 5]);
+
+        try {
+            OrderAssignmentService::confirmDeliveryByCsr($order);
+            $this->fail('Expected ValidationException was not thrown.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('stock', $e->errors());
+        }
+
+        $this->assertEquals(OrderStatus::Assigned, $order->fresh()->status);
+    }
 }

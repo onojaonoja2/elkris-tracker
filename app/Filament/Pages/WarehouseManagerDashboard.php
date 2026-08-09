@@ -161,12 +161,31 @@ class WarehouseManagerDashboard extends BaseDashboard
                             })
                             ->required()
                             ->live(),
-                        TextInput::make('quantity')
-                            ->label('Quantity')
+                        TextInput::make('cartons')
+                            ->label('Cartons')
                             ->numeric()
                             ->integer()
-                            ->minValue(1)
-                            ->required(),
+                            ->minValue(0)
+                            ->default(0)
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateUpdated(fn ($set, callable $get) => self::recalculateReceiveItemTotal($set, $get)),
+                        TextInput::make('pieces')
+                            ->label('Units')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(0)
+                            ->default(0)
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateUpdated(fn ($set, callable $get) => self::recalculateReceiveItemTotal($set, $get)),
+                        TextInput::make('quantity')
+                            ->label('Total Pieces')
+                            ->numeric()
+                            ->integer()
+                            ->readOnly()
+                            ->default(0)
+                            ->minValue(1),
                     ])
                     ->addActionLabel('Add Item')
                     ->defaultItems(1)
@@ -207,7 +226,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                     $transfer->items()->create([
                         'product_type_id' => $item['product_type_id'],
                         'grammage' => $item['grammage'],
-                        'quantity' => $item['quantity'],
+                        'quantity' => self::totalPieces($item),
                     ]);
                 }
 
@@ -216,6 +235,8 @@ class WarehouseManagerDashboard extends BaseDashboard
                     ->body('Awaiting accountant approval before stock is added to inventory.')
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             });
 
         $actions[] = Action::make('dispatchStock')
@@ -373,6 +394,8 @@ class WarehouseManagerDashboard extends BaseDashboard
                 }
 
                 Notification::make()->title('Stock dispatched successfully')->success()->send();
+
+                $this->dispatch('refresh-dashboard');
             });
 
         if (Setting::getValue('stock_at_hand_enabled', '0') === '1') {
@@ -421,12 +444,31 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 })
                                 ->required()
                                 ->live(),
-                            TextInput::make('quantity')
-                                ->label('Quantity on Hand')
+                            TextInput::make('cartons')
+                                ->label('Cartons')
                                 ->numeric()
                                 ->integer()
                                 ->minValue(0)
-                                ->required(),
+                                ->default(0)
+                                ->live()
+                                ->dehydrated(false)
+                                ->afterStateUpdated(fn ($set, callable $get) => self::recalculateReceiveItemTotal($set, $get)),
+                            TextInput::make('pieces')
+                                ->label('Units')
+                                ->numeric()
+                                ->integer()
+                                ->minValue(0)
+                                ->default(0)
+                                ->live()
+                                ->dehydrated(false)
+                                ->afterStateUpdated(fn ($set, callable $get) => self::recalculateReceiveItemTotal($set, $get)),
+                            TextInput::make('quantity')
+                                ->label('Total Pieces')
+                                ->numeric()
+                                ->integer()
+                                ->readOnly()
+                                ->default(0)
+                                ->minValue(0),
                         ])
                         ->addActionLabel('Add Item')
                         ->defaultItems(1)
@@ -452,7 +494,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                             'product_type_id' => $item['product_type_id'],
                             'product_name' => $pt?->name ?? 'Unknown Product',
                             'grammage' => $item['grammage'],
-                            'quantity' => $item['quantity'],
+                            'quantity' => self::totalPieces($item),
                         ]);
                     }
 
@@ -460,6 +502,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                         foreach ($data['items'] as $item) {
                             $pt = ProductType::find($item['product_type_id']);
                             $productName = $pt?->name ?? 'Unknown Product';
+                            $totalPieces = self::totalPieces($item);
 
                             Inventory::firstOrCreate(
                                 [
@@ -468,7 +511,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                                     'grammage' => $item['grammage'],
                                 ],
                                 ['quantity' => 0]
-                            )->increment('quantity', $item['quantity']);
+                            )->increment('quantity', $totalPieces);
 
                             StockTransaction::create([
                                 'type' => 'received',
@@ -476,7 +519,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 'product_type_id' => $item['product_type_id'],
                                 'product_name' => $productName,
                                 'grammage' => $item['grammage'],
-                                'quantity' => $item['quantity'],
+                                'quantity' => $totalPieces,
                                 'disbursed_to' => 'Additional stock count #'.$stockCount->id,
                                 'user_id' => auth()->id(),
                                 'warehouse_id' => $data['warehouse_id'],
@@ -495,6 +538,8 @@ class WarehouseManagerDashboard extends BaseDashboard
                             ->success()
                             ->send();
                     }
+
+                    $this->dispatch('refresh-dashboard');
                 })
                 ->modalHeading('Submit Physical Stock Count')
                 ->modalButton('Submit Count');
@@ -541,5 +586,32 @@ class WarehouseManagerDashboard extends BaseDashboard
 
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    protected static function recalculateReceiveItemTotal(mixed $set, callable $get): void
+    {
+        $productTypeId = (int) ($get('product_type_id') ?? 0);
+        $grammage = (int) ($get('grammage') ?? 0);
+        $cartons = (int) ($get('cartons') ?? 0);
+        $pieces = (int) ($get('pieces') ?? 0);
+
+        $cartonQuantity = ProductType::find($productTypeId)?->cartonQuantityFor($grammage) ?? 1;
+
+        $set('quantity', $cartons * $cartonQuantity + $pieces);
+    }
+
+    protected static function totalPieces(array $item): int
+    {
+        $cartons = (int) ($item['cartons'] ?? 0);
+        $pieces = (int) ($item['pieces'] ?? 0);
+
+        if ($cartons > 0 || $pieces > 0) {
+            $cartonQuantity = ProductType::find((int) ($item['product_type_id'] ?? 0))
+                ?->cartonQuantityFor((int) ($item['grammage'] ?? 0)) ?? 1;
+
+            return $cartons * $cartonQuantity + $pieces;
+        }
+
+        return (int) ($item['quantity'] ?? 0);
     }
 }
