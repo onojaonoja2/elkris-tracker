@@ -2,12 +2,14 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\AgentStock;
 use App\Models\ProductType;
 use App\Models\SalesRecord;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -21,6 +23,8 @@ use Livewire\Attributes\On;
 
 class SupervisorCsrListWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?int $sort = 3;
 
     protected static ?string $heading = 'CSR Overview';
@@ -93,6 +97,7 @@ class SupervisorCsrListWidget extends TableWidget
                     ->sortable(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('collectStock')
                     ->label('Collect Stock')
                     ->icon('heroicon-o-arrow-down-tray')
@@ -309,6 +314,53 @@ class SupervisorCsrListWidget extends TableWidget
                     }),
             ])
             ->defaultSort('name')
+            ->headerActions([
+                Action::make('export')
+                    ->label('Export')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(function () {
+                        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
+                        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+
+                        $records = $this->getFilteredQuery()->get();
+                        $csrIds = $records->pluck('id');
+
+                        $stockCounts = AgentStock::whereIn('user_id', $csrIds)
+                            ->selectRaw('user_id, SUM(quantity) as total_qty')
+                            ->groupBy('user_id')
+                            ->pluck('total_qty', 'user_id');
+
+                        $salesCounts = SalesRecord::whereIn('agent_id', $csrIds)
+                            ->whereBetween('created_at', [$from, $to])
+                            ->selectRaw('agent_id, COUNT(*) as count, COALESCE(SUM(total_value), 0) as total_value')
+                            ->groupBy('agent_id')
+                            ->get()
+                            ->keyBy('agent_id');
+
+                        return response()->streamDownload(function () use ($records, $stockCounts, $salesCounts) {
+                            $file = fopen('php://output', 'w');
+                            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+                            fputcsv($file, ['CSR Name', 'LGA', 'State', 'Status', 'Stock Units', 'Sales Count', 'Sales Value (₦)']);
+
+                            foreach ($records as $record) {
+                                fputcsv($file, [
+                                    $record->name,
+                                    $record->lga?->name ?? 'N/A',
+                                    $record->state?->name ?? 'N/A',
+                                    $record->is_active ? 'Active' : 'Suspended',
+                                    number_format($stockCounts->get($record->id, 0), 0),
+                                    number_format($salesCounts->get($record->id)?->count ?? 0, 0),
+                                    number_format($salesCounts->get($record->id)?->total_value ?? 0, 2),
+                                ]);
+                            }
+
+                            fclose($file);
+                        }, 'csr_overview_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                            'Content-Type' => 'text/csv',
+                        ]);
+                    }),
+            ])
             ->paginated([10, 25, 50, -1]);
     }
 }

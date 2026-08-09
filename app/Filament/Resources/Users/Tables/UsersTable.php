@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Tables;
 
 use App\Enums\UserRole;
+use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use Filament\Actions\Action;
@@ -33,9 +34,16 @@ class UsersTable
                     ->sortable()
                     ->toggleable(),
                 TextColumn::make('role')
+                    ->label('Primary Role')
                     ->searchable()
                     ->color(fn (string $state): ?string => UserRole::tryFrom($state)?->color())
                     ->toggleable(),
+                TextColumn::make('additional_roles')
+                    ->label('Additional Roles')
+                    ->badge()
+                    ->color(fn (string $state): ?string => 'gray')
+                    ->formatStateUsing(fn (?array $state): ?string => $state ? implode(', ', array_map(fn ($r) => UserRole::tryFrom($r)?->getLabel() ?? $r, $state)) : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('my_id')
                     ->label('ID')
                     ->sortable()
@@ -66,6 +74,8 @@ class UsersTable
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
+                UserResource::getViewActionForResource(UserResource::class),
+
                 EditAction::make(),
 
                 Action::make('suspend')
@@ -73,7 +83,7 @@ class UsersTable
                     ->icon('heroicon-o-no-symbol')
                     ->color('danger')
                     ->visible(fn (User $record): bool => $record->is_active
-                        && in_array($record->role, ['community_sales_representative', 'open_market', 'retail_market'])
+                        && $record->hasAnyRole(['community_sales_representative', 'open_market', 'retail_market'])
                         && self::canManageUser(auth()->user(), $record))
                     ->form([
                         Textarea::make('reason')
@@ -106,7 +116,7 @@ class UsersTable
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->visible(fn (User $record): bool => ! $record->is_active
-                        && in_array($record->role, ['community_sales_representative', 'open_market', 'retail_market'])
+                        && $record->hasAnyRole(['community_sales_representative', 'open_market', 'retail_market'])
                         && self::canManageUser(auth()->user(), $record))
                     ->requiresConfirmation()
                     ->modalHeading('Reactivate Agent')
@@ -130,7 +140,8 @@ class UsersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn (): bool => auth()->user()->hasAnyRole(['admin', 'general_manager'])),
                 ]),
             ]);
     }

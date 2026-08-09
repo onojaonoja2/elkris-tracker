@@ -46,6 +46,8 @@ class ManagerAgentManagementWidget extends TableWidget
             ->get()
             ->keyBy('agent_id');
 
+        $revenueByAgent = SalesRecord::revenueByAgent($agentIds->all(), now()->startOfYear(), now());
+
         return $table
             ->query(
                 fn () => User::whereIn('role', $agentRoles)
@@ -100,7 +102,7 @@ class ManagerAgentManagementWidget extends TableWidget
 
                 TextColumn::make('approved_sales_value')
                     ->label('Revenue')
-                    ->getStateUsing(fn (User $record): string => '₦'.number_format($salesCounts->get($record->id)?->total_value ?? 0, 2))
+                    ->getStateUsing(fn (User $record): string => '₦'.number_format($revenueByAgent->get($record->id)?->revenue ?? 0, 2))
                     ->money('NGN')
                     ->sortable(),
             ])

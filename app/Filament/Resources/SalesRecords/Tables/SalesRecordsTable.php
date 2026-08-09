@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\SalesRecords\Tables;
 
-use App\Models\AgentStock;
+use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Models\SalesRecord;
+use App\Services\SalesRecordService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -13,7 +15,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SalesRecordsTable
 {
@@ -43,13 +45,33 @@ class SalesRecordsTable
                     ->badge()
                     ->formatStateUsing(fn (bool $state): string => $state ? 'Credit' : 'Paid')
                     ->color(fn (bool $state): string => $state ? 'warning' : 'success'),
+                TextColumn::make('stock_source')
+                    ->label('Stock Source')
+                    ->badge()
+                    ->placeholder('-')
+                    ->formatStateUsing(fn (?string $state): ?string => match ($state) {
+                        'held' => 'At Hand',
+                        'warehouse' => 'Warehouse',
+                        default => null,
+                    })
+                    ->color(fn (?string $state): string => $state === 'held' ? 'info' : 'warning'),
                 TextColumn::make('customer_name')
                     ->label('Customer')
                     ->placeholder('-')
                     ->searchable(),
+                TextColumn::make('customer.customer_name')
+                    ->label('Linked Customer')
+                    ->placeholder('-')
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('vendor_name')
                     ->label('Market / Vendor')
                     ->placeholder('-'),
+                TextColumn::make('warehouse.name')
+                    ->label('Fulfilling Warehouse')
+                    ->placeholder('-')
+                    ->searchable()
+                    ->toggleable(),
                 TextColumn::make('business_name')
                     ->label('Business')
                     ->placeholder('-'),
@@ -72,11 +94,25 @@ class SalesRecordsTable
                     ->formatStateUsing(fn (?string $state): string => str_replace('_', ' ', ucfirst($state ?? '')))
                     ->color(fn (?string $state): string => match ($state) {
                         'pending_payment' => 'warning',
+                        'partially_collected' => 'info',
                         'collected' => 'success',
                         'overdue' => 'danger',
                         default => 'gray',
                     })
                     ->placeholder('-'),
+                TextColumn::make('payment_proof_status')
+                    ->label('Payment Proof')
+                    ->badge()
+                    ->state(fn (SalesRecord $record): bool => $record->hasPaymentProof())
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger')
+                    ->visible(fn (): bool => auth()->user()->hasAnyRole(['accountant', 'general_accountant', 'supervisor', 'admin'])),
+                TextColumn::make('proof_review_status')
+                    ->label('Proof Review')
+                    ->badge()
+                    ->state(fn (SalesRecord $record): string => $record->hasPendingProofReview() ? 'Pending' : 'Not Requested')
+                    ->color(fn (SalesRecord $record): string => $record->hasPendingProofReview() ? 'danger' : 'gray')
+                    ->visible(fn (): bool => auth()->user()->hasAnyRole(['accountant', 'general_accountant', 'supervisor', 'admin'])),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
@@ -149,6 +185,7 @@ class SalesRecordsTable
                             ->label('Status')
                             ->options([
                                 'pending_payment' => 'Pending Payment',
+                                'partially_collected' => 'Partially Collected',
                                 'collected' => 'Collected',
                                 'overdue' => 'Overdue',
                             ])
@@ -157,19 +194,28 @@ class SalesRecordsTable
                     ->query(function (Builder $query, array $data): Builder {
                         return $query
                             ->when(
-                                ($data['credit_status_filter'] ?? null) !== null && ($data['credit_status_filter'] ?? null) !== '',
+                                ($data['credit_status_filter'] ?? null) === 'overdue',
+                                fn (Builder $query) => $query->whereIn('credit_status', ['pending_payment', 'partially_collected'])
+                                    ->where('expected_collection_date', '<', now()->toDateString()),
+                            )
+                            ->when(
+                                ($data['credit_status_filter'] ?? null) !== null
+                                    && ($data['credit_status_filter'] ?? null) !== ''
+                                    && ($data['credit_status_filter'] ?? null) !== 'overdue',
                                 fn (Builder $query) => $query->where('credit_status', $data['credit_status_filter']),
                             );
                     }),
             ])
             ->recordActions([
 
-                // ACCOUNTANT: Approve (verify + auto-deduct from creator's stock)
+                SalesRecordResource::getViewActionForResource(SalesRecordResource::class),
+
+                // ACCOUNTANT: Approve (verify + confirm stock already deducted)
                 Action::make('approveByAccountant')
                     ->label('Approve (Accountant)')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->role === 'accountant')
+                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->hasRole('accountant'))
                     ->form(function () {
                         return [
                             Textarea::make('accountant_notes')
@@ -177,48 +223,9 @@ class SalesRecordsTable
                         ];
                     })
                     ->action(function (SalesRecord $record, array $data) {
-                        $products = $record->products ?? [];
-
                         try {
-                            DB::transaction(function () use ($record, $products, $data) {
-                                foreach ($products as $product) {
-                                    $productName = $product['product_name'] ?? null;
-                                    $grammage = $product['grammage'] ?? null;
-                                    $quantity = $product['quantity'] ?? 0;
-
-                                    if (! $productName || ! $grammage || $quantity <= 0) {
-                                        continue;
-                                    }
-
-                                    if ($record->agent_id) {
-                                        $agentStock = AgentStock::where('user_id', $record->agent_id)
-                                            ->where('product_name', $productName)
-                                            ->where('grammage', $grammage)
-                                            ->lockForUpdate()
-                                            ->first();
-
-                                        if (! $agentStock || $agentStock->quantity < $quantity) {
-                                            throw new \Exception(
-                                                "Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock?->quantity ?? 0)
-                                            );
-                                        }
-
-                                        $agentStock->decrement('quantity', $quantity);
-                                    }
-                                }
-
-                                if (! $record->is_credit && $record->agent_id) {
-                                    $record->agent?->increment('stock_balance', $record->total_value);
-                                }
-
-                                $record->update([
-                                    'status' => 'approved',
-                                    'accountant_verified_at' => now(),
-                                    'accountant_verified_by' => auth()->id(),
-                                    'accountant_notes' => $data['accountant_notes'] ?? null,
-                                ]);
-                            });
-                        } catch (\Throwable $e) {
+                            SalesRecordService::approve($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
                             Notification::make()
                                 ->danger()
                                 ->title('Approval failed')
@@ -228,33 +235,118 @@ class SalesRecordsTable
                             return;
                         }
 
-                        Notification::make()->title('Sales record approved and stock deducted')->success()->send();
+                        Notification::make()->title('Sales record approved')->success()->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Approve Sales Record')
-                    ->modalDescription('Confirm approval. Stock will be deducted from the creator\'s stock.'),
+                    ->modalDescription('Confirm approval. Stock was already deducted when the sale was submitted.'),
 
                 // ACCOUNTANT: Reject with reason
                 Action::make('rejectByAccountant')
                     ->label('Reject (Accountant)')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->role === 'accountant')
+                    ->visible(fn (SalesRecord $record) => $record->status === 'pending' && auth()->user()->hasRole('accountant'))
                     ->form([
-                        Textarea::make('accountant_notes')
+                        Textarea::make('rejection_reason')
                             ->label('Reason for Rejection')
                             ->required(),
                     ])
                     ->action(function (SalesRecord $record, array $data) {
-                        $record->update([
-                            'status' => 'rejected',
-                            'accountant_verified_at' => now(),
-                            'accountant_verified_by' => auth()->id(),
-                            'accountant_notes' => $data['accountant_notes'] ?? null,
-                        ]);
-                        Notification::make()->title('Sales record rejected')->danger()->send();
+                        try {
+                            SalesRecordService::reject($record, $data['rejection_reason'], auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Rejection failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Sales record rejected and stock restored')->danger()->send();
                     })
                     ->requiresConfirmation(),
+
+                // Upload Payment Proof (credit sales only)
+                Action::make('uploadPaymentProof')
+                    ->label('Upload Payment Proof')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('warning')
+                    ->visible(fn (SalesRecord $record): bool => $record->is_credit
+                        && $record->status === 'approved'
+                        && $record->isOutstanding()
+                        && self::canAttachPaymentProof($record))
+                    ->form([
+                        FileUpload::make('payment_proof_path')
+                            ->label('Payment Proof')
+                            ->image()
+                            ->maxSize(2048)
+                            ->disk('s3')
+                            ->directory('receipts/payment-proofs')
+                            ->visibility('private')
+                            ->imageEditor()
+                            ->required(),
+                    ])
+                    ->action(function (SalesRecord $record, array $data) {
+                        try {
+                            SalesRecordService::attachPaymentProof($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Upload failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Payment proof uploaded')->success()->send();
+                    })
+                    ->modalHeading('Upload Payment Proof')
+                    ->modalDescription('Attach proof of payment for this outstanding credit sale.'),
+
+                // View Payment Proof
+                Action::make('viewPaymentProof')
+                    ->label('View Payment Proof')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->visible(fn (SalesRecord $record): bool => (bool) $record->payment_proof_path
+                        && auth()->user()->hasAnyRole(['accountant', 'general_accountant', 'supervisor', 'admin', 'sales']))
+                    ->modalContent(fn (SalesRecord $record) => view('filament.payment-proof', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
+
+                // AGENT: Request payment proof review from accountants
+                Action::make('requestProofReview')
+                    ->label('Request Proof Review')
+                    ->icon('heroicon-o-magnifying-glass')
+                    ->color('danger')
+                    ->visible(fn (SalesRecord $record): bool => $record->is_credit
+                        && $record->status === 'approved'
+                        && $record->isOutstanding()
+                        && ! $record->hasPaymentProof()
+                        && ! $record->hasPendingProofReview()
+                        && $record->agent_id === auth()->id())
+                    ->action(function (SalesRecord $record) {
+                        try {
+                            SalesRecordService::requestProofReview($record, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Request failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Proof review requested')->success()->send();
+                    })
+                    ->requiresConfirmation()
+                    ->modalHeading('Request Payment Proof Review')
+                    ->modalDescription('Notify accountants that you need a payment proof review for this outstanding credit sale.'),
 
                 // ACCOUNTANT: Mark Credit Sale as Collected
                 Action::make('markCollected')
@@ -263,23 +355,25 @@ class SalesRecordsTable
                     ->color('success')
                     ->visible(fn (SalesRecord $record) => $record->is_credit
                         && $record->status === 'approved'
-                        && $record->credit_status === 'pending_payment'
-                        && auth()->user()->role === 'accountant')
+                        && $record->isOutstanding()
+                        && $record->hasPaymentProof()
+                        && auth()->user()->hasRole('accountant'))
                     ->form([
                         Textarea::make('credit_notes')
                             ->label('Collection Notes'),
                     ])
                     ->action(function (SalesRecord $record, array $data) {
-                        if ($record->agent_id) {
-                            $record->agent?->increment('stock_balance', $record->total_value);
-                        }
+                        try {
+                            SalesRecordService::markCollected($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Collection failed')
+                                ->body($e->getMessage())
+                                ->send();
 
-                        $record->update([
-                            'credit_status' => 'collected',
-                            'collected_at' => now(),
-                            'collected_by' => auth()->id(),
-                            'credit_notes' => $data['credit_notes'] ?? null,
-                        ]);
+                            return;
+                        }
 
                         Notification::make()->title('Credit sale marked as collected')->success()->send();
                     })
@@ -292,10 +386,25 @@ class SalesRecordsTable
                     ->label('View Receipt')
                     ->icon('heroicon-o-photo')
                     ->color('info')
-                    ->visible(fn (SalesRecord $record) => $record->receipt_path && in_array(auth()->user()->role, ['accountant', 'supervisor', 'admin']))
+                    ->visible(fn (SalesRecord $record) => $record->receipt_path && auth()->user()->hasAnyRole(['accountant', 'supervisor', 'admin']))
                     ->modalContent(fn (SalesRecord $record) => view('filament.sales-record-receipt', ['record' => $record]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
             ]);
+    }
+
+    protected static function canAttachPaymentProof(SalesRecord $record): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(['admin', 'supervisor', 'accountant', 'general_accountant', 'sales'])) {
+            return true;
+        }
+
+        return $record->agent_id === $user->id;
     }
 }

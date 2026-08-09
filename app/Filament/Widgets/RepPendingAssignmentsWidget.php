@@ -22,7 +22,7 @@ class RepPendingAssignmentsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'rep';
+        return auth()->user()->hasRole('rep');
     }
 
     public function table(Table $table): Table

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\StockTransactions;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\StockTransactions\Pages\ManageStockTransactions;
 use App\Models\StockTransaction;
 use BackedEnum;
@@ -17,11 +18,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 class StockTransactionResource extends Resource
 {
+    use HasRoleBasedNavigationGroup;
+
     protected static ?string $model = StockTransaction::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Inventory';
+    protected static array $navigationRoles = ['admin', 'manager', 'warehouse_manager'];
 
     public static function canCreate(): bool
     {
@@ -30,7 +33,7 @@ class StockTransactionResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'sales', 'warehouse_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'sales', 'warehouse_manager']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -38,7 +41,7 @@ class StockTransactionResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if ($user->role === 'warehouse_manager') {
+        if ($user->hasRole('warehouse_manager')) {
             $warehouseIds = $user->managedWarehouses()->pluck('id');
 
             return $query->whereIn('stock_transactions.warehouse_id', $warehouseIds);

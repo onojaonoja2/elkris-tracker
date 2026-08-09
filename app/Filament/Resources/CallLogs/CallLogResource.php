@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\CallLogs;
 
 use App\Enums\CallOutcome;
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\CallLogs\Pages\CreateCallLog;
 use App\Filament\Resources\CallLogs\Pages\ListCallLogs;
+use App\Filament\Traits\HasViewModal;
 use App\Models\CallLog;
 use BackedEnum;
 use Carbon\Carbon;
@@ -23,6 +25,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class CallLogResource extends Resource
 {
+    use HasRoleBasedNavigationGroup, HasViewModal;
+
+    protected static array $navigationRoles = ['admin', 'manager', 'lead', 'rep'];
+
     protected static ?string $model = CallLog::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::Phone;
@@ -35,12 +41,12 @@ class CallLogResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep']);
+        return auth()->user()->hasAnyRole(['admin', 'manager', 'lead', 'rep']);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return ! in_array(auth()->user()->role, ['manager', 'admin']);
+        return ! auth()->user()->hasAnyRole(['manager', 'admin']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -48,11 +54,11 @@ class CallLogResource extends Resource
         $user = auth()->user();
         $query = parent::getEloquentQuery();
 
-        if ($user->role === 'rep') {
+        if ($user->hasRole('rep')) {
             return $query->where('user_id', $user->id);
         }
 
-        if ($user->role === 'lead') {
+        if ($user->hasRole('lead')) {
             return $query->whereIn('user_id', function ($q) use ($user) {
                 $q->select('id')
                     ->from('users')
@@ -157,7 +163,7 @@ class CallLogResource extends Resource
                 //
             ])
             ->recordActions([
-                //
+                HasViewModal::getViewActionForResource(static::class),
             ])
             ->toolbarActions([
                 Action::make('export')
@@ -200,6 +206,11 @@ class CallLogResource extends Resource
         return [
             //
         ];
+    }
+
+    protected static function getViewRelations(): array
+    {
+        return [];
     }
 
     public static function getPages(): array

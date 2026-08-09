@@ -2,8 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\UserExporter;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -21,7 +23,7 @@ class LeadCsrAssignmentWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->check() && auth()->user()->role === 'lead';
+        return auth()->check() && auth()->user()->hasRole('lead');
     }
 
     #[On('refresh-dashboard')]
@@ -211,6 +213,10 @@ class LeadCsrAssignmentWidget extends TableWidget
                     }),
             ])
             ->defaultSort('name')
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(UserExporter::class),
+            ])
             ->paginated([10, 25, 50, -1]);
     }
 }

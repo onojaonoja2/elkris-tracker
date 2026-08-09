@@ -21,8 +21,6 @@ class ManagerPortfolioPerAgentWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $leads = User::where('role', 'lead')->with('reps')->get();
-
         return $table
             ->query(fn (): Builder => User::query()->where('role', 'lead'))
             ->columns([
@@ -48,6 +46,6 @@ class ManagerPortfolioPerAgentWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'manager', 'general_manager']);
     }
 }

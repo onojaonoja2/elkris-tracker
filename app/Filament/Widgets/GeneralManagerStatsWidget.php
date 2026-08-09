@@ -60,8 +60,8 @@ class GeneralManagerStatsWidget extends BaseWidget
         $orders = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
         $totalUsers = User::count();
         $pendingTrialOrders = TrialOrder::where('status', TrialOrderStatus::ReceiptUploaded)->count();
-        $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
-        $creditOutstanding = SalesRecord::where('is_credit', true)->where('status', 'approved')->where('credit_status', 'pending_payment')->sum('total_value');
+        $pendingSalesRecords = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
+        $creditOutstanding = SalesRecord::outstanding()->sum('total_value');
 
         return [
             Stat::make('Total Customers', $totalCustomers)
@@ -118,6 +118,6 @@ class GeneralManagerStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'general_manager';
+        return auth()->user()->hasRole('general_manager');
     }
 }

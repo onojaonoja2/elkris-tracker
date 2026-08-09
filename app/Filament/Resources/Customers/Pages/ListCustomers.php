@@ -15,12 +15,12 @@ class ListCustomers extends ListRecords
     {
         return [
             CreateAction::make()
-                ->hidden(fn () => in_array(auth()->user()->role, ['sales', 'accountant', 'warehouse_manager'])),
+                ->hidden(fn () => auth()->user()->hasAnyRole(['sales', 'accountant', 'warehouse_manager'])),
             Action::make('import')
                 ->label('Import Customers')
                 ->icon('heroicon-o-arrow-up-tray')
                 ->color('warning')
-                ->visible(fn () => in_array(auth()->user()->role, ['admin', 'manager', 'lead', 'rep']))
+                ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'manager', 'lead', 'rep']))
                 ->url(CustomerResource::getUrl('import')),
         ];
     }

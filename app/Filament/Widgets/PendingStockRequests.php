@@ -16,7 +16,7 @@ class PendingStockRequests extends BaseWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, [
+        return auth()->user()->hasAnyRole([
             'admin', 'supervisor', 'warehouse_manager',
             'accountant', 'sales', 'manager', 'community_sales_representative',
         ]);
@@ -29,24 +29,24 @@ class PendingStockRequests extends BaseWidget
                 $user = auth()->user();
                 $query = StockTransfer::whereIn('status', ['requested', 'approved']);
 
-                if ($user->role === 'supervisor') {
+                if ($user->hasRole('supervisor')) {
                     $query->where(function (Builder $q) use ($user) {
                         $q->whereHas('toAgent', fn (Builder $sq) => $sq->where('role', 'community_sales_representative'))
                             ->orWhere('requested_by', $user->id);
                     });
                 }
 
-                if ($user->role === 'warehouse_manager') {
+                if ($user->hasRole('warehouse_manager')) {
                     $warehouseIds = $user->managedWarehouses()->pluck('id');
                     $query->whereIn('from_warehouse_id', $warehouseIds);
                 }
 
-                if ($user->role === 'sales') {
+                if ($user->hasRole('sales')) {
                     $warehouseIds = $user->salesWarehouses()->pluck('id');
                     $query->whereIn('from_warehouse_id', $warehouseIds);
                 }
 
-                if ($user->role === 'community_sales_representative') {
+                if ($user->hasRole('community_sales_representative')) {
                     $query->where(function (Builder $q) use ($user) {
                         $q->where('to_agent_id', $user->id)
                             ->orWhere('requested_by', $user->id);

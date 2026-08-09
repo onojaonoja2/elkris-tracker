@@ -15,7 +15,7 @@ class RejectedStockItems extends BaseWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'warehouse_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'warehouse_manager']);
     }
 
     public function table(Table $table): Table

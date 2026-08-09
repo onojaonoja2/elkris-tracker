@@ -5,9 +5,13 @@ namespace App\Models;
 use App\Enums\CallOutcome;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class CallLog extends Model
+class CallLog extends Model implements Auditable
 {
+    use AuditableTrait;
+
     protected $fillable = [
         'user_id',
         'customer_id',

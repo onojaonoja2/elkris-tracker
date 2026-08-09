@@ -12,14 +12,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class User extends Authenticatable implements FilamentUser
+class User extends Authenticatable implements Auditable, FilamentUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasCopilotChat, HasFactory, Notifiable;
+    use AuditableTrait, HasCopilotChat, HasFactory, Notifiable;
 
-    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'my_id', 'lead_id', 'portfolio_agent_id', 'state_id', 'lga_id', 'assigned_cities', 'is_active', 'sms_notifications', 'suspended_at', 'suspension_reason'];
+    protected $fillable = ['name', 'email', 'phone', 'password', 'role', 'additional_roles', 'my_id', 'lead_id', 'portfolio_agent_id', 'state_id', 'lga_id', 'assigned_cities', 'is_active', 'sms_notifications', 'suspended_at', 'suspension_reason'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -28,9 +31,53 @@ class User extends Authenticatable implements FilamentUser
         return $this->is_active ?? true;
     }
 
+    public function getRoleAttribute(?string $value): ?string
+    {
+        return $value;
+    }
+
+    public function setAdditionalRolesAttribute(?array $value): void
+    {
+        $this->attributes['additional_roles'] = $value !== null ? json_encode(array_values(array_unique($value))) : null;
+    }
+
+    public function getRoles(): array
+    {
+        return array_merge([$this->role], $this->additional_roles ?? []);
+    }
+
+    public function getPrimaryRole(): string
+    {
+        return $this->role;
+    }
+
+    public function hasRole(string $role): bool
+    {
+        if ($this->role === $role) {
+            return true;
+        }
+
+        return in_array($role, $this->additional_roles ?? []);
+    }
+
+    public function hasAnyRole(array $roles): bool
+    {
+        if (in_array($this->role, $roles)) {
+            return true;
+        }
+
+        foreach ($this->additional_roles ?? [] as $additionalRole) {
+            if (in_array($additionalRole, $roles)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function isFieldAgent(): bool
     {
-        return in_array($this->role, [
+        return $this->hasAnyRole([
             UserRole::FieldAgent->value,
             UserRole::CommunitySalesRepresentative->value,
             UserRole::OpenMarket->value,
@@ -40,7 +87,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function isManagement(): bool
     {
-        return in_array($this->role, [
+        return $this->hasAnyRole([
             UserRole::Admin->value,
             UserRole::Manager->value,
             UserRole::GeneralManager->value,
@@ -49,32 +96,22 @@ class User extends Authenticatable implements FilamentUser
 
     public function isWarehouseManager(): bool
     {
-        return $this->role === UserRole::WarehouseManager->value;
+        return $this->hasRole(UserRole::WarehouseManager->value);
     }
 
     public function isCommunitySalesRep(): bool
     {
-        return $this->role === UserRole::CommunitySalesRepresentative->value;
+        return $this->hasRole(UserRole::CommunitySalesRepresentative->value);
     }
 
     public function isGeneralAccountant(): bool
     {
-        return $this->role === UserRole::GeneralAccountant->value;
+        return $this->hasRole(UserRole::GeneralAccountant->value);
     }
 
     public function isGeneralManager(): bool
     {
-        return $this->role === UserRole::GeneralManager->value;
-    }
-
-    public function hasRole(string $role): bool
-    {
-        return $this->role === $role;
-    }
-
-    public function hasAnyRole(array $roles): bool
-    {
-        return in_array($this->role, $roles);
+        return $this->hasRole(UserRole::GeneralManager->value);
     }
 
     public function isSuspended(): bool
@@ -102,15 +139,15 @@ class User extends Authenticatable implements FilamentUser
 
     public function canBeManagedBy(User $manager): bool
     {
-        if ($manager->role === 'admin' || $manager->role === 'general_manager') {
+        if ($manager->hasAnyRole([UserRole::Admin->value, UserRole::GeneralManager->value])) {
             return true;
         }
 
-        if ($manager->role === 'manager' && $this->isFieldAgent()) {
+        if ($manager->hasRole(UserRole::Manager->value) && $this->isFieldAgent()) {
             return true;
         }
 
-        if ($manager->role === 'supervisor' && in_array($this->role, ['community_sales_representative', 'open_market', 'retail_market'])) {
+        if ($manager->hasRole(UserRole::Supervisor->value) && $this->hasAnyRole([UserRole::CommunitySalesRepresentative->value, UserRole::OpenMarket->value, UserRole::RetailMarket->value])) {
             return $this->lead_id === $manager->id || $this->portfolio_agent_id === $manager->id;
         }
 
@@ -124,17 +161,31 @@ class User extends Authenticatable implements FilamentUser
     {
         static::creating(function (User $user) {
             if (empty($user->my_id)) {
-                do {
-                    $id = random_int(100000, 999999);
-                } while (self::where('my_id', $id)->exists());
-
-                $user->my_id = (string) $id;
+                $user->my_id = (string) self::generateUniqueId();
             }
 
             if (! isset($user->is_active) && Schema::hasColumn('users', 'is_active')) {
                 $user->is_active = true;
             }
         });
+    }
+
+    protected static function generateUniqueId(): int
+    {
+        return DB::transaction(function () {
+            $seq = DB::table('id_sequences')
+                ->where('name', 'user_my_id')
+                ->lockForUpdate()
+                ->first();
+
+            $id = $seq->next_id;
+
+            DB::table('id_sequences')
+                ->where('name', 'user_my_id')
+                ->update(['next_id' => $id + 1]);
+
+            return $id;
+        }, 3);
     }
 
     /**
@@ -148,6 +199,7 @@ class User extends Authenticatable implements FilamentUser
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'assigned_cities' => 'array',
+            'additional_roles' => 'array',
             'is_active' => 'boolean',
             'sms_notifications' => 'boolean',
             'suspended_at' => 'datetime',

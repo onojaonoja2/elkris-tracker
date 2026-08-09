@@ -20,6 +20,7 @@ enum UserRole: string implements HasLabel
     case Accountant = 'accountant';
     case GeneralAccountant = 'general_accountant';
     case GeneralManager = 'general_manager';
+    case ProductionManagement = 'production_management';
 
     public function getLabel(): string
     {
@@ -38,6 +39,7 @@ enum UserRole: string implements HasLabel
             self::Accountant => 'Accountant',
             self::GeneralAccountant => 'General Accountant',
             self::GeneralManager => 'General Manager',
+            self::ProductionManagement => 'Production Management',
         };
     }
 
@@ -58,6 +60,7 @@ enum UserRole: string implements HasLabel
             self::Accountant => 'primary',
             self::GeneralAccountant => 'primary',
             self::GeneralManager => 'danger',
+            self::ProductionManagement => 'warning',
         };
     }
 

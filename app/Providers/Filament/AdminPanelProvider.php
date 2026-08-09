@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Helpers\NavigationHelper;
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\AccountantDashboard;
 use App\Filament\Pages\AgentDashboard;
@@ -13,6 +14,7 @@ use App\Filament\Pages\GeneralManagerDashboard;
 use App\Filament\Pages\LeadDashboard;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Pages\OrderSettings;
+use App\Filament\Pages\ProductionDashboard;
 use App\Filament\Pages\Profile;
 use App\Filament\Pages\RepDashboard;
 use App\Filament\Pages\SalesOrdersDashboard;
@@ -28,6 +30,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets\AccountWidget;
 use Filament\Widgets\FilamentInfoWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -68,26 +71,12 @@ class AdminPanelProvider extends PanelProvider
                 AccountantDashboard::class,
                 GeneralAccountantDashboard::class,
                 GeneralManagerDashboard::class,
+                ProductionDashboard::class,
                 SystemMaintenance::class,
                 OrderSettings::class,
             ])
             ->homeUrl(fn () => auth()->user()
-                ? match (auth()->user()->role) {
-                    'supervisor' => '/admin/supervisor-dashboard',
-                    'lead' => '/admin/lead-dashboard',
-                    'rep' => '/admin/rep-dashboard',
-                    'sales' => '/admin/sales-orders-dashboard',
-                    'field_agent' => '/admin/agent-dashboard',
-                    'community_sales_representative' => '/admin/csr-dashboard',
-                    'open_market' => '/admin/agent-dashboard',
-                    'retail_market' => '/admin/agent-dashboard',
-                    'warehouse_manager' => '/admin/warehouse-dashboard',
-                    'accountant' => '/admin/accountant-dashboard',
-                    'manager', 'admin' => '/admin/manager-dashboard',
-                    'general_accountant' => '/admin/general-accountant-dashboard',
-                    'general_manager' => '/admin/general-manager-dashboard',
-                    default => '/admin',
-                }
+                ? NavigationHelper::getDashboardUrl(auth()->user())
                 : url('/admin'))
             ->widgets([
                 AccountWidget::class,
@@ -111,6 +100,17 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentCopilotPlugin::make(),
-            ]);
+            ])
+            ->renderHook(PanelsRenderHook::STYLES_AFTER, function (): string {
+                return <<<'HTML'
+                    <style>
+                        .fi-header-actions-ctn {
+                            flex-wrap: wrap;
+                            flex-shrink: 1;
+                            min-width: 0;
+                        }
+                    </style>
+                    HTML;
+            });
     }
 }

@@ -21,7 +21,7 @@ class EditCustomer extends EditRecord
     protected function afterSave(): void
     {
         $user = auth()->user();
-        if ($user && $user->role === 'lead') {
+        if ($user && $user->hasRole('lead')) {
             $this->record->leads()->syncWithoutDetaching([$user->id]);
         }
         $this->dispatch('refresh-dashboard');
@@ -32,7 +32,7 @@ class EditCustomer extends EditRecord
         $payload = $data;
         $user = auth()->user();
 
-        if ($user && $user->role === 'rep') {
+        if ($user && $user->hasRole('rep')) {
             $payload['rep_id'] = $user->id;
             if (empty($payload['lead_id'])) {
                 $payload['lead_id'] = $user->lead_id ?? null;
@@ -41,10 +41,10 @@ class EditCustomer extends EditRecord
             if (! empty($payload['lead_id'])) {
                 $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$payload['lead_id']]));
             }
-        } elseif ($user && $user->role === 'lead') {
+        } elseif ($user && $user->hasRole('lead')) {
             $payload['lead_id'] = $user->id;
             $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$user->id]));
-        } elseif ($user && in_array($user->role, ['manager', 'admin', 'general_manager'])) {
+        } elseif ($user && $user->hasAnyRole(['manager', 'admin', 'general_manager'])) {
             // Manager assigns from retail/open_market submissions
             if (! empty($data['rep_id'])) {
                 $payload['submission_target_type'] = 'rep';

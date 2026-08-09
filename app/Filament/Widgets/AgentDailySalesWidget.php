@@ -12,7 +12,7 @@ class AgentDailySalesWidget extends BaseWidget
 {
     public static function canView(): bool
     {
-        return auth()->user() && in_array(auth()->user()->role, ['open_market', 'retail_market']);
+        return auth()->user() && auth()->user()->hasAnyRole(['open_market', 'retail_market']);
     }
 
     #[On('refresh-dashboard')]
@@ -24,7 +24,7 @@ class AgentDailySalesWidget extends BaseWidget
             ->whereDate('created_at', today())
             ->count();
 
-        $roleLabel = auth()->user()->role === 'open_market' ? 'Open Market' : 'Retail Market';
+        $roleLabel = auth()->user()->getPrimaryRole() === 'open_market' ? 'Open Market' : 'Retail Market';
 
         return [
             Stat::make("{$roleLabel} Sales Records Today", $count)

@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\TrialOrders;
 
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\TrialOrders\Pages\CreateTrialOrder;
 use App\Filament\Resources\TrialOrders\Pages\EditTrialOrder;
 use App\Filament\Resources\TrialOrders\Pages\ListTrialOrders;
 use App\Filament\Resources\TrialOrders\Schemas\TrialOrderForm;
 use App\Filament\Resources\TrialOrders\Tables\TrialOrdersTable;
+use App\Filament\Traits\HasViewModal;
 use App\Models\TrialOrder;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -17,6 +19,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class TrialOrderResource extends Resource
 {
+    use HasRoleBasedNavigationGroup, HasViewModal;
+
+    protected static array $navigationRoles = ['admin', 'manager', 'general_manager'];
+
     protected static ?string $model = TrialOrder::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
@@ -40,19 +46,24 @@ class TrialOrderResource extends Resource
         ];
     }
 
+    protected static function getViewRelations(): array
+    {
+        return [];
+    }
+
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['sales', 'admin', 'field_agent']);
+        return auth()->user()->hasAnyRole(['sales', 'admin', 'field_agent']);
     }
 
     public static function canCreate(): bool
     {
-        return in_array(auth()->user()->role, ['field_agent', 'admin']);
+        return auth()->user()->hasAnyRole(['field_agent', 'admin']);
     }
 
     public static function canEditAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canEditRecord(TrialOrder $record): bool
@@ -62,7 +73,7 @@ class TrialOrderResource extends Resource
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()->role === 'admin';
+        return auth()->user()->hasRole('admin');
     }
 
     public static function canDeleteRecord(TrialOrder $record): bool
@@ -72,7 +83,7 @@ class TrialOrderResource extends Resource
 
     public static function canViewRecord(TrialOrder $record): bool
     {
-        return in_array(auth()->user()->role, ['sales', 'admin', 'field_agent']);
+        return auth()->user()->hasAnyRole(['sales', 'admin', 'field_agent']);
     }
 
     public static function getEloquentQuery(): Builder
@@ -80,7 +91,7 @@ class TrialOrderResource extends Resource
         $query = parent::getEloquentQuery();
         $user = auth()->user();
 
-        if ($user->role === 'field_agent') {
+        if ($user->hasRole('field_agent')) {
             $query->where('agent_id', $user->id);
         }
 

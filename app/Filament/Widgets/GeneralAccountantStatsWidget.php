@@ -30,11 +30,8 @@ class GeneralAccountantStatsWidget extends BaseWidget
         $orders = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
         $revenue = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
 
-        $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
-        $creditSalesOutstanding = SalesRecord::where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
-            ->sum('total_value');
+        $pendingSalesRecords = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
+        $creditSalesOutstanding = SalesRecord::outstanding()->sum('total_value');
 
         $warehouseStock = Inventory::sum('quantity');
         $agentStock = AgentStock::sum('quantity');
@@ -93,6 +90,6 @@ class GeneralAccountantStatsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'general_accountant';
+        return auth()->user()->hasRole('general_accountant');
     }
 }

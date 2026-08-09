@@ -4,13 +4,16 @@ namespace App\Models;
 
 use App\Enums\PaymentStatus;
 use App\Enums\TrialOrderStatus;
+use App\Models\Concerns\HasSanitization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class TrialOrder extends Model
+class TrialOrder extends Model implements Auditable
 {
-    use HasFactory;
+    use AuditableTrait, HasFactory, HasSanitization;
 
     protected $fillable = [
         'agent_id',
@@ -41,6 +44,18 @@ class TrialOrder extends Model
             'accountant_verified_at' => 'datetime',
             'supervisor_verified_at' => 'datetime',
         ];
+    }
+
+    protected array $sanitizableFields = [
+        'accountant_notes',
+        'supervisor_notes',
+    ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (TrialOrder $trialOrder) {
+            $trialOrder->sanitizeFields($trialOrder->sanitizableFields);
+        });
     }
 
     /**

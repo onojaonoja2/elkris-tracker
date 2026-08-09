@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Models\AgentStock;
 use App\Models\SalesRecord;
+use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
@@ -18,13 +19,13 @@ class AgentStockCardsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user() && in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
+        return auth()->user() && auth()->user()->hasAnyRole(['community_sales_representative', 'open_market', 'retail_market']);
     }
 
     protected function getStats(): array
     {
         $userId = auth()->id();
-        $role = auth()->user()->role;
+        $role = auth()->user()->getPrimaryRole();
 
         $stats = [];
 
@@ -36,13 +37,17 @@ class AgentStockCardsWidget extends BaseWidget
             ->icon('heroicon-o-cube')
             ->color($stockCount > 0 ? 'success' : 'gray');
 
+        $today = Carbon::today();
+        $todayEnd = Carbon::now();
+
         if ($role === 'community_sales_representative') {
-            $todaySales = SalesRecord::where('agent_id', $userId)
-                ->whereDate('created_at', today())
+            $todaySales = SalesRecord::cashApproved()
+                ->where('agent_id', $userId)
+                ->whereDate('created_at', $today)
                 ->get();
 
             $salesCount = $todaySales->count();
-            $salesValue = $todaySales->sum('total_value');
+            $salesValue = SalesRecord::revenue([$userId], $today, $todayEnd);
 
             $stats[] = Stat::make('CSR Sales Today', $salesCount)
                 ->description($salesValue > 0 ? '₦'.number_format($salesValue, 2) : 'No sales records today')
@@ -57,13 +62,14 @@ class AgentStockCardsWidget extends BaseWidget
                 ->url(SalesRecordResource::getUrl('index'));
         }
 
-        if (in_array($role, ['open_market', 'retail_market'])) {
-            $todaySales = SalesRecord::where('agent_id', $userId)
-                ->whereDate('created_at', today())
+        if (auth()->user()->hasAnyRole(['open_market', 'retail_market'])) {
+            $todaySales = SalesRecord::cashApproved()
+                ->where('agent_id', $userId)
+                ->whereDate('created_at', $today)
                 ->get();
 
             $salesCount = $todaySales->count();
-            $salesValue = $todaySales->sum('total_value');
+            $salesValue = SalesRecord::revenue([$userId], $today, $todayEnd);
 
             $roleLabel = $role === 'open_market' ? 'Open Market' : 'Retail Market';
 

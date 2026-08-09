@@ -6,7 +6,7 @@ use App\Models\Customer;
 use App\Models\Lga;
 use App\Models\Product;
 use App\Models\State;
-use Filament\Forms\Components\Checkbox;
+use App\Rules\UniquePhoneWithOwner;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\MultiSelect;
@@ -31,16 +31,16 @@ class CustomerForm
                     ->label('Assigned Leads')
                     ->relationship('leads', 'name', fn ($query) => $query->where('role', 'lead'))
                     ->searchable()
-                    ->required(fn (): bool => auth()->user()->role === 'admin')
-                    ->visible(fn (): bool => auth()->user()->role === 'admin'),
+                    ->required(fn (): bool => auth()->user()->hasRole('admin'))
+                    ->visible(fn (): bool => auth()->user()->hasRole('admin')),
 
                 // 2. REP SELECTION: Visible only to Admin
                 MultiSelect::make('reps')
                     ->label('Assigned Reps')
                     ->relationship('reps', 'name', fn ($query) => $query->where('role', 'rep'))
                     ->searchable()
-                    ->required(fn (): bool => auth()->user()->role === 'admin')
-                    ->visible(fn (): bool => auth()->user()->role === 'admin'),
+                    ->required(fn (): bool => auth()->user()->hasRole('admin'))
+                    ->visible(fn (): bool => auth()->user()->hasRole('admin')),
 
                 TextInput::make('customer_name')
                     ->required()
@@ -49,7 +49,7 @@ class CustomerForm
                 TextInput::make('phone_number')
                     ->tel()
                     ->required()
-                    ->unique(ignoreRecord: true)
+                    ->rule(fn (?Customer $record) => new UniquePhoneWithOwner(ignoreId: $record?->id))
                     ->maxLength(11)
                     ->regex('/^[0-9]{11}$/')
                     ->validationMessages([
@@ -58,14 +58,14 @@ class CustomerForm
 
                 TextInput::make('age')
                     ->numeric()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 Select::make('gender')
                     ->options([
                         'male' => 'Male',
                         'female' => 'Female',
                     ])
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 Select::make('state_id')
                     ->label('State')
@@ -73,7 +73,7 @@ class CustomerForm
                     ->searchable()
                     ->required()
                     ->live(debounce: 300)
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
                     ->default(fn () => self::getDefaultStateId())
                     ->afterStateUpdated(function (Set $set, $stateId) {
                         $set('lga_id', null);
@@ -84,7 +84,7 @@ class CustomerForm
 
                 Hidden::make('state_id')
                     ->default(fn () => self::getDefaultStateId())
-                    ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 Select::make('lga_id')
                     ->label('Local Government Area')
@@ -94,12 +94,12 @@ class CustomerForm
                     ->searchable()
                     ->required()
                     ->live()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
                     ->default(fn () => self::getDefaultLgaId()),
 
                 Hidden::make('lga_id')
                     ->default(fn () => self::getDefaultLgaId())
-                    ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextInput::make('city')
                     ->required(),
@@ -111,21 +111,8 @@ class CustomerForm
                     ->default(fn () => State::find(self::getDefaultStateId())?->region?->name),
 
                 Textarea::make('address')
-                    ->required(fn () => in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
+                    ->required(fn () => auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
                     ->columnSpanFull(),
-
-                Checkbox::make('assign_to_self')
-                    ->label('Assign to myself (add to my portfolio)')
-                    ->visible(fn () => auth()->user()->role === 'lead')
-                    ->live()
-                    ->dehydrated(false)
-                    ->afterStateUpdated(function ($state, Set $set) {
-                        if ($state) {
-                            $set('agent_id', auth()->id());
-                            $set('lead_id', auth()->id());
-                            $set('leads', [auth()->id()]);
-                        }
-                    }),
 
                 Hidden::make('agent_id'),
 
@@ -150,34 +137,34 @@ class CustomerForm
                         'no' => 'No',
                         'unknown' => 'Unknown',
                     ])
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 DatePicker::make('call_date')
                     ->native(false)
                     ->displayFormat('d/m/Y')
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 TextInput::make('preffered_call_time')
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 Textarea::make('feedback')
                     ->rows(3)
                     ->columnSpanFull()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 Textarea::make('remarks')
                     ->rows(3)
                     ->columnSpanFull()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 DatePicker::make('follow_up_date')
                     ->native(false)
                     ->displayFormat('d/m/Y')
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])),
 
                 Section::make('Lifetime Purchases')
                     ->columnSpanFull()
-                    ->visible(fn () => ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
+                    ->visible(fn () => ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market']))
                     ->schema([
                         Text::make(fn (?Customer $record): HtmlString => new HtmlString(
                             $record ? self::renderLifetimePurchasesTable($record) : 'No purchases recorded.'
@@ -250,7 +237,7 @@ class CustomerForm
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market']) && $user->lga) {
+        if (auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market']) && $user->lga) {
             return State::whereHas('lgas', fn ($q) => $q->where('id', $user->lga_id))->first()?->id;
         }
 
@@ -261,7 +248,7 @@ class CustomerForm
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
+        if (auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])) {
             return $user->lga_id;
         }
 

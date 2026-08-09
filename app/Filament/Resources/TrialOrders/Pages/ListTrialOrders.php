@@ -29,7 +29,7 @@ class ListTrialOrders extends ListRecords
     {
         $actions = [
             CreateAction::make()
-                ->visible(fn () => in_array(auth()->user()->role, ['field_agent', 'community_sales_representative'])),
+                ->visible(fn () => auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative'])),
 
             Action::make('filter_by_location')
                 ->label('Filter by Location')
@@ -47,7 +47,7 @@ class ListTrialOrders extends ListRecords
                 }),
         ];
 
-        if (auth()->user()->role === 'supervisor') {
+        if (auth()->user()->hasRole('supervisor')) {
             $actions[] = Action::make('createForAgent')
                 ->label('Create for Agent')
                 ->icon('heroicon-o-user-plus')

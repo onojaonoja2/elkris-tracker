@@ -2,9 +2,10 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\UserRole;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
-use App\Models\Inventory;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -16,6 +17,8 @@ use Livewire\Attributes\On;
 
 class AccountantDamagedReturnsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Pending Damaged Stock Returns';
 
     protected int|string|array $columnSpan = 'full';
@@ -25,13 +28,19 @@ class AccountantDamagedReturnsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn () => DamagedStockReturn::where('status', 'pending')->orderBy('created_at', 'desc'))
+            ->query(fn () => DamagedStockReturn::where('status', 'pending')
+                ->whereNull('accountant_approved_by')
+                ->where(function ($query) {
+                    $query->whereNotNull('supervisor_approved_by')
+                        ->orWhereDoesntHave('user', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value));
+                })
+                ->orderBy('created_at', 'desc'))
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -55,27 +64,21 @@ class AccountantDamagedReturnsWidget extends TableWidget
                     ->dateTime(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('approveDamagedReturn')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Approve Damaged Stock Return')
-                    ->modalDescription('This will add the damaged stock to the warehouse inventory.')
+                    ->modalDescription('This approves the damaged stock return and deducts stock from the agent.')
                     ->action(function (DamagedStockReturn $record) {
                         DB::transaction(function () use ($record) {
-                            $inv = Inventory::firstOrCreate(
-                                [
-                                    'warehouse_id' => $record->warehouse_id,
-                                    'product_type_id' => $record->product_type_id,
-                                    'grammage' => $record->grammage,
-                                ],
-                                ['quantity' => 0]
-                            );
-                            $inv->increment('quantity', $record->quantity);
-
                             $agentStock = AgentStock::where('user_id', $record->user_id)
-                                ->where('product_type_id', $record->product_type_id)
+                                ->where(function ($q) use ($record) {
+                                    $q->where('product_type_id', $record->product_type_id)
+                                        ->orWhere('product_name', $record->productType?->name);
+                                })
                                 ->where('grammage', $record->grammage)
                                 ->first();
 
@@ -85,12 +88,12 @@ class AccountantDamagedReturnsWidget extends TableWidget
 
                             $record->update([
                                 'status' => 'approved',
-                                'approved_by' => auth()->id(),
-                                'approved_at' => now(),
+                                'accountant_approved_by' => auth()->id(),
+                                'accountant_approved_at' => now(),
                             ]);
                         });
 
-                        Notification::make()->title('Damaged stock return approved and inventory updated')->success()->send();
+                        Notification::make()->title('Damaged stock return approved and agent stock deducted')->success()->send();
                     }),
 
                 Action::make('rejectDamagedReturn')
@@ -107,8 +110,8 @@ class AccountantDamagedReturnsWidget extends TableWidget
                     ->action(function (DamagedStockReturn $record, array $data) {
                         $record->update([
                             'status' => 'rejected',
-                            'approved_by' => auth()->id(),
-                            'approved_at' => now(),
+                            'accountant_approved_by' => auth()->id(),
+                            'accountant_approved_at' => now(),
                             'rejection_reason' => $data['rejection_reason'],
                         ]);
 

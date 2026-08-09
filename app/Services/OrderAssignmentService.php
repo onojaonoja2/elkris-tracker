@@ -9,12 +9,48 @@ use App\Events\OrderAssignmentAccepted;
 use App\Events\OrderAssignmentRejected;
 use App\Models\AgentStock;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\StockTransaction;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class OrderAssignmentService
 {
+    /**
+     * Builds the query used to locate an agent's stock for a given order
+     * product, matching by product type when available and falling back to
+     * the product name.
+     */
+    public static function stockQueryForProduct(User $user, Product $product): Builder
+    {
+        return AgentStock::query()
+            ->where('user_id', $user->id)
+            ->where(function (Builder $query) use ($product) {
+                $query->where('product_type_id', $product->product_type_id)
+                    ->orWhere('product_name', $product->product_name);
+            })
+            ->where('grammage', $product->grammage);
+    }
+
+    /**
+     * Determines whether an agent currently holds enough stock to deliver
+     * every item on an order.
+     */
+    public static function hasSufficientStock(User $user, Order $order): bool
+    {
+        foreach ($order->products as $product) {
+            $stock = static::stockQueryForProduct($user, $product)->first();
+
+            if (! $stock || $stock->quantity < $product->quantity) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public static function assignToCsr(Order $order, User $csr, ?string $notes = null): void
     {
         DB::transaction(function () use ($order, $csr, $notes) {
@@ -58,33 +94,59 @@ class OrderAssignmentService
         });
     }
 
+    public static function attachPaymentProof(Order $order, string $path, int $uploadedBy): void
+    {
+        DB::transaction(function () use ($order, $path, $uploadedBy) {
+            $order->update([
+                'payment_proof_path' => $path,
+                'payment_proof_uploaded_by' => $uploadedBy,
+                'payment_proof_uploaded_at' => now(),
+            ]);
+        });
+    }
+
     public static function confirmDeliveryByCsr(Order $order): void
     {
+        if (! $order->hasPaymentProof()) {
+            throw ValidationException::withMessages([
+                'payment_proof' => 'A payment proof must be uploaded before this order can be marked as delivered.',
+            ]);
+        }
+
         DB::transaction(function () use ($order) {
             $processor = $order->assignedTo;
 
             if ($processor) {
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where([
-                        'user_id' => $processor->id,
-                        'product_name' => $product->product_name,
-                        'grammage' => $product->grammage,
-                    ])->first();
+                    $stock = static::stockQueryForProduct($processor, $product)
+                        ->lockForUpdate()
+                        ->first();
 
-                    if ($stock && $stock->quantity >= $product->quantity) {
-                        $stock->decrement('quantity', $product->quantity);
-
-                        StockTransaction::create([
-                            'type' => 'disbursed',
-                            'transaction_date' => now()->toDateString(),
-                            'product_type_id' => $product->product_type_id,
-                            'product_name' => $product->product_name,
-                            'grammage' => $product->grammage,
-                            'quantity' => $product->quantity,
-                            'disbursed_to' => 'Order #'.$order->id.' delivery',
-                            'user_id' => $processor->id,
+                    if (! $stock || $stock->quantity < $product->quantity) {
+                        $available = $stock?->quantity ?? 0;
+                        throw ValidationException::withMessages([
+                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
+                }
+
+                foreach ($order->products as $product) {
+                    $stock = static::stockQueryForProduct($processor, $product)
+                        ->lockForUpdate()
+                        ->first();
+
+                    $stock?->decrement('quantity', $product->quantity);
+
+                    StockTransaction::create([
+                        'type' => 'disbursed',
+                        'transaction_date' => now()->toDateString(),
+                        'product_type_id' => $product->product_type_id,
+                        'product_name' => $product->product_name,
+                        'grammage' => $product->grammage,
+                        'quantity' => $product->quantity,
+                        'disbursed_to' => 'Order #'.$order->id.' delivery',
+                        'user_id' => $processor->id,
+                    ]);
                 }
 
                 $processor->increment('stock_balance', $order->total_price);
@@ -99,31 +161,46 @@ class OrderAssignmentService
 
     public static function confirmDeliveryBySales(Order $order): void
     {
+        if (! $order->hasPaymentProof()) {
+            throw ValidationException::withMessages([
+                'payment_proof' => 'A payment proof must be uploaded before this order can be marked as delivered.',
+            ]);
+        }
+
         DB::transaction(function () use ($order) {
             $processor = $order->assignedTo;
 
             if ($processor) {
                 foreach ($order->products as $product) {
-                    $stock = AgentStock::where([
-                        'user_id' => $processor->id,
-                        'product_name' => $product->product_name,
-                        'grammage' => $product->grammage,
-                    ])->first();
+                    $stock = static::stockQueryForProduct($processor, $product)
+                        ->lockForUpdate()
+                        ->first();
 
-                    if ($stock && $stock->quantity >= $product->quantity) {
-                        $stock->decrement('quantity', $product->quantity);
-
-                        StockTransaction::create([
-                            'type' => 'disbursed',
-                            'transaction_date' => now()->toDateString(),
-                            'product_type_id' => $product->product_type_id,
-                            'product_name' => $product->product_name,
-                            'grammage' => $product->grammage,
-                            'quantity' => $product->quantity,
-                            'disbursed_to' => 'Order #'.$order->id.' delivery',
-                            'user_id' => $processor->id,
+                    if (! $stock || $stock->quantity < $product->quantity) {
+                        $available = $stock?->quantity ?? 0;
+                        throw ValidationException::withMessages([
+                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
+                }
+
+                foreach ($order->products as $product) {
+                    $stock = static::stockQueryForProduct($processor, $product)
+                        ->lockForUpdate()
+                        ->first();
+
+                    $stock?->decrement('quantity', $product->quantity);
+
+                    StockTransaction::create([
+                        'type' => 'disbursed',
+                        'transaction_date' => now()->toDateString(),
+                        'product_type_id' => $product->product_type_id,
+                        'product_name' => $product->product_name,
+                        'grammage' => $product->grammage,
+                        'quantity' => $product->quantity,
+                        'disbursed_to' => 'Order #'.$order->id.' delivery',
+                        'user_id' => $processor->id,
+                    ]);
                 }
             }
 

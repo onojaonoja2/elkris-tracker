@@ -82,6 +82,20 @@ class UserFactory extends Factory
         ]);
     }
 
+    public function openMarket(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::OpenMarket->value,
+        ]);
+    }
+
+    public function retailMarket(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::RetailMarket->value,
+        ]);
+    }
+
     public function accountant(): static
     {
         return $this->state(fn (array $attributes) => [
@@ -93,6 +107,27 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => UserRole::Sales->value,
+        ]);
+    }
+
+    public function productionManagement(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::ProductionManagement->value,
+        ]);
+    }
+
+    public function warehouseManager(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::WarehouseManager->value,
+        ]);
+    }
+
+    public function generalManager(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => UserRole::GeneralManager->value,
         ]);
     }
 }

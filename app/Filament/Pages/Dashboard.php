@@ -2,8 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Widgets\ManagerStatsWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -11,18 +14,30 @@ use Illuminate\Support\Facades\Route;
 
 class Dashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+
     protected static ?int $navigationSort = -2;
 
     public static function shouldRegisterNavigation(): bool
     {
-        // Always register to ensure route exists, control visibility via canViewNavigation
         return true;
     }
 
     public static function canViewNavigation(): bool
     {
-        // Only show in navigation for roles that need it
-        return ! in_array(auth()->user()->role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market', 'sales', 'supervisor', 'warehouse_manager', 'accountant']);
+        $user = auth()->user();
+
+        return ! $user->hasAnyRole([
+            'field_agent',
+            'community_sales_representative',
+            'open_market',
+            'retail_market',
+            'sales',
+            'supervisor',
+            'warehouse_manager',
+            'accountant',
+            'production_management',
+        ]);
     }
 
     public static function getNavigationLabel(): string
@@ -36,7 +51,7 @@ class Dashboard extends BaseDashboard
             return;
         }
 
-        $role = auth()->user()->role;
+        $role = auth()->user()->getPrimaryRole();
 
         if ($role === 'supervisor') {
             return redirect()->to(SupervisorDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
@@ -80,11 +95,31 @@ class Dashboard extends BaseDashboard
         if ($role === 'manager' || $role === 'admin') {
             return redirect()->to(ManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
+
+        if ($role === 'production_management') {
+            return redirect()->to(ProductionDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+    }
+
+    public function getHeaderWidgets(): array
+    {
+        return [
+            OfficeSalesStatsWidget::class,
+            OrderStatsWidget::class,
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->getOrderBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
+        ];
     }
 
     public function getWidgets(): array
     {
-        $role = auth()->user()->role ?? 'guest';
+        $role = auth()->user()?->getPrimaryRole() ?? 'guest';
 
         return match ($role) {
             'field_agent', 'community_sales_representative', 'open_market', 'retail_market' => [

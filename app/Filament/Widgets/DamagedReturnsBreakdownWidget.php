@@ -2,8 +2,11 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\DamagedStockReturnExporter;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\DamagedStockReturn;
 use App\Models\Warehouse;
+use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -12,6 +15,8 @@ use Livewire\Attributes\On;
 
 class DamagedReturnsBreakdownWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Damaged Stock Returns Breakdown';
 
     protected int|string|array $columnSpan = 'full';
@@ -21,7 +26,7 @@ class DamagedReturnsBreakdownWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager', 'supervisor', 'accountant', 'general_manager', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['admin', 'manager', 'supervisor', 'accountant', 'general_manager', 'general_accountant']);
     }
 
     public function table(Table $table): Table
@@ -73,6 +78,13 @@ class DamagedReturnsBreakdownWidget extends TableWidget
                 SelectFilter::make('warehouse_id')
                     ->label('Warehouse')
                     ->options(fn () => Warehouse::pluck('name', 'id')),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->exporter(DamagedStockReturnExporter::class),
+            ])
+            ->recordActions([
+                $this->breakdownViewAction(),
             ])
             ->paginated(15);
     }

@@ -45,11 +45,18 @@ class UserForm
                     ->dehydrated(false)
                     ->visible(fn (string $operation): bool => $operation === 'edit'),
                 Select::make('role')
-                    ->label('User Role')
+                    ->label('Primary Role')
                     ->options(self::getRoleOptions())
                     ->required()
                     ->default('community_sales_representative')
                     ->selectablePlaceholder(false)
+                    ->live(),
+
+                Select::make('additional_roles')
+                    ->label('Additional Roles')
+                    ->options(self::getRoleOptions())
+                    ->multiple()
+                    ->visible(fn (): bool => auth()->user()->hasAnyRole(['admin', 'general_manager']))
                     ->live(),
 
                 Select::make('state_id')
@@ -70,16 +77,16 @@ class UserForm
                 TagsInput::make('assigned_cities')
                     ->label('Assigned Cities')
                     ->suggestions(fn () => collect(CustomerForm::getCityMapping())->pluck('city')->unique()->sort()->values()->toArray())
-                    ->visible(fn (callable $get) => in_array($get('role'), ['community_sales_representative', 'open_market', 'retail_market']))
-                    ->required(fn (callable $get) => in_array($get('role'), ['community_sales_representative', 'open_market', 'retail_market'])),
+                    ->visible(fn (callable $get) => self::hasFieldAgentRole($get))
+                    ->required(fn (callable $get) => self::hasFieldAgentRole($get)),
 
                 Select::make('lead_id')
-                    ->label(fn (callable $get) => in_array($get('role'), ['open_market', 'retail_market']) ? 'Managing Manager' : 'Reports To')
-                    ->relationship('lead', 'name', fn ($query, callable $get) => in_array($get('role'), ['open_market', 'retail_market'])
+                    ->label(fn (callable $get) => self::isOpenOrRetailMarket($get) ? 'Managing Manager' : 'Reports To')
+                    ->relationship('lead', 'name', fn ($query, callable $get) => self::isOpenOrRetailMarket($get)
                         ? $query->whereIn('role', ['manager', 'admin', 'general_manager'])
                         : $query->where('role', 'lead'))
-                    ->visible(fn (callable $get) => in_array($get('role'), ['rep', 'open_market', 'retail_market']))
-                    ->required(fn (callable $get) => in_array($get('role'), ['open_market', 'retail_market']))
+                    ->visible(fn (callable $get) => self::needsLead($get))
+                    ->required(fn (callable $get) => self::isOpenOrRetailMarket($get))
                     ->searchable()
                     ->live(),
 
@@ -87,16 +94,48 @@ class UserForm
                     ->label('Paired Agent (Rep or Lead)')
                     ->relationship('portfolioAgent', 'name', fn ($query) => $query->whereIn('role', ['rep', 'lead']))
                     ->searchable()
-                    ->visible(fn (callable $get) => $get('role') === 'community_sales_representative')
+                    ->visible(fn (callable $get) => self::hasRoleValue($get, 'community_sales_representative'))
                     ->live(),
             ]);
     }
 
+    protected static function hasRoleValue(callable $get, string $role): bool
+    {
+        $primary = $get('role');
+        $additional = $get('additional_roles') ?? [];
+
+        if ($primary === $role) {
+            return true;
+        }
+
+        return in_array($role, $additional);
+    }
+
+    protected static function hasFieldAgentRole(callable $get): bool
+    {
+        return self::hasRoleValue($get, 'community_sales_representative')
+            || self::hasRoleValue($get, 'open_market')
+            || self::hasRoleValue($get, 'retail_market');
+    }
+
+    protected static function isOpenOrRetailMarket(callable $get): bool
+    {
+        return self::hasRoleValue($get, 'open_market')
+            || self::hasRoleValue($get, 'retail_market');
+    }
+
+    protected static function needsLead(callable $get): bool
+    {
+        return self::hasRoleValue($get, 'rep')
+            || self::hasRoleValue($get, 'open_market')
+            || self::hasRoleValue($get, 'retail_market');
+    }
+
     public static function getRoleOptions(): array
     {
-        $role = auth()->user()->role;
+        $user = auth()->user();
 
-        if ($role === 'supervisor') {
+        if ($user->hasRole('supervisor')) {
             return [
                 'community_sales_representative' => 'Community Sales Representative',
                 'open_market' => 'Open Market Agent',
@@ -104,14 +143,14 @@ class UserForm
             ];
         }
 
-        if ($role === 'manager') {
+        if ($user->hasRole('manager')) {
             return [
                 'open_market' => 'Open Market Agent',
                 'retail_market' => 'Retail Market Agent',
             ];
         }
 
-        if ($role === 'general_accountant') {
+        if ($user->hasRole('general_accountant')) {
             return [
                 'accountant' => 'Accountant',
                 'warehouse_manager' => 'Warehouse Manager',
@@ -132,6 +171,7 @@ class UserForm
             'sales' => 'Sales',
             'warehouse_manager' => 'Warehouse Manager',
             'accountant' => 'Accountant',
+            'production_management' => 'Production Management',
         ];
     }
 }

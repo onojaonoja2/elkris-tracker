@@ -2,13 +2,21 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\AgentCustomerViewWidget;
+use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
+use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\SupervisorCreditSalesWidget;
 use App\Filament\Widgets\SupervisorCsrListWidget;
+use App\Filament\Widgets\SupervisorDamagedReturnsWidget;
+use App\Filament\Widgets\SupervisorDispatchStockWidget;
 use App\Filament\Widgets\SupervisorSalesByGeoWidget;
 use App\Filament\Widgets\SupervisorSalesRecordsWidget;
 use App\Filament\Widgets\SupervisorStatsWidget;
+use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
+use App\Filament\Widgets\SupervisorStockTransferApprovalWidget;
 use App\Filament\Widgets\SupervisorStockWidget;
 use App\Models\SalesRecord;
 use App\Models\User;
@@ -20,6 +28,8 @@ use Illuminate\Support\Facades\Session;
 
 class SupervisorDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+
     protected static string $routePath = '/supervisor-dashboard';
 
     protected static ?string $slug = 'supervisor-dashboard';
@@ -30,12 +40,12 @@ class SupervisorDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'supervisor';
+        return auth()->check() && auth()->user()->hasRole('supervisor');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'supervisor';
+        return auth()->check() && auth()->user()->hasRole('supervisor');
     }
 
     public static function getNavigationLabel(): string
@@ -45,7 +55,7 @@ class SupervisorDashboard extends BaseDashboard
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'supervisor') {
+        if (! auth()->check() || ! auth()->user()->hasRole('supervisor')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
@@ -59,6 +69,8 @@ class SupervisorDashboard extends BaseDashboard
     {
         return [
             SupervisorStatsWidget::class,
+            CreditSalesOutstandingStatsWidget::class,
+            OrderStatsWidget::class,
             SupervisorStockWidget::class,
         ];
     }
@@ -67,16 +79,26 @@ class SupervisorDashboard extends BaseDashboard
     {
         return [
             SupervisorCsrListWidget::class,
+            SupervisorStockTransferApprovalWidget::class,
+            SupervisorStockCountApprovalWidget::class,
             SupervisorSalesByGeoWidget::class,
             SupervisorSalesRecordsWidget::class,
             SupervisorCreditSalesWidget::class,
+            SupervisorDamagedReturnsWidget::class,
+            SupervisorDispatchStockWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            AgentCustomerViewWidget::class,
         ];
     }
 
     protected function getHeaderActions(): array
     {
         return [
+            $this->getCreditBreakdownAction(),
+            $this->getOrderBreakdownAction(),
+            $this->getApprovalBreakdownAction(),
+            $this->getRevenueBreakdownAction(),
+
             Action::make('addCsr')
                 ->label('Add CSR')
                 ->icon('heroicon-o-user-plus')

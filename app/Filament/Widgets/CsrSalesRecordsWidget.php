@@ -6,12 +6,16 @@ use App\Models\SalesRecord;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Livewire\Attributes\On;
 
 class CsrSalesRecordsWidget extends TableWidget
 {
     protected static ?int $sort = 3;
 
     protected static ?string $heading = 'My Sales Records';
+
+    #[On('refresh-dashboard')]
+    public function refreshWidget(): void {}
 
     public function table(Table $table): Table
     {

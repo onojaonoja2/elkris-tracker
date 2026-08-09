@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\Pages;
 
+use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\Customer;
 use App\Models\Order;
@@ -17,6 +18,22 @@ class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
 
+    /**
+     * Re-validate the submitted role against the options the current user is
+     * permitted to assign. Mirrors the guard in CreateUser — the dropdown
+     * options are not a security boundary on their own.
+     */
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        $allowedRoles = array_keys(UserForm::getRoleOptions());
+
+        if (array_key_exists('role', $data) && ! in_array($data['role'], $allowedRoles, true)) {
+            abort(403, 'You are not permitted to assign this role.');
+        }
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -24,7 +41,7 @@ class EditUser extends EditRecord
                 ->label('Delete User')
                 ->color('danger')
                 ->icon('heroicon-o-trash')
-                ->visible(fn (): bool => auth()->user()->role === 'admin')
+                ->visible(fn (): bool => auth()->user()->hasRole('admin'))
                 ->requiresConfirmation()
                 ->modalHeading('Delete User')
                 ->modalDescription(fn (): string => 'You are about to delete '.$this->getRecord()->name.' ('.ucfirst($this->getRecord()->role).').')
@@ -44,7 +61,7 @@ class EditUser extends EditRecord
             TextInput::make('user_info')
                 ->label('User')
                 ->disabled()
-                ->default($user->name.' - '.ucfirst($user->role)),
+                ->default($user->name.' - '.ucfirst($user->getPrimaryRole())),
 
             TextInput::make('customers_count')
                 ->label('Assigned Customers')

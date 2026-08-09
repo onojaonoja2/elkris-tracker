@@ -5,7 +5,10 @@ namespace App\Filament\Widgets;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\Customer;
+use App\Models\Order;
+use App\Models\SalesRecord;
 use App\Models\User;
+use App\Support\DashboardDateScope;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
@@ -18,6 +21,7 @@ class LeadStatsWidget extends StatsOverviewWidget
     protected function getStats(): array
     {
         $leadId = auth()->id();
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $reps = User::where('lead_id', $leadId)->where('role', 'rep')->get();
         $repIds = $reps->pluck('id');
@@ -40,6 +44,20 @@ class LeadStatsWidget extends StatsOverviewWidget
             ->whereNull('lead_id')
             ->count();
 
+        $csrIds = User::where(function ($query) use ($repIds, $leadId) {
+            $query->whereIn('portfolio_agent_id', $repIds)
+                ->orWhere('portfolio_agent_id', $leadId);
+        })
+            ->where('role', 'community_sales_representative')
+            ->pluck('id');
+
+        $teamSalesValue = SalesRecord::revenue($csrIds->all(), $from, $to);
+
+        $orderValueAccrued = Order::whereIn('user_id', $repIds)
+            ->where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to])
+            ->sum('total_price');
+
         return [
             Stat::make('Team Reps', $reps->count())
                 ->description('Active representatives')
@@ -51,6 +69,11 @@ class LeadStatsWidget extends StatsOverviewWidget
                 ->icon('heroicon-o-user-group')
                 ->color('success')
                 ->url(CustomerResource::getUrl('index')),
+            Stat::make('Accepted Customers', $customersCount)
+                ->description('Customers assigned to team reps')
+                ->icon('heroicon-o-user-plus')
+                ->color('info')
+                ->url(CustomerResource::getUrl('index')),
             Stat::make('Pending Assignments', $pendingAssignments)
                 ->description('Awaiting rep acceptance')
                 ->icon('heroicon-o-clock')
@@ -61,11 +84,20 @@ class LeadStatsWidget extends StatsOverviewWidget
                 ->icon('heroicon-o-inbox-stack')
                 ->color('primary')
                 ->url(CustomerResource::getUrl('index')),
+            Stat::make('CSR Sales Value', '₦'.number_format($teamSalesValue, 2))
+                ->description('From CSRs under your team in selected range')
+                ->icon('heroicon-o-currency-dollar')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-team-sales-breakdown')"]),
+            Stat::make('Order Value Accrued', '₦'.number_format($orderValueAccrued, 2))
+                ->description('Team orders in selected range')
+                ->icon('heroicon-o-banknotes')
+                ->color('info'),
         ];
     }
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'lead';
+        return auth()->user()->hasRole('lead');
     }
 }

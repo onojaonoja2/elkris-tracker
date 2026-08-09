@@ -7,17 +7,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class StockTransfer extends Model
+class StockTransfer extends Model implements Auditable
 {
-    use HasFactory;
+    use AuditableTrait, HasFactory;
 
     protected $fillable = [
         'from_warehouse_id', 'from_agent_id', 'to_warehouse_id', 'to_agent_id',
         'dispatched_by', 'received_by', 'received_at',
         'status', 'notes',
         'requested_by', 'approved_by', 'approved_at', 'rejection_reason',
-        'source_type', 'source_name', 'dispatch_papers_path', 'requires_approval',
+        'supervisor_approved_by', 'supervisor_approved_at',
+        'source_type', 'source_name', 'sales_record_id', 'dispatch_papers_path', 'requires_approval',
         'collected_at', 'collected_by',
     ];
 
@@ -27,6 +30,7 @@ class StockTransfer extends Model
             'status' => StockTransferStatus::class,
             'received_at' => 'datetime',
             'approved_at' => 'datetime',
+            'supervisor_approved_at' => 'datetime',
             'collected_at' => 'datetime',
         ];
     }
@@ -34,6 +38,16 @@ class StockTransfer extends Model
     public function fromWarehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class, 'from_warehouse_id');
+    }
+
+    public function salesRecord(): BelongsTo
+    {
+        return $this->belongsTo(SalesRecord::class, 'sales_record_id');
+    }
+
+    public function isSalesRecordRequest(): bool
+    {
+        return $this->sales_record_id !== null;
     }
 
     public function fromAgent(): BelongsTo
@@ -69,6 +83,11 @@ class StockTransfer extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function supervisorApprover(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'supervisor_approved_by');
     }
 
     public function collector(): BelongsTo

@@ -2,10 +2,14 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\AgentStock;
+use App\Enums\UserRole;
+use App\Filament\Exports\SalesRecordExporter;
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\SalesRecord;
+use App\Services\SalesRecordService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -13,11 +17,13 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
 class AccountantSalesRecordsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Pending Sales Record Verifications';
 
     protected int|string|array $columnSpan = 'full';
@@ -27,12 +33,19 @@ class AccountantSalesRecordsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     protected function getFilteredQuery()
     {
-        $query = SalesRecord::where('status', 'receipt_uploaded')
+        $query = SalesRecord::where(function ($query) {
+            $query->where(function ($query) {
+                $query->whereHas('agent', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value))
+                    ->whereNotNull('supervisor_verified_at');
+            })
+                ->orWhereDoesntHave('agent', fn ($query) => $query->where('role', UserRole::CommunitySalesRepresentative->value));
+        })
+            ->whereIn('status', ['pending', 'receipt_uploaded'])
             ->orderBy('created_at', 'desc');
 
         $filters = $this->tableFilters['date_range'] ?? [];
@@ -61,6 +74,16 @@ class AccountantSalesRecordsWidget extends TableWidget
                         'retail_market' => 'Retail Market',
                         default => $state,
                     }),
+                TextColumn::make('stock_source')
+                    ->label('Stock Source')
+                    ->badge()
+                    ->placeholder('-')
+                    ->formatStateUsing(fn (?string $state): ?string => match ($state) {
+                        'held' => 'At Hand',
+                        'warehouse' => 'Warehouse',
+                        default => null,
+                    })
+                    ->color(fn (?string $state): string => $state === 'held' ? 'info' : 'warning'),
                 TextColumn::make('total_value')
                     ->label('Total (₦)')
                     ->money('NGN'),
@@ -105,6 +128,7 @@ class AccountantSalesRecordsWidget extends TableWidget
                     }),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('approveByAccountant')
                     ->label('Approve')
                     ->icon('heroicon-o-check-circle')
@@ -116,74 +140,49 @@ class AccountantSalesRecordsWidget extends TableWidget
                         ];
                     })
                     ->action(function (SalesRecord $record, array $data) {
-                        $products = $record->products ?? [];
+                        try {
+                            SalesRecordService::approve($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Approval failed')
+                                ->body($e->getMessage())
+                                ->send();
 
-                        DB::transaction(function () use ($record, $products, $data) {
-                            foreach ($products as $product) {
-                                $productName = $product['product_name'] ?? null;
-                                $grammage = $product['grammage'] ?? null;
-                                $quantity = $product['quantity'] ?? 0;
+                            return;
+                        }
 
-                                if (! $productName || ! $grammage || $quantity <= 0) {
-                                    continue;
-                                }
-
-                                if ($record->agent_id) {
-                                    $agentStock = AgentStock::where('user_id', $record->agent_id)
-                                        ->where('product_name', $productName)
-                                        ->where('grammage', $grammage)
-                                        ->lockForUpdate()
-                                        ->first();
-
-                                    if (! $agentStock || $agentStock->quantity < $quantity) {
-                                        Notification::make()
-                                            ->danger()
-                                            ->title('Insufficient agent stock')
-                                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0))
-                                            ->send();
-
-                                        return;
-                                    }
-
-                                    $agentStock->decrement('quantity', $quantity);
-                                }
-                            }
-
-                            if ($record->agent_id) {
-                                $record->agent?->increment('stock_balance', $record->total_value);
-                            }
-
-                            $record->update([
-                                'status' => 'approved',
-                                'accountant_verified_at' => now(),
-                                'accountant_verified_by' => auth()->id(),
-                                'accountant_notes' => $data['accountant_notes'] ?? null,
-                            ]);
-                        });
-
-                        Notification::make()->title('Sales record approved and stock deducted')->success()->send();
+                        Notification::make()->title('Sales record approved')->success()->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Approve Sales Record')
-                    ->modalDescription('Confirm approval. Stock will be deducted from the creator\'s stock.'),
+                    ->modalDescription(fn (SalesRecord $record) => $record->requiresWarehouseAllocation()
+                        ? 'Confirm approval. Stock will be allocated from the warehouse on approval.'
+                        : 'Confirm approval. Stock was already deducted when the sale was submitted.'),
 
                 Action::make('rejectByAccountant')
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
                     ->form([
-                        Textarea::make('accountant_notes')
+                        Textarea::make('rejection_reason')
                             ->label('Reason for Rejection')
                             ->required(),
                     ])
                     ->action(function (SalesRecord $record, array $data) {
-                        $record->update([
-                            'status' => 'rejected',
-                            'accountant_verified_at' => now(),
-                            'accountant_verified_by' => auth()->id(),
-                            'accountant_notes' => $data['accountant_notes'] ?? null,
-                        ]);
-                        Notification::make()->title('Sales record rejected')->danger()->send();
+                        try {
+                            SalesRecordService::reject($record, $data['rejection_reason'], auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Rejection failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Sales record rejected and stock restored')->danger()->send();
                     })
                     ->requiresConfirmation(),
 
@@ -197,37 +196,8 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->modalCancelActionLabel('Close'),
             ])
             ->headerActions([
-                Action::make('export')
-                    ->label('Export to Excel')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->action(function () {
-                        $records = $this->getFilteredQuery()->get();
-                        $data = [];
-                        foreach ($records as $record) {
-                            $data[] = [
-                                $record->agent?->name ?? 'N/A',
-                                $record->agent_type,
-                                $record->total_value,
-                                $record->vendor_name ?? '-',
-                                $record->business_name ?? '-',
-                                $record->status,
-                                $record->created_at->format('d/m/Y H:i'),
-                            ];
-                        }
-
-                        return response()->streamDownload(function () use ($data) {
-                            $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Agent', 'Type', 'Total Value (₦)', 'Vendor', 'Business', 'Status', 'Submitted']);
-                            foreach ($data as $row) {
-                                fputcsv($file, $row);
-                            }
-                            fclose($file);
-                        }, 'sales_records_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
-                            'Content-Type' => 'text/csv',
-                            'Content-Disposition' => 'attachment',
-                        ]);
-                    }),
+                ExportAction::make()
+                    ->exporter(SalesRecordExporter::class),
             ])
             ->paginated(20);
     }

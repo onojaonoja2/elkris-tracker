@@ -2,12 +2,12 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\CustomerExporter;
 use App\Models\Customer;
 use App\Models\User;
 use Carbon\Carbon;
-use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -28,7 +28,7 @@ class ManagerCustomersWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'manager', 'general_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'manager', 'general_manager']);
     }
 
     protected function getDefaultDateRange(): array
@@ -98,13 +98,15 @@ class ManagerCustomersWidget extends TableWidget
                 TextColumn::make('region')
                     ->label('Region')
                     ->searchable(),
-                BadgeColumn::make('rep_acceptance_status')
+                TextColumn::make('rep_acceptance_status')
                     ->label('Status')
-                    ->colors([
-                        'success' => 'accepted',
-                        'warning' => 'pending',
-                        'danger' => 'rejected',
-                    ]),
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'accepted' => 'success',
+                        'pending' => 'warning',
+                        'rejected' => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('created_at')
                     ->label('Date Added')
                     ->date('d/m/Y'),
@@ -150,44 +152,8 @@ class ManagerCustomersWidget extends TableWidget
                     }),
             ])
             ->headerActions([
-                Action::make('export')
-                    ->label('Export Customers')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->action(function () use ($from, $to) {
-                        $query = Customer::query()
-                            ->whereDate('created_at', '>=', $from)
-                            ->whereDate('created_at', '<=', $to)
-                            ->with(['rep', 'lead']);
-
-                        $customers = $query->orderBy('created_at', 'desc')->get();
-                        $data = [];
-                        foreach ($customers as $customer) {
-                            $data[] = [
-                                $customer->customer_name,
-                                $customer->phone_number,
-                                $customer->address,
-                                $customer->city,
-                                $customer->state,
-                                $customer->region,
-                                $customer->rep?->name ?? 'N/A',
-                                $customer->lead?->name ?? 'N/A',
-                                $customer->created_at->format('d/m/Y'),
-                            ];
-                        }
-
-                        return response()->streamDownload(function () use ($data) {
-                            $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Customer Name', 'Phone', 'Address', 'City', 'State', 'Region', 'Rep', 'Team Lead', 'Date Added']);
-                            foreach ($data as $row) {
-                                fputcsv($file, $row);
-                            }
-                            fclose($file);
-                        }, 'customers_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
-                            'Content-Type' => 'text/csv',
-                            'Content-Disposition' => 'attachment',
-                        ]);
-                    }),
+                ExportAction::make()
+                    ->exporter(CustomerExporter::class),
             ])
             ->paginated(20);
     }

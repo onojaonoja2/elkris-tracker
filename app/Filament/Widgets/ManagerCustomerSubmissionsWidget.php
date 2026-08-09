@@ -23,7 +23,7 @@ class ManagerCustomerSubmissionsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['manager', 'admin', 'general_manager']);
+        return auth()->user()->hasAnyRole(['manager', 'admin', 'general_manager']);
     }
 
     public function table(Table $table): Table

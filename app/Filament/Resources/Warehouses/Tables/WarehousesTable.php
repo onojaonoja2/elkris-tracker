@@ -40,11 +40,11 @@ class WarehousesTable
                     ->badge()
                     ->color(fn (bool $state) => $state ? 'success' : 'danger')
                     ->formatStateUsing(fn (bool $state) => $state ? 'Yes' : 'No')
-                    ->visible(fn () => auth()->user()->role !== 'admin'),
+                    ->visible(fn () => ! auth()->user()->hasRole('admin')),
 
                 ToggleColumn::make('is_active')
                     ->label('Active')
-                    ->visible(fn () => auth()->user()->role === 'admin'),
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->filters([
                 //
@@ -52,12 +52,12 @@ class WarehousesTable
             ->defaultSort('created_at', 'desc')
             ->recordActions([
                 EditAction::make()
-                    ->visible(fn () => auth()->user()->role === 'admin'),
+                    ->visible(fn () => auth()->user()->hasRole('admin')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()->role === 'admin'),
+                        ->visible(fn () => auth()->user()->hasRole('admin')),
                 ]),
             ]);
     }

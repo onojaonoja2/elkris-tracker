@@ -2,12 +2,11 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Exports\PortfolioCustomerExporter;
 use App\Models\Customer;
-use Carbon\Carbon;
-use Filament\Actions\Action;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
@@ -26,21 +25,17 @@ class LeadPersonalPortfolioWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->role === 'lead';
+        return auth()->user()->hasRole('lead');
     }
 
     public function table(Table $table): Table
     {
+        $leadId = auth()->id();
+
         return $table
             ->query(fn (): Builder => Customer::query()
-                ->where('rep_acceptance_status', 'accepted')
-                ->where(function ($q) {
-                    $q->where('rep_id', auth()->id())
-                        ->orWhere(function ($sub) {
-                            $sub->where('lead_id', auth()->id())
-                                ->whereNull('rep_id');
-                        });
-                }))
+                ->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
+                ->whereDoesntHave('reps'))
             ->columns([
                 TextColumn::make('customer_name')
                     ->label('Customer Name')
@@ -67,13 +62,11 @@ class LeadPersonalPortfolioWidget extends TableWidget
                 TextColumn::make('created_at')
                     ->label('Date Added')
                     ->date('d/m/Y'),
-                BadgeColumn::make('conversion_status')
+                TextColumn::make('conversion_status')
                     ->label('Conversion')
+                    ->badge()
                     ->getStateUsing(fn (Customer $record): string => $record->orders()->where('is_migrated_order', false)->exists() ? 'Converted' : 'Pending')
-                    ->colors([
-                        'success' => 'Converted',
-                        'warning' => 'Pending',
-                    ]),
+                    ->color(fn (string $state): string => $state === 'Converted' ? 'success' : 'warning'),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
@@ -125,49 +118,10 @@ class LeadPersonalPortfolioWidget extends TableWidget
                     }),
             ])
             ->headerActions([
-                Action::make('export')
-                    ->label('Export Portfolio')
-                    ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
-                    ->action(function () {
-                        $customers = Customer::query()
-                            ->where('rep_acceptance_status', 'accepted')
-                            ->where(function ($q) {
-                                $q->where('rep_id', auth()->id())
-                                    ->orWhere(function ($sub) {
-                                        $sub->where('lead_id', auth()->id())
-                                            ->whereNull('rep_id');
-                                    });
-                            })
-                            ->get();
-
-                        $data = [];
-                        foreach ($customers as $customer) {
-                            $data[] = [
-                                $customer->customer_name,
-                                $customer->phone_number,
-                                $customer->address,
-                                $customer->city,
-                                $customer->created_at->format('d/m/Y'),
-                                $customer->orders()->where('status', 'delivered')->where('is_migrated_order', false)->count(),
-                                $customer->orders()->where('is_migrated_order', false)->exists() ? 'Yes' : 'No',
-                            ];
-                        }
-
-                        return response()->streamDownload(function () use ($data) {
-                            $file = fopen('php://output', 'w');
-                            fputcsv($file, ['Customer Name', 'Phone', 'Address', 'City', 'Date Added', 'Total Purchases', 'Converted']);
-                            foreach ($data as $row) {
-                                fputcsv($file, $row);
-                            }
-                            fclose($file);
-                        }, 'lead_personal_portfolio_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
-                            'Content-Type' => 'text/csv',
-                            'Content-Disposition' => 'attachment',
-                        ]);
-                    }),
+                ExportAction::make()
+                    ->exporter(PortfolioCustomerExporter::class),
             ])
-            ->paginated(false);
+            ->paginated([10, 25, 50]);
     }
 
     public static function applySegmentFilter(Builder $query, string $segment): void

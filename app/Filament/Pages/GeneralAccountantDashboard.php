@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AccountantCreditSalesWidget;
 use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
@@ -10,6 +12,7 @@ use App\Filament\Widgets\AccountantStockCountApprovalWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
 use App\Filament\Widgets\AccountantStockReceiveRequestsWidget;
+use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\GeneralAccountantStatsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
@@ -17,10 +20,14 @@ use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomersWidget;
 use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class GeneralAccountantDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
+
     protected static string $routePath = '/general-accountant-dashboard';
 
     protected static ?string $slug = 'general-accountant-dashboard';
@@ -31,17 +38,17 @@ class GeneralAccountantDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_accountant';
+        return auth()->check() && auth()->user()->hasRole('general_accountant');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_accountant';
+        return auth()->check() && auth()->user()->hasRole('general_accountant');
     }
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'general_accountant') {
+        if (! auth()->check() || ! auth()->user()->hasRole('general_accountant')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
@@ -49,7 +56,19 @@ class GeneralAccountantDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             GeneralAccountantStatsWidget::class,
+            CreditSalesOutstandingStatsWidget::class,
+        ];
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
+            $this->getCreditBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
         ];
     }
 

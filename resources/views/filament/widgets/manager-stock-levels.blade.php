@@ -13,6 +13,7 @@
                     <th class="px-3 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300">Type</th>
                     <th class="px-3 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300">Product</th>
                     <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Grammage</th>
+                    <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Cartons</th>
                     <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Quantity</th>
                 </tr>
             </thead>
@@ -32,7 +33,7 @@
                             <td colspan="4" class="px-3 py-2 font-bold text-sm text-gray-700 dark:text-gray-200">
                                 {{ $groupName }}
                             </td>
-                            <td class="px-3 py-2 text-right font-mono text-sm font-bold text-gray-700 dark:text-gray-200">
+                            <td colspan="2" class="px-3 py-2 text-right font-mono text-sm font-bold text-gray-700 dark:text-gray-200">
                                 {{ number_format($groupTotal) }}
                             </td>
                         </tr>
@@ -51,6 +52,7 @@
                                 </td>
                                 <td class="px-3 py-2">{{ $row->product }}</td>
                                 <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->grammage) }}g</td>
+                                <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->cartons) }} ctns + {{ number_format($row->remaining_pieces) }} pcs</td>
                                 <td class="px-3 py-2 text-right font-mono text-sm font-semibold">{{ number_format($row->quantity) }}</td>
                             </tr>
                         @endforeach
@@ -69,7 +71,7 @@
                             <td colspan="4" class="px-3 py-2 font-bold text-sm text-gray-700 dark:text-gray-200">
                                 {{ $groupName }}
                             </td>
-                            <td class="px-3 py-2 text-right font-mono text-sm font-bold text-gray-700 dark:text-gray-200">
+                            <td colspan="2" class="px-3 py-2 text-right font-mono text-sm font-bold text-gray-700 dark:text-gray-200">
                                 {{ number_format($groupTotal) }}
                             </td>
                         </tr>
@@ -84,7 +86,7 @@
                                 <td colspan="4" class="px-3 py-1.5 pl-6 font-semibold text-xs text-blue-700 dark:text-blue-300 uppercase tracking-wide">
                                     {{ $regionName }}
                                 </td>
-                                <td class="px-3 py-1.5 text-right font-mono text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                <td colspan="2" class="px-3 py-1.5 text-right font-mono text-xs font-semibold text-blue-700 dark:text-blue-300">
                                     {{ number_format($regionTotal) }}
                                 </td>
                             </tr>
@@ -93,7 +95,7 @@
                                     <td colspan="4" class="px-3 py-1.5 pl-10 font-medium text-xs text-green-700 dark:text-green-400">
                                         {{ $stateName }}
                                     </td>
-                                    <td class="px-3 py-1.5 text-right font-mono text-xs font-medium text-green-700 dark:text-green-400">
+                                    <td colspan="2" class="px-3 py-1.5 text-right font-mono text-xs font-medium text-green-700 dark:text-green-400">
                                         {{ number_format($rows->sum('quantity')) }}
                                     </td>
                                 </tr>
@@ -112,6 +114,7 @@
                                         </td>
                                         <td class="px-3 py-2">{{ $row->product }}</td>
                                         <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->grammage) }}g</td>
+                                        <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->cartons) }} ctns + {{ number_format($row->remaining_pieces) }} pcs</td>
                                         <td class="px-3 py-2 text-right font-mono text-sm font-semibold">{{ number_format($row->quantity) }}</td>
                                     </tr>
                                 @endforeach
@@ -120,7 +123,7 @@
                     @endif
                 @empty
                     <tr>
-                        <td colspan="5" class="px-3 py-6 text-center text-gray-500">No stock data available.</td>
+                        <td colspan="6" class="px-3 py-6 text-center text-gray-500">No stock data available.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -128,7 +131,7 @@
                 <tfoot>
                     <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-bold">
                         <td colspan="4" class="px-3 py-3 text-right text-gray-700 dark:text-gray-300">Grand Total:</td>
-                        <td class="px-3 py-3 text-right font-mono text-sm">{{ number_format($grandTotal) }}</td>
+                        <td colspan="2" class="px-3 py-3 text-right font-mono text-sm">{{ number_format($grandTotal) }}</td>
                     </tr>
                 </tfoot>
             @endif

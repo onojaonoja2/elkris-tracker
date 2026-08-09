@@ -10,6 +10,7 @@ use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\SalesRecord;
+use App\Support\DashboardDateScope;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Livewire\Attributes\On;
@@ -21,13 +22,15 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $pendingSalesRecords = SalesRecord::where('status', 'receipt_uploaded')->count();
+        [$from, $to] = DashboardDateScope::fromSession();
 
-        $totalSalesRecordsValue = SalesRecord::where('status', 'approved')
-            ->sum('total_value');
+        $pendingSalesRecords = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])
+            ->whereBetween('created_at', [$from, $to])
+            ->count();
 
         $repSalesValue = Order::where('status', OrderStatus::Delivered)
             ->where('is_migrated_order', false)
+            ->whereBetween('created_at', [$from, $to])
             ->whereHas('customer', fn ($q) => $q->whereNotNull('rep_id'))
             ->sum('total_price');
 
@@ -35,29 +38,30 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
         $totalAgentStock = AgentStock::sum('quantity');
 
-        $totalChannelValue = $totalSalesRecordsValue;
+        $totalChannelValue = SalesRecord::revenue(null, $from, $to);
 
-        $creditSalesOutstanding = SalesRecord::where('is_credit', true)
-            ->where('status', 'approved')
-            ->where('credit_status', 'pending_payment')
+        $creditSalesOutstanding = SalesRecord::outstanding()
+            ->whereBetween('created_at', [$from, $to])
             ->sum('total_value');
 
         return [
             Stat::make('Pending Sales Records', $pendingSalesRecords)
-                ->description('Pending accountant verification')
+                ->description('Pending accountant verification in selected range')
                 ->icon('heroicon-o-receipt-percent')
                 ->color('warning')
                 ->url(SalesRecordResource::getUrl('index')),
             Stat::make('Credit Sales Outstanding', self::formatCurrency($creditSalesOutstanding))
-                ->description('Pending credit collection')
+                ->description('Pending credit collection in selected range')
                 ->icon('heroicon-o-clock')
-                ->color('danger'),
+                ->color('danger')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-credit-breakdown', { category: 'total' })"]),
             Stat::make('Channel Sales Value', self::formatCurrency($totalChannelValue))
-                ->description('Sales records')
+                ->description('Approved sales records in selected range')
                 ->icon('heroicon-o-banknotes')
-                ->color('success'),
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-credit-breakdown', { category: 'total' })"]),
             Stat::make('Rep Sales Value', self::formatCurrency($repSalesValue))
-                ->description('Delivered/confirmed orders')
+                ->description('Delivered orders in selected range')
                 ->icon('heroicon-o-shopping-bag')
                 ->color('info')
                 ->url(OrderResource::getUrl('index')),
@@ -90,6 +94,6 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 }

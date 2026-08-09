@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\StockTransfers\Tables;
 
 use App\Enums\StockTransferStatus;
+use App\Filament\Resources\StockTransfers\StockTransferResource;
 use App\Models\ProductType;
 use App\Models\StockTransfer;
 use App\Models\User;
@@ -24,6 +25,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 
 class StockTransfersTable
 {
@@ -119,13 +121,15 @@ class StockTransfersTable
             ->defaultSort('created_at', 'desc')
             ->recordActions([
 
+                StockTransferResource::getViewActionForResource(StockTransferResource::class),
+
                 // === REQUEST FLOW ACTIONS ===
 
                 Action::make('requestFromWarehouse')
                     ->label('Request from Warehouse')
                     ->icon('heroicon-o-building-storefront')
                     ->color('info')
-                    ->visible(fn () => in_array(auth()->user()->role, ['supervisor', 'admin', 'community_sales_representative']))
+                    ->visible(fn () => auth()->user()->hasAnyRole(['supervisor', 'admin', 'community_sales_representative']))
                     ->form([
                         Select::make('from_warehouse_id')
                             ->label('From Warehouse')
@@ -201,7 +205,7 @@ class StockTransfersTable
                     ->label('Request from CSR Peer')
                     ->icon('heroicon-o-user-group')
                     ->color('info')
-                    ->visible(fn () => auth()->user()->role === 'community_sales_representative')
+                    ->visible(fn () => auth()->user()->hasRole('community_sales_representative'))
                     ->form([
                         Select::make('from_agent_id')
                             ->label('From CSR (Same LGA/State)')
@@ -286,7 +290,7 @@ class StockTransfersTable
                     ->label('Request Stock from Warehouse')
                     ->icon('heroicon-o-building-storefront')
                     ->color('info')
-                    ->visible(fn () => auth()->user()->role === 'sales')
+                    ->visible(fn () => auth()->user()->hasRole('sales'))
                     ->form([
                         Select::make('from_warehouse_id')
                             ->label('From Warehouse')
@@ -359,7 +363,7 @@ class StockTransfersTable
                     ->label('Collect from Agent')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('warning')
-                    ->visible(fn () => in_array(auth()->user()->role, ['supervisor', 'manager', 'admin']))
+                    ->visible(fn () => auth()->user()->hasAnyRole(['supervisor', 'manager', 'admin']))
                     ->form([
                         Select::make('from_agent_id')
                             ->label('Agent')
@@ -369,7 +373,7 @@ class StockTransfersTable
                                 $query = User::where('is_active', true)
                                     ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
 
-                                if ($user->role === 'supervisor') {
+                                if ($user->hasRole('supervisor')) {
                                     $query->where(function ($q) use ($user) {
                                         $q->where('lead_id', $user->id)
                                             ->orWhere('portfolio_agent_id', $user->id);
@@ -442,7 +446,7 @@ class StockTransfersTable
                     ->icon('heroicon-o-arrow-right-circle')
                     ->color('primary')
                     ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Collected
-                        && in_array(auth()->user()->role, ['supervisor', 'manager', 'admin']))
+                        && auth()->user()->hasAnyRole(['supervisor', 'manager', 'admin']))
                     ->form([
                         Select::make('to_warehouse_id')
                             ->label('To Warehouse')
@@ -460,7 +464,7 @@ class StockTransfersTable
                                 $query = User::where('is_active', true)
                                     ->whereIn('role', ['community_sales_representative', 'open_market', 'retail_market']);
 
-                                if ($user->role === 'supervisor') {
+                                if ($user->hasRole('supervisor')) {
                                     $query->where(function ($q) use ($user) {
                                         $q->where('lead_id', $user->id)
                                             ->orWhere('portfolio_agent_id', $user->id);
@@ -492,13 +496,33 @@ class StockTransfersTable
                         Notification::make()->title('Stock re-assigned successfully')->success()->send();
                     }),
 
+                // === SUPERVISOR APPROVAL ===
+
+                Action::make('supervisorApprove')
+                    ->label('Supervisor Approve')
+                    ->color('success')
+                    ->icon('heroicon-o-check-circle')
+                    ->visible(fn (StockTransfer $record): bool => $record->status === StockTransferStatus::Requested && auth()->user()->hasRole('supervisor') && ! $record->isSalesRecordRequest())
+                    ->action(function (StockTransfer $record) {
+                        $record->update([
+                            'supervisor_approved_by' => auth()->id(),
+                            'supervisor_approved_at' => now(),
+                            'status' => StockTransferStatus::Approved,
+                        ]);
+
+                        Notification::make()
+                            ->title('Stock request approved')
+                            ->success()
+                            ->send();
+                    }),
+
                 // === ACCOUNTANT APPROVAL (sole approver) ===
 
                 Action::make('accountantApprove')
                     ->label('Approve')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
-                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->role === 'accountant')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->hasRole('accountant') && ! $record->isSalesRecordRequest())
                     ->requiresConfirmation()
                     ->modalHeading('Approve Stock Request')
                     ->modalDescription('Confirm approval of this stock request. Warehouse stock will be verified.')
@@ -511,7 +535,7 @@ class StockTransfersTable
                     ->label('Reject')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->role === 'accountant')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested && auth()->user()->hasRole('accountant') && ! $record->isSalesRecordRequest())
                     ->form([
                         Textarea::make('rejection_reason')
                             ->label('Reason for Rejection')
@@ -545,7 +569,7 @@ class StockTransfersTable
                     ->label('Dispatch')
                     ->icon('heroicon-o-truck')
                     ->color('warning')
-                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Approved)
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Approved && ! $record->isSalesRecordRequest())
                     ->requiresConfirmation()
                     ->action(function (StockTransfer $record) {
                         $record->update([
@@ -561,6 +585,7 @@ class StockTransfersTable
                     ->color('success')
                     ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Dispatched
                         && $record->dispatched_by !== auth()->id()
+                        && ! $record->isSalesRecordRequest()
                         && (
                             ($record->to_warehouse_id && in_array($record->to_warehouse_id, auth()->user()->managedWarehouses()->pluck('id')->toArray()))
                             || $record->to_agent_id === auth()->id()
@@ -623,7 +648,7 @@ class StockTransfersTable
                     ->label('Resolve Rejections')
                     ->icon('heroicon-o-check-badge')
                     ->color('warning')
-                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Received && $record->unresolvedRejectedItems()->exists() && auth()->user()->role === 'admin')
+                    ->visible(fn (StockTransfer $record) => $record->status === StockTransferStatus::Received && $record->unresolvedRejectedItems()->exists() && auth()->user()->hasRole('admin'))
                     ->form([
                         Textarea::make('resolution_notes')
                             ->label('Resolution Notes')
@@ -647,7 +672,7 @@ class StockTransfersTable
                 Action::make('cancel')
                     ->label('Cancel')
                     ->color('danger')
-                    ->visible(fn (StockTransfer $record) => in_array($record->status, [StockTransferStatus::Draft, StockTransferStatus::Requested, StockTransferStatus::Approved, StockTransferStatus::Dispatched]))
+                    ->visible(fn (StockTransfer $record) => in_array($record->status, [StockTransferStatus::Draft, StockTransferStatus::Requested, StockTransferStatus::Approved, StockTransferStatus::Dispatched]) && ! $record->isSalesRecordRequest())
                     ->requiresConfirmation()
                     ->form(fn (StockTransfer $record) => $record->status === StockTransferStatus::Requested
                         ? [Textarea::make('rejection_reason')->label('Reason for Cancellation')->required()]
@@ -662,7 +687,11 @@ class StockTransfersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records) {
+                            $records->reject(fn (StockTransfer $record) => $record->isSalesRecordRequest())
+                                ->each(fn (StockTransfer $record) => $record->delete());
+                        }),
                 ]),
             ]);
     }

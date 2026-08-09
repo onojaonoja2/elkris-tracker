@@ -4,6 +4,7 @@ namespace App\Filament\Imports;
 
 use App\Models\Customer;
 use App\Models\User;
+use App\Rules\UniquePhoneWithOwner;
 use Filament\Actions\Imports\ImportColumn;
 use Filament\Actions\Imports\Importer;
 use Filament\Actions\Imports\Models\Import;
@@ -23,7 +24,7 @@ class CustomerImporter extends Importer
             ImportColumn::make('phone_number')
                 ->label('Phone Number')
                 ->requiredMapping()
-                ->rules(['required', 'max:11', 'unique:customers,phone_number']),
+                ->rules(['required', 'max:11', new UniquePhoneWithOwner]),
             ImportColumn::make('address')
                 ->label('Address'),
             ImportColumn::make('city')
@@ -71,14 +72,14 @@ class CustomerImporter extends Importer
             return;
         }
 
-        if ($user->role === 'lead') {
+        if ($user->hasRole('lead')) {
             $this->record->updateQuietly([
                 'lead_id' => $user->id,
                 'agent_id' => $user->id,
                 'rep_acceptance_status' => 'accepted',
             ]);
             $this->record->leads()->syncWithoutDetaching([$user->id]);
-        } elseif ($user->role === 'rep') {
+        } elseif ($user->hasRole('rep')) {
             $this->record->updateQuietly([
                 'rep_id' => $user->id,
                 'lead_id' => $user->lead_id ?? null,
@@ -88,7 +89,7 @@ class CustomerImporter extends Importer
             if ($user->lead_id) {
                 $this->record->leads()->syncWithoutDetaching([$user->lead_id]);
             }
-        } elseif (in_array($user->role, ['admin', 'manager'])) {
+        } elseif (auth()->user()->hasAnyRole(['admin', 'manager'])) {
             $leadId = $this->options['lead_id'] ?? null;
             $repId = $this->options['rep_id'] ?? null;
 
@@ -110,7 +111,7 @@ class CustomerImporter extends Importer
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['admin', 'manager'])) {
+        if ($user->hasAnyRole(['admin', 'manager'])) {
             return [
                 Select::make('lead_id')
                     ->label('Assign to Lead')

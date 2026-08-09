@@ -17,7 +17,7 @@ class CreateCustomer extends CreateRecord
         $payload = $data;
         $user = auth()->user();
 
-        if ($user && $user->role === 'rep') {
+        if ($user && $user->hasRole('rep')) {
             $payload['rep_id'] = $user->id;
             $payload['lead_id'] = $payload['lead_id'] ?? $user->lead_id ?? null;
             $payload['rep_acceptance_status'] = 'accepted';
@@ -26,11 +26,11 @@ class CreateCustomer extends CreateRecord
             if (! empty($payload['lead_id'])) {
                 $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$payload['lead_id']]));
             }
-        } elseif ($user && $user->role === 'lead') {
+        } elseif ($user && $user->hasRole('lead')) {
             $payload['agent_id'] = $user->id;
             $payload['lead_id'] = $user->id;
             $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$user->id]));
-        } elseif ($user && $user->role === 'community_sales_representative') {
+        } elseif ($user && $user->hasRole('community_sales_representative')) {
             // CSR submits to paired agent (rep or lead) for acceptance
             $payload['agent_id'] = $user->id;
 
@@ -49,14 +49,14 @@ class CreateCustomer extends CreateRecord
                     $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$pairedAgent->id]));
                 }
             }
-        } elseif ($user && in_array($user->role, ['open_market', 'retail_market'])) {
+        } elseif ($user && $user->hasAnyRole(['open_market', 'retail_market'])) {
             // Retail/open_market submit to their managing manager
             $payload['agent_id'] = $user->id;
             if ($user->lead_id) {
                 $payload['lead_id'] = $user->lead_id;
                 $payload['submission_target_type'] = 'manager';
             }
-        } elseif ($user && $user->role === 'field_agent') {
+        } elseif ($user && $user->hasRole('field_agent')) {
             $payload['agent_id'] = $user->id;
         }
 
@@ -91,12 +91,12 @@ class CreateCustomer extends CreateRecord
     protected function afterCreate(): void
     {
         $user = auth()->user();
-        if ($user && $user->role === 'lead') {
+        if ($user && $user->hasRole('lead')) {
             $this->record->leads()->syncWithoutDetaching([$user->id]);
         }
 
         // Notify paired agent when CSR creates a customer
-        if ($user && $user->role === 'community_sales_representative' && $user->portfolio_agent_id) {
+        if ($user && $user->hasRole('community_sales_representative') && $user->portfolio_agent_id) {
             $portfolioAgent = User::find($user->portfolio_agent_id);
             if ($portfolioAgent) {
                 CustomerCreated::dispatch($this->record, $user);

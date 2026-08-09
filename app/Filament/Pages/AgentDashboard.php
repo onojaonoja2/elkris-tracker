@@ -2,13 +2,18 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AgentCreditSalesWidget;
 use App\Filament\Widgets\AgentStockBalanceWidget;
 use App\Filament\Widgets\AgentStockCardsWidget;
+use App\Filament\Widgets\CsrPendingDispatchesWidget;
 use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Filament\Widgets\FieldAgentDailySubmissionsWidget;
-use App\Filament\Widgets\FieldAgentReplaceCustomersWidget;
+use App\Filament\Widgets\OverdueCreditSalesWidget;
+use App\Filament\Widgets\SalesInventoryStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
+use App\Filament\Widgets\WarehouseReturnFormWidget;
 use App\Models\Inventory;
 use App\Models\Lga;
 use App\Models\ProductType;
@@ -24,6 +29,9 @@ use Filament\Pages\Dashboard as BaseDashboard;
 
 class AgentDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
+
     protected static string $routePath = '/agent-dashboard';
 
     protected static ?string $slug = 'agent-dashboard';
@@ -34,12 +42,12 @@ class AgentDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
+        return auth()->check() && auth()->user()->hasAnyRole(['open_market', 'retail_market']);
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && in_array(auth()->user()->role, ['community_sales_representative', 'open_market', 'retail_market']);
+        return auth()->check() && auth()->user()->hasAnyRole(['open_market', 'retail_market']);
     }
 
     public function getHeaderWidgets(): array
@@ -47,50 +55,35 @@ class AgentDashboard extends BaseDashboard
         return [
             FieldAgentDailySubmissionsWidget::class,
             AgentStockCardsWidget::class,
+            SalesInventoryStatsWidget::class,
         ];
     }
 
     public function getWidgets(): array
     {
-        $role = auth()->user()->role;
-
-        $base = [UpcomingFollowUps::class];
-
-        if ($role === 'community_sales_representative') {
-            array_unshift($base, FieldAgentReplaceCustomersWidget::class);
-        }
-
-        $base[] = AgentCreditSalesWidget::class;
-        $base[] = AgentStockBalanceWidget::class;
-        $base[] = DamagedStockReturnFormWidget::class;
-
-        return $base;
+        return [
+            UpcomingFollowUps::class,
+            AgentCreditSalesWidget::class,
+            CsrPendingDispatchesWidget::class,
+            OverdueCreditSalesWidget::class,
+            AgentStockBalanceWidget::class,
+            DamagedStockReturnFormWidget::class,
+            WarehouseReturnFormWidget::class,
+        ];
     }
 
     protected function getHeaderActions(): array
     {
-        $role = auth()->user()->role;
-        $actions = [];
-
-        if ($role === 'community_sales_representative') {
-            $actions[] = Action::make('newTrialOrder')
-                ->label('New Trial Order')
-                ->icon('heroicon-o-plus-circle')
-                ->color('primary')
-                ->url(route('filament.admin.resources.trial-orders.create'));
-        }
-
-        if (in_array($role, ['open_market', 'retail_market'])) {
-            $actions[] = Action::make('newSalesRecord')
+        return [
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
+            Action::make('newSalesRecord')
                 ->label('New Sales Record')
                 ->icon('heroicon-o-plus-circle')
                 ->color('primary')
-                ->url(route('filament.admin.resources.sales-records.create'));
-        }
-
-        $actions[] = $this->getRequestStockAction();
-
-        return $actions;
+                ->url(route('filament.admin.resources.sales-records.create')),
+            $this->getRequestStockAction(),
+        ];
     }
 
     private function getRequestStockAction(): Action
@@ -202,6 +195,8 @@ class AgentDashboard extends BaseDashboard
                     ->body('Your request has been sent for approval.')
                     ->success()
                     ->send();
+
+                $this->dispatch('refresh-dashboard');
             })
             ->modalHeading('Request Stock')
             ->modalButton('Submit Request');
@@ -211,7 +206,7 @@ class AgentDashboard extends BaseDashboard
     {
         $user = auth()->user();
 
-        if (in_array($user->role, ['open_market', 'retail_market'])) {
+        if (auth()->user()->hasAnyRole(['open_market', 'retail_market'])) {
             return Warehouse::orderBy('name')
                 ->pluck('name', 'id')
                 ->toArray();

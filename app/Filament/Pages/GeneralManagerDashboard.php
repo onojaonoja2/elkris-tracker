@@ -2,8 +2,12 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Widgets\AgentCustomerViewWidget;
+use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\GeneralManagerStatsWidget;
+use App\Filament\Widgets\ManagerAnalyticsWidget;
 use App\Filament\Widgets\ManagerConversionWidget;
 use App\Filament\Widgets\ManagerCreditSalesWidget;
 use App\Filament\Widgets\ManagerCustomersWidget;
@@ -12,7 +16,12 @@ use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerSalesRecordsByStateWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
+use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
+use App\Filament\Widgets\OrderStatsWidget;
+use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\RevenueTrendChart;
+use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -20,6 +29,8 @@ use Illuminate\Support\Facades\Session;
 
 class GeneralManagerDashboard extends BaseDashboard
 {
+    use HasDashboardBreakdownModals;
+
     protected static string $routePath = '/general-manager-dashboard';
 
     protected static ?string $slug = 'general-manager-dashboard';
@@ -30,17 +41,17 @@ class GeneralManagerDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_manager';
+        return auth()->check() && auth()->user()->hasRole('general_manager');
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->role === 'general_manager';
+        return auth()->check() && auth()->user()->hasRole('general_manager');
     }
 
     public function mount()
     {
-        if (! auth()->check() || auth()->user()->role !== 'general_manager') {
+        if (! auth()->check() || ! auth()->user()->hasRole('general_manager')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
@@ -48,7 +59,12 @@ class GeneralManagerDashboard extends BaseDashboard
     public function getHeaderWidgets(): array
     {
         return [
+            OfficeSalesStatsWidget::class,
             GeneralManagerStatsWidget::class,
+            ManagerAnalyticsWidget::class,
+            ProductionActivityWidget::class,
+            CreditSalesOutstandingStatsWidget::class,
+            OrderStatsWidget::class,
         ];
     }
 
@@ -63,7 +79,10 @@ class GeneralManagerDashboard extends BaseDashboard
             ManagerCustomersWidget::class,
             ManagerPortfolioPerAgentWidget::class,
             ManagerConversionWidget::class,
+            AgentCustomerViewWidget::class,
             DamagedReturnsBreakdownWidget::class,
+            WarehouseReturnApprovalsWidget::class,
+            RevenueTrendChart::class,
             OrdersPerCityChart::class,
         ];
     }
@@ -71,6 +90,9 @@ class GeneralManagerDashboard extends BaseDashboard
     public function getHeaderActions(): array
     {
         return [
+            $this->getCreditBreakdownAction(),
+            $this->getOrderBreakdownAction(),
+            $this->getOfficeSalesBreakdownAction(),
             Action::make('filter_date')
                 ->label('Filter by Date')
                 ->icon('heroicon-o-calendar')

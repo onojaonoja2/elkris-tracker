@@ -3,16 +3,28 @@
 namespace App\Filament\Resources\Orders;
 
 use App\Enums\OrderStatus;
+use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\Orders\Pages\ManageOrders;
+use App\Filament\Traits\HasViewModal;
+use App\Models\Customer;
 use App\Models\Order;
+use App\Models\ProductType;
+use App\Services\OrderAssignmentService;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -20,9 +32,14 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Validation\ValidationException;
 
 class OrderResource extends Resource
 {
+    use HasRoleBasedNavigationGroup, HasViewModal;
+
+    protected static array $navigationRoles = ['admin', 'manager', 'general_manager', 'sales', 'rep', 'lead'];
+
     protected static ?string $model = Order::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
@@ -31,18 +48,23 @@ class OrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'sales', 'rep', 'lead', 'manager']);
+        return auth()->user()->hasAnyRole(['admin', 'sales', 'rep', 'lead', 'manager']);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return ! in_array(auth()->user()->role, ['manager', 'admin']);
+        return ! auth()->user()->hasAnyRole(['manager', 'admin']);
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->components([
+                Select::make('customer_id')
+                    ->label('Customer')
+                    ->options(fn () => Customer::pluck('customer_name', 'id'))
+                    ->searchable()
+                    ->required(),
                 Select::make('status')
                     ->options(OrderStatus::class)
                     ->required(),
@@ -50,7 +72,129 @@ class OrderResource extends Resource
                     ->label('Expected Delivery Date')
                     ->native(false)
                     ->displayFormat('d/m/Y'),
+                Section::make('Order Items')
+                    ->schema([
+                        Repeater::make('products')
+                            ->relationship()
+                            ->schema([
+                                Select::make('product_name')
+                                    ->label('Product')
+                                    ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'name'))
+                                    ->searchable()
+                                    ->required()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, Get $get): void {
+                                        $set('grammage', null);
+                                        $pt = ProductType::where('name', $get('product_name'))->first();
+                                        $set('product_type_id', $pt?->id);
+                                    }),
+                                TextInput::make('product_type_id')
+                                    ->hidden()
+                                    ->dehydrated(),
+                                Select::make('grammage')
+                                    ->label('Weight (g)')
+                                    ->options(function (Get $get): array {
+                                        $pt = ProductType::where('name', $get('product_name'))->first();
+                                        if (! $pt) {
+                                            return [];
+                                        }
+
+                                        return collect($pt->available_grammages)
+                                            ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                            ->toArray();
+                                    })
+                                    ->required(),
+                                TextInput::make('quantity')
+                                    ->numeric()
+                                    ->required()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                                TextInput::make('price')
+                                    ->label('Unit Price (₦)')
+                                    ->numeric()
+                                    ->prefix('₦')
+                                    ->required()
+                                    ->minValue(0.01)
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                                Select::make('promotion_type')
+                                    ->label('Promotion')
+                                    ->options([
+                                        'buy_2_get_1_free' => 'Buy 2 Get 1 Free',
+                                        'buy_3_get_1_free' => 'Buy 3 Get 1 Free',
+                                    ])
+                                    ->nullable()
+                                    ->live()
+                                    ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateLineTotal($set, $get)),
+                                TextInput::make('free_quantity')
+                                    ->label('Free Qty')
+                                    ->numeric()
+                                    ->readOnly()
+                                    ->default(0),
+                                TextInput::make('line_total')
+                                    ->label('Line Total (₦)')
+                                    ->numeric()
+                                    ->prefix('₦')
+                                    ->readOnly()
+                                    ->dehydrated(false)
+                                    ->default(0),
+                            ])
+                            ->columns(7)
+                            ->reorderable(false),
+                    ])
+                    ->columns(1),
+                TextInput::make('total_price')
+                    ->label('Total Price (₦)')
+                    ->numeric()
+                    ->prefix('₦')
+                    ->readOnly()
+                    ->dehydrated()
+                    ->default(0),
             ]);
+    }
+
+    private static function recalculateLineTotal(Set $set, Get $get): void
+    {
+        $quantity = (float) ($get('quantity') ?? 1);
+        $price = (float) ($get('price') ?? 0);
+        $promotionType = $get('promotion_type');
+
+        $freeQty = 0;
+        if ($promotionType === 'buy_2_get_1_free' && $quantity >= 2) {
+            $freeQty = floor($quantity / 2);
+        } elseif ($promotionType === 'buy_3_get_1_free' && $quantity >= 3) {
+            $freeQty = floor($quantity / 3);
+        }
+        $set('free_quantity', $freeQty);
+
+        $set('line_total', $quantity * $price);
+        self::recalculateTotalPrice($set, $get);
+    }
+
+    private static function recalculateTotalPrice(Set $set, Get $get): void
+    {
+        $products = $get('../../products');
+        $isItemContext = is_array($products);
+
+        if (! $isItemContext) {
+            $products = $get('products') ?? [];
+        }
+
+        $newTotal = 0;
+        foreach ($products as $product) {
+            $qty = (float) ($product['quantity'] ?? 1);
+            $price = (float) ($product['price'] ?? 0);
+            $newTotal += $qty * $price;
+        }
+
+        if ($isItemContext) {
+            $set('../../total_price', $newTotal);
+        } else {
+            $set('total_price', $newTotal);
+        }
     }
 
     public static function table(Table $table): Table
@@ -65,6 +209,12 @@ class OrderResource extends Resource
                     ->color(fn (OrderStatus $state): string => $state->color()),
                 TextColumn::make('total_price')
                     ->money('NGN'),
+                TextColumn::make('payment_proof_status')
+                    ->label('Payment Proof')
+                    ->badge()
+                    ->state(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('created_at')
                     ->label('Submitted Date')
                     ->dateTime()
@@ -135,6 +285,52 @@ class OrderResource extends Resource
                     }),
             ])
             ->recordActions([
+                HasViewModal::getViewActionForResource(static::class),
+
+                Action::make('uploadPaymentProof')
+                    ->label('Upload Payment Proof')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('warning')
+                    ->visible(fn (Order $record): bool => ! $record->hasPaymentProof()
+                        && auth()->user()->hasAnyRole(['admin', 'sales', 'rep', 'lead']))
+                    ->form([
+                        FileUpload::make('payment_proof_path')
+                            ->label('Payment Proof')
+                            ->image()
+                            ->maxSize(2048)
+                            ->disk('s3')
+                            ->directory('receipts/payment-proofs')
+                            ->visibility('private')
+                            ->imageEditor()
+                            ->required(),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        try {
+                            OrderAssignmentService::attachPaymentProof($record, $data['payment_proof_path'], auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Upload failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Payment proof uploaded')->success()->send();
+                    })
+                    ->modalHeading('Upload Payment Proof')
+                    ->modalDescription('Attach proof of payment for this order.'),
+
+                Action::make('viewPaymentProof')
+                    ->label('View Payment Proof')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->visible(fn (Order $record): bool => $record->hasPaymentProof())
+                    ->modalContent(fn (Order $record) => view('filament.payment-proof', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
+
                 Action::make('view_customer')
                     ->label('View Customer')
                     ->icon('heroicon-o-user')
@@ -189,7 +385,7 @@ class OrderResource extends Resource
 
                         return $entries;
                     }),
-                EditAction::make()->visible(fn () => in_array(auth()->user()->role, ['admin', 'sales'])),
+                EditAction::make()->visible(fn () => auth()->user()->hasAnyRole(['admin', 'sales'])),
             ])
             ->toolbarActions([
                 Action::make('export')
@@ -197,31 +393,29 @@ class OrderResource extends Resource
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
                     ->action(function ($livewire) {
-                        $orders = $livewire->getFilteredTableQuery()
-                            ->with(['customer', 'user', 'products'])
-                            ->orderBy('created_at', 'desc')
-                            ->get();
-                        $data = [];
-                        foreach ($orders as $order) {
-                            $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
-                            $data[] = [
-                                $order->id,
-                                $order->customer?->customer_name ?? 'N/A',
-                                $order->user?->name ?? 'N/A',
-                                $order->status->getLabel(),
-                                $products,
-                                number_format($order->total_price, 2),
-                                $order->created_at->format('d/m/Y H:i'),
-                                $order->expected_delivery_date ? Carbon::parse($order->expected_delivery_date)->format('d/m/Y') : 'N/A',
-                            ];
-                        }
-
-                        return response()->streamDownload(function () use ($data) {
+                        return response()->streamDownload(function () use ($livewire) {
                             $file = fopen('php://output', 'w');
                             fputcsv($file, ['Order ID', 'Customer', 'Submitted By', 'Status', 'Products', 'Total Price', 'Submitted Date', 'Expected Delivery']);
-                            foreach ($data as $row) {
-                                fputcsv($file, $row);
-                            }
+
+                            $livewire->getFilteredTableQuery()
+                                ->with(['customer', 'user', 'products'])
+                                ->orderBy('created_at', 'desc')
+                                ->chunk(100, function ($orders) use ($file) {
+                                    foreach ($orders as $order) {
+                                        $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
+                                        fputcsv($file, [
+                                            $order->id,
+                                            $order->customer?->customer_name ?? 'N/A',
+                                            $order->user?->name ?? 'N/A',
+                                            $order->status->getLabel(),
+                                            $products,
+                                            number_format($order->total_price, 2),
+                                            $order->created_at->format('d/m/Y H:i'),
+                                            $order->expected_delivery_date ? Carbon::parse($order->expected_delivery_date)->format('d/m/Y') : 'N/A',
+                                        ]);
+                                    }
+                                });
+
                             fclose($file);
                         }, 'orders_export_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
                             'Content-Type' => 'text/csv',
@@ -234,12 +428,22 @@ class OrderResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (in_array($user->role, ['admin', 'sales'])) {
+        if (auth()->user()->hasAnyRole(['admin', 'sales'])) {
             return parent::getEloquentQuery();
         }
 
         // Reps/Leads see only theirs
         return parent::getEloquentQuery()->where('user_id', $user->id);
+    }
+
+    protected static function getViewRelations(): array
+    {
+        return [
+            'products' => [
+                'label' => 'Order Products',
+                'columns' => ['product_name', 'grammage', 'quantity', 'price'],
+            ],
+        ];
     }
 
     public static function getPages(): array

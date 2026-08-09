@@ -18,7 +18,7 @@ class CreatedPerRepChart extends ChartWidget
     // Only allow Admin and Lead to see this widget
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['admin', 'lead']);
+        return auth()->user()->hasAnyRole(['admin', 'lead']);
     }
 
     protected function getData(): array
@@ -26,7 +26,7 @@ class CreatedPerRepChart extends ChartWidget
         $query = User::query()->where('role', 'rep');
 
         // Team Leads organically only see the performance tracking points for their specific sub-reps natively
-        if (auth()->user()->role === 'lead') {
+        if (auth()->user()->hasRole('lead')) {
             $query->where('lead_id', auth()->id());
         }
 

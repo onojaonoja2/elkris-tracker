@@ -2,17 +2,24 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\SalesRecord;
+use App\Services\SalesRecordService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
 class AccountantCreditSalesWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Credit Sales';
 
     protected int|string|array $columnSpan = 'full';
@@ -22,7 +29,7 @@ class AccountantCreditSalesWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     public function table(Table $table): Table
@@ -56,10 +63,17 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->formatStateUsing(fn (?string $state): string => str_replace('_', ' ', ucfirst($state ?? '')))
                     ->color(fn (?string $state): string => match ($state) {
                         'pending_payment' => 'warning',
+                        'partially_collected' => 'info',
                         'collected' => 'success',
                         'overdue' => 'danger',
                         default => 'gray',
                     }),
+                TextColumn::make('payment_proof_status')
+                    ->label('Payment Proof')
+                    ->badge()
+                    ->state(fn (SalesRecord $record): bool => $record->hasPaymentProof())
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
                 TextColumn::make('collected_at')
                     ->label('Collected On')
                     ->dateTime()
@@ -68,35 +82,109 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->label('Created')
                     ->dateTime(),
             ])
-            ->defaultSort('expected_collection_date', 'asc')
+            ->defaultSort('created_at', 'desc')
             ->paginated(15)
             ->recordActions([
+                $this->breakdownViewAction(),
+                Action::make('uploadPaymentProof')
+                    ->label('Upload Payment Proof')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('warning')
+                    ->visible(fn (SalesRecord $record): bool => $record->isOutstanding() && ! $record->hasPaymentProof())
+                    ->form([
+                        FileUpload::make('payment_proof_path')
+                            ->label('Payment Proof')
+                            ->image()
+                            ->maxSize(2048)
+                            ->disk('s3')
+                            ->directory('receipts/payment-proofs')
+                            ->visibility('private')
+                            ->imageEditor()
+                            ->required(),
+                    ])
+                    ->action(function (SalesRecord $record, array $data) {
+                        try {
+                            SalesRecordService::attachPaymentProof($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Upload failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Payment proof uploaded')->success()->send();
+                    }),
+
+                Action::make('viewPaymentProof')
+                    ->label('View Payment Proof')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->visible(fn (SalesRecord $record): bool => (bool) $record->payment_proof_path)
+                    ->modalContent(fn (SalesRecord $record) => view('filament.payment-proof', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
+
                 Action::make('markCollected')
                     ->label('Mark as Collected')
                     ->icon('heroicon-o-banknotes')
                     ->color('success')
-                    ->visible(fn (SalesRecord $record) => $record->credit_status === 'pending_payment')
+                    ->visible(fn (SalesRecord $record): bool => $record->isOutstanding() && $record->hasPaymentProof())
                     ->form([
                         Textarea::make('credit_notes')
                             ->label('Collection Notes'),
                     ])
                     ->action(function (SalesRecord $record, array $data) {
-                        if ($record->agent_id) {
-                            $record->agent?->increment('stock_balance', $record->total_value);
-                        }
+                        try {
+                            SalesRecordService::markCollected($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Collection failed')
+                                ->body($e->getMessage())
+                                ->send();
 
-                        $record->update([
-                            'credit_status' => 'collected',
-                            'collected_at' => now(),
-                            'collected_by' => auth()->id(),
-                            'credit_notes' => $data['credit_notes'] ?? null,
-                        ]);
+                            return;
+                        }
 
                         Notification::make()->title('Credit sale marked as collected')->success()->send();
                     })
                     ->requiresConfirmation()
                     ->modalHeading('Mark Credit as Collected')
                     ->modalDescription('Confirm payment has been received. The agent\'s stock balance will be credited.'),
+
+                Action::make('recordCollection')
+                    ->label('Record Payment')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('primary')
+                    ->visible(fn (SalesRecord $record): bool => $record->isOutstanding() && $record->hasPaymentProof())
+                    ->form([
+                        TextInput::make('collected_amount')
+                            ->label('Amount Collected (₦)')
+                            ->numeric()
+                            ->minValue(1)
+                            ->maxValue(fn (SalesRecord $record): float => $record->outstandingAmount())
+                            ->required(),
+                        Textarea::make('credit_notes')
+                            ->label('Collection Notes'),
+                    ])
+                    ->action(function (SalesRecord $record, array $data) {
+                        try {
+                            SalesRecordService::recordCollection($record, $data, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Collection failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()->title('Payment recorded')->success()->send();
+                    }),
             ]);
     }
 }

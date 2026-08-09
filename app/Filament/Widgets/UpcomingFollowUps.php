@@ -16,9 +16,7 @@ class UpcomingFollowUps extends TableWidget
 {
     public static function canView(): bool
     {
-        $role = auth()->user()->role;
-
-        return ! in_array($role, ['field_agent', 'community_sales_representative', 'open_market', 'retail_market', 'supervisor']);
+        return ! auth()->user()->hasAnyRole(['field_agent', 'community_sales_representative', 'open_market', 'retail_market', 'supervisor']);
     }
 
     #[On('refresh-dashboard')]
@@ -54,7 +52,7 @@ class UpcomingFollowUps extends TableWidget
                             });
                     })
                     ->when(
-                        ! in_array($user->role, ['admin', 'lead']),
+                        ! auth()->user()->hasAnyRole(['admin', 'lead']),
                         fn ($query) => $query->where('rep_id', $user->id)
                     )
                     ->orderBy('follow_up_date', 'asc')

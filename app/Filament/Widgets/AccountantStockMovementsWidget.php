@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\StockTransfer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -15,6 +16,8 @@ use Livewire\Attributes\On;
 
 class AccountantStockMovementsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Stock Movements for Verification';
 
     protected int|string|array $columnSpan = 'full';
@@ -24,7 +27,7 @@ class AccountantStockMovementsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return in_array(auth()->user()->role, ['accountant', 'general_accountant']);
+        return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     protected function getFilteredQuery()
@@ -106,6 +109,7 @@ class AccountantStockMovementsWidget extends TableWidget
                     }),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('viewDispatchNote')
                     ->label('Dispatch Note')
                     ->icon('heroicon-o-document-text')

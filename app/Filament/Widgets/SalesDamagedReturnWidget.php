@@ -5,7 +5,7 @@ namespace App\Filament\Widgets;
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
 use App\Models\ProductType;
-use App\Models\Warehouse;
+use App\Support\WarehouseOptions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -74,12 +74,7 @@ class SalesDamagedReturnWidget extends TableWidget
                     ->form([
                         Select::make('warehouse_id')
                             ->label('Return To Warehouse')
-                            ->options(function () {
-                                $user = auth()->user();
-
-                                return Warehouse::where('state_id', $user->state_id)
-                                    ->pluck('name', 'id');
-                            })
+                            ->options(fn () => WarehouseOptions::for())
                             ->searchable()
                             ->required(),
                         Select::make('product_type_id')
