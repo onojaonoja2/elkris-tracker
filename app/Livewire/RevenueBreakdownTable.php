@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\SalesRecord;
 use App\Models\User;
+use App\Support\DashboardDateScope;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -47,10 +48,35 @@ class RevenueBreakdownTable extends Component
      */
     private function scope(): array
     {
-        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        if (auth()->user()?->hasRole('supervisor')) {
+            $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
+            $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
 
-        return [$from, $to];
+            return [$from, $to];
+        }
+
+        $scope = DashboardDateScope::fromSession();
+
+        return [$scope[0]->toDateTimeString(), $scope[1]->toDateTimeString()];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function sellingRoles(): array
+    {
+        if (auth()->user()?->hasRole('supervisor')) {
+            return ['community_sales_representative'];
+        }
+
+        return [
+            'field_agent',
+            'community_sales_representative',
+            'open_market',
+            'retail_market',
+            'rep',
+            'lead',
+        ];
     }
 
     /**
@@ -61,16 +87,16 @@ class RevenueBreakdownTable extends Component
     {
         [$from, $to] = $this->scope();
 
-        $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
+        $agentIds = User::whereIn('role', $this->sellingRoles())->active()->pluck('id');
 
-        $salesAgg = SalesRecord::whereIn('agent_id', $csrIds)
+        $salesAgg = SalesRecord::whereIn('agent_id', $agentIds)
             ->whereBetween('created_at', [$from, $to])
             ->selectRaw('agent_id, COUNT(*) as sales_count, COALESCE(SUM(total_value), 0) as sales_value')
             ->groupBy('agent_id')
             ->get()
             ->keyBy('agent_id');
 
-        $pendingAgg = SalesRecord::whereIn('agent_id', $csrIds)
+        $pendingAgg = SalesRecord::whereIn('agent_id', $agentIds)
             ->whereIn('status', ['pending', 'receipt_uploaded'])
             ->whereBetween('created_at', [$from, $to])
             ->selectRaw('agent_id, COUNT(*) as pending_count')
@@ -78,9 +104,9 @@ class RevenueBreakdownTable extends Component
             ->get()
             ->keyBy('agent_id');
 
-        $revenue = SalesRecord::revenueByAgent($csrIds->all(), Carbon::parse($from), Carbon::parse($to));
+        $revenue = SalesRecord::revenueByAgent($agentIds->all(), Carbon::parse($from), Carbon::parse($to));
 
-        return User::whereIn('id', $csrIds)
+        return User::whereIn('id', $agentIds)
             ->with(['lga', 'state'])
             ->orderBy('name')
             ->get()

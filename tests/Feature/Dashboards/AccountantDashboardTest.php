@@ -193,7 +193,7 @@ class AccountantDashboardTest extends TestCase
 
         Livewire::test(AccountantDashboard::class)
             ->call('mountAction', 'repSalesBreakdown')
-            ->assertMountedActionModalSee('Select rep / lead')
+            ->assertMountedActionModalSee('Select a rep or lead to view their sales breakdown')
             ->assertMountedActionModalSee($rep->name)
             ->assertMountedActionModalSee($lead->name);
     }
@@ -303,7 +303,7 @@ class AccountantDashboardTest extends TestCase
 
         Livewire::test(AccountantDashboard::class)
             ->call('mountAction', 'stockMovementBreakdown')
-            ->assertMountedActionModalSee('Select agent')
+            ->assertMountedActionModalSee('Select an agent or warehouse to view their stock movement history')
             ->assertMountedActionModalSee($agent->name)
             ->assertMountedActionModalSee($warehouse->name);
     }

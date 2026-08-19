@@ -109,7 +109,7 @@ class DashboardBreakdownTable extends Component
         $query = Order::query()
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to])
-            ->with(['customer', 'user']);
+            ->with(['customer', 'user', 'assignedTo']);
 
         $user = auth()->user();
         $role = $user?->getPrimaryRole();
