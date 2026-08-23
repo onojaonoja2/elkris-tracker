@@ -269,6 +269,22 @@ class DashboardBreakdownTableTest extends TestCase
             ->assertDontSee('>#'.$orders[11]->id.'<', false);
     }
 
+    public function test_supervisor_order_breakdown_shows_assigned_csr(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Assigned CSR Name']);
+        $sales = User::factory()->sales()->create();
+        $customer = Customer::factory()->create();
+
+        $this->actingAs($supervisor);
+
+        $assignedOrder = $this->createAssignedOrder($sales, $csr, $customer, OrderStatus::Delivered);
+
+        Livewire::test(DashboardBreakdownTable::class, ['type' => 'order', 'category' => 'delivered'])
+            ->assertSee('#'.$assignedOrder->id)
+            ->assertSee('Assigned CSR Name');
+    }
+
     private function creditRecord(User $user, array $attributes = [], ?string $agentType = null): SalesRecord
     {
         return SalesRecord::factory()->create(array_merge([

@@ -2,8 +2,6 @@
 
 namespace App\Filament\Pages\Concerns;
 
-use App\Models\User;
-use App\Models\Warehouse;
 use Filament\Actions\Action;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
@@ -213,7 +211,14 @@ trait HasDashboardBreakdownModals
             ->modalContent(function (): View {
                 return view('filament.revenue-breakdown-modal');
             })
-            ->visible(fn (): bool => auth()->user()?->hasAnyRole(['supervisor', 'manager', 'general_manager', 'admin']) ?? false);
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                'supervisor',
+                'manager',
+                'general_manager',
+                'admin',
+                'accountant',
+                'general_accountant',
+            ]) ?? false);
     }
 
     protected function getRepSalesBreakdownAction(): Action
@@ -227,12 +232,6 @@ trait HasDashboardBreakdownModals
             ->modalContent(function (): View {
                 return view('filament.rep-sales-breakdown-modal', [
                     'userId' => $this->breakdownUserId,
-                    'options' => User::whereIn('role', ['rep', 'lead'])
-                        ->orderBy('role')
-                        ->orderBy('name')
-                        ->get()
-                        ->mapWithKeys(fn (User $user): array => [$user->id => $user->name.' ('.ucfirst($user->role).')'])
-                        ->all(),
                 ]);
             })
             ->visible(fn (): bool => auth()->user()?->hasAnyRole(['accountant', 'general_accountant']) ?? false);
@@ -252,11 +251,6 @@ trait HasDashboardBreakdownModals
                     'entityId' => $this->breakdownEntityId,
                     'product' => $this->breakdownProduct,
                     'grammage' => $this->breakdownGrammage,
-                    'agents' => User::whereHas('agentStocks', fn ($query) => $query->where('quantity', '>', 0))
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->all(),
-                    'warehouses' => Warehouse::orderBy('name')->pluck('name', 'id')->all(),
                 ]);
             })
             ->visible(fn (): bool => auth()->user()?->hasAnyRole(['accountant', 'general_accountant']) ?? false);

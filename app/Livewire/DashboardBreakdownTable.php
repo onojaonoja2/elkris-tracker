@@ -109,14 +109,21 @@ class DashboardBreakdownTable extends Component
         $query = Order::query()
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to])
-            ->with(['customer', 'user']);
+            ->with(['customer', 'user', 'assignedTo']);
 
         $user = auth()->user();
         $role = $user?->getPrimaryRole();
         $isCsr = $role === 'community_sales_representative';
+        $isSales = $role === 'sales';
 
         if (in_array($role, ['rep', 'lead', 'sales', 'community_sales_representative', 'open_market', 'retail_market'], true) || $this->category === 'my') {
-            $query->where($isCsr ? 'assigned_to' : 'user_id', $user->id);
+            if ($isCsr) {
+                $query->where('assigned_to', $user->id);
+            } elseif ($isSales) {
+                $query->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('assigned_to', $user->id));
+            } else {
+                $query->where('user_id', $user->id);
+            }
         } elseif ($role === 'supervisor' && $this->category !== 'total' && ! in_array($this->category, ['open_market', 'retail_market', 'community_sales_representative'], true)) {
             $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
             $query->whereIn('assigned_to', $csrIds);

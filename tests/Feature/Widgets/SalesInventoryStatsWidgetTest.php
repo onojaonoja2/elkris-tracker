@@ -72,6 +72,28 @@ class SalesInventoryStatsWidgetTest extends TestCase
             ->assertSee('131');
     }
 
+    public function test_sales_user_total_orders_includes_assigned_orders(): void
+    {
+        $sales = User::factory()->sales()->create();
+        $this->actingAs($sales);
+
+        $submitter = User::factory()->rep()->create();
+
+        Order::factory()->create([
+            'customer_id' => Customer::factory()->create()->id,
+            'user_id' => $submitter->id,
+            'assigned_to' => $sales->id,
+            'status' => OrderStatus::Delivered,
+            'total_price' => 16000.00,
+            'is_migrated_order' => false,
+            'created_at' => now(),
+        ]);
+
+        Livewire::test(SalesInventoryStatsWidget::class)
+            ->assertSee('Total Orders')
+            ->assertSee('Pending: 0 | Delivered: 1');
+    }
+
     private function createPastWeekApprovedSales(User $user): void
     {
         foreach ([1, 2, 3, 4, 5, 6] as $day) {

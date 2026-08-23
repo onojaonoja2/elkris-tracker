@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Helpers\NavigationHelper;
 use App\Filament\Http\Middleware\Authenticate;
 use App\Filament\Pages\AccountantDashboard;
+use App\Filament\Pages\AdminCustomerSearch;
 use App\Filament\Pages\AgentDashboard;
 use App\Filament\Pages\CsrDashboard;
 use App\Filament\Pages\Dashboard;
@@ -59,6 +60,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+                AdminCustomerSearch::class,
                 AgentDashboard::class,
                 CsrDashboard::class,
                 ManagerDashboard::class,

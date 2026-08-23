@@ -49,9 +49,16 @@ class SalesInventoryStatsWidget extends StatsOverviewWidget
         $salesCount = $salesQuery->count();
         $salesValue = SalesRecord::revenue([$userId], $from, $to);
 
-        $ordersQuery = Order::where('user_id', $userId)
-            ->where('is_migrated_order', false)
+        $ordersQuery = Order::where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to]);
+
+        if (auth()->user()->getPrimaryRole() === 'sales') {
+            $ordersQuery->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)->orWhere('assigned_to', $userId);
+            });
+        } else {
+            $ordersQuery->where('user_id', $userId);
+        }
 
         $totalOrders = $ordersQuery->count();
         $pendingOrders = (clone $ordersQuery)->pendingDelivery()->count();
