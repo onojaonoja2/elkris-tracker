@@ -245,6 +245,24 @@ class OrderStatsWidgetTest extends TestCase
             ->assertSeeText('0');
     }
 
+    public function test_sales_agent_stats_includes_orders_assigned_to_them(): void
+    {
+        $sales = User::factory()->sales()->create();
+        $submitter = User::factory()->rep()->create();
+        $this->actingAs($sales);
+
+        $this->createAssignedOrder($submitter, $sales, 16000.00, OrderStatus::Delivered);
+        $this->createAssignedOrder($submitter, $sales, 4000.00, OrderStatus::Pending);
+
+        Livewire::test(OrderStatsWidget::class)
+            ->assertSee('My Total Orders')
+            ->assertSee('₦20,000')
+            ->assertSee('My Pending Orders')
+            ->assertSee('₦4,000')
+            ->assertSee('My Delivered Orders')
+            ->assertSee('₦16,000');
+    }
+
     public function test_csr_agent_stats_uses_assigned_orders(): void
     {
         $csr = User::factory()->communitySalesRepresentative()->create();

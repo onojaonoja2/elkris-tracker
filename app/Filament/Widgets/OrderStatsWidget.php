@@ -56,11 +56,20 @@ class OrderStatsWidget extends BaseWidget
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $isCsr = auth()->user()->getPrimaryRole() === 'community_sales_representative';
+        $role = auth()->user()->getPrimaryRole();
+        $isCsr = $role === 'community_sales_representative';
+        $isSales = $role === 'sales';
 
-        $baseQuery = Order::where($isCsr ? 'assigned_to' : 'user_id', $userId)
-            ->where('is_migrated_order', false)
+        $baseQuery = Order::where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to]);
+
+        if ($isCsr) {
+            $baseQuery->where('assigned_to', $userId);
+        } elseif ($isSales) {
+            $baseQuery->where(fn ($q) => $q->where('user_id', $userId)->orWhere('assigned_to', $userId));
+        } else {
+            $baseQuery->where('user_id', $userId);
+        }
 
         $total = (clone $baseQuery)->sum('total_price');
         $pending = (clone $baseQuery)->pendingDelivery()->sum('total_price');
