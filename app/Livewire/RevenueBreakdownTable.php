@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RevenueBreakdownTable extends Component
 {
@@ -140,6 +141,60 @@ class RevenueBreakdownTable extends Component
             ->with('agent')
             ->latest('created_at')
             ->paginate(10);
+    }
+
+    public function exportCsv(): StreamedResponse
+    {
+        $filename = 'revenue_breakdown_'.date('Y_m_d_H_i_s').'.csv';
+
+        return response()->streamDownload(function () {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            if ($this->agentId === null) {
+                fputcsv($handle, ['Agent', 'Location', 'Sales', 'Pending', 'Sales Value', 'Revenue']);
+
+                foreach ($this->agents as $agent) {
+                    fputcsv($handle, [
+                        $agent->name,
+                        $agent->lga ?? $agent->state ?? '-',
+                        $agent->sales_count,
+                        $agent->pending_count,
+                        $agent->sales_value,
+                        $agent->revenue,
+                    ]);
+                }
+
+                fclose($handle);
+
+                return;
+            }
+
+            fputcsv($handle, ['Date', 'Customer', 'Products', 'Payment', 'Value', 'Status']);
+
+            [$from, $to] = $this->scope();
+
+            SalesRecord::where('agent_id', $this->agentId)
+                ->whereBetween('created_at', [$from, $to])
+                ->with('agent')
+                ->latest('created_at')
+                ->each(function (SalesRecord $record) use ($handle) {
+                    $products = collect($record->products)
+                        ->map(fn ($p) => "{$p['quantity']}x {$p['product_name']}")
+                        ->implode('; ');
+
+                    fputcsv($handle, [
+                        $record->created_at->format('d/m/Y H:i'),
+                        $record->customer_name ?? '-',
+                        $products,
+                        $record->is_credit ? 'Credit' : 'Cash',
+                        (float) $record->total_value,
+                        $record->status,
+                    ]);
+                });
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 
     public function render()

@@ -38,9 +38,10 @@ trait HasViewModal
                 continue;
             }
 
-            if (str_ends_with($field, '_id')) {
-                $relationName = Str::before($field, '_id');
-                if (method_exists($record, $relationName)) {
+            if (str_ends_with($field, '_id') || str_ends_with($field, '_by')) {
+                $relationName = static::relationNameForIdField($record, $field);
+
+                if ($relationName !== null) {
                     $mainFields[] = TextEntry::make($relationName.'.name')
                         ->label(Str::title(str_replace('_', ' ', $relationName)))
                         ->default(fn () => $record->{$relationName}?->name ?? 'N/A');
@@ -127,6 +128,55 @@ trait HasViewModal
         }
 
         return $sections;
+    }
+
+    /**
+     * Resolve the relationship backing a foreign key field so views render
+     * related names (e.g. "from_warehouse_id" -> "fromWarehouse") instead of
+     * raw numeric ids. Returns null when no matching relationship exists.
+     */
+    protected static function relationNameForIdField(Model $record, string $field): ?string
+    {
+        $base = Str::before($field, '_id');
+
+        $candidates = array_filter([
+            $base,
+            Str::camel($base),
+            str_ends_with($base, '_by') ? Str::camel(Str::before($base, '_by')).'By' : null,
+        ]);
+
+        $aliases = [
+            'dispatched' => 'dispatcher',
+            'received' => 'receiver',
+            'requested' => 'requester',
+            'approved' => 'approver',
+            'collected' => 'collector',
+            'supervisor_approved' => 'supervisorApprover',
+            'supervisor_verified' => 'supervisorVerifier',
+            'accountant_verified' => 'accountantVerifier',
+            'payment_proof_uploaded' => 'paymentProofUploader',
+            'proof_review_requested' => 'proofReviewRequester',
+            'rejected' => 'rejectedBy',
+            'replacement_requested' => 'replacementRequestedBy',
+            'created' => 'creator',
+            'updated' => 'editor',
+        ];
+
+        if (str_ends_with($base, '_by')) {
+            $stem = Str::before($base, '_by');
+
+            if (isset($aliases[$stem])) {
+                $candidates[] = $aliases[$stem];
+            }
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($candidate !== '' && method_exists($record, $candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     protected static function getViewRelations(): array

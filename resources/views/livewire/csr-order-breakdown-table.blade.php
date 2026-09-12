@@ -11,19 +11,38 @@
                 </svg>
                 Back to summary
             </button>
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {{ $this->selectedCsr?->name ?? 'CSR' }} — Completed Orders
-            </span>
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ $this->selectedCsr?->name ?? 'CSR' }} — Completed Orders
+                </span>
+                <button
+                    type="button"
+                    wire:click="exportCsv"
+                    class="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                >
+                    Export Orders
+                </button>
+            </div>
         </div>
     @endif
 
-    <div class="flex flex-col sm:flex-row gap-3">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <input
             type="text"
             wire:model.live.debounce.300ms="search"
             placeholder="{{ $this->selectedCsrId !== null ? 'Search by order # or customer...' : 'Search by CSR name...' }}"
             class="w-full sm:w-64 px-3 py-2 text-sm border rounded-lg dark:bg-gray-800 dark:border-gray-700"
         />
+
+        @if($this->selectedCsrId === null)
+            <button
+                type="button"
+                wire:click="exportCsv"
+                class="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+                Export Summary
+            </button>
+        @endif
     </div>
 
     <div class="overflow-auto max-h-[60vh]">
@@ -58,6 +77,7 @@
                     <tr>
                         <th class="px-3 py-2">CSR</th>
                         <th class="px-3 py-2">Completed Orders</th>
+                        <th class="px-3 py-2">Completed Value</th>
                         <th class="px-3 py-2"></th>
                     </tr>
                 </thead>
@@ -66,6 +86,7 @@
                         <tr class="border-b">
                             <td class="px-3 py-2">{{ $row['name'] }}</td>
                             <td class="px-3 py-2">{{ $row['completed'] }}</td>
+                            <td class="px-3 py-2">₦{{ number_format($row['value'], 2) }}</td>
                             <td class="px-3 py-2 text-right">
                                 <button
                                     type="button"
@@ -81,7 +102,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="3" class="px-3 py-4 text-center text-gray-500">No CSRs found.</td>
+                            <td colspan="4" class="px-3 py-4 text-center text-gray-500">No CSRs found.</td>
                         </tr>
                     @endforelse
                 </tbody>

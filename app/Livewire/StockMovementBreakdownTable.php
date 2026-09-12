@@ -23,6 +23,7 @@ class StockMovementBreakdownTable extends Component
     private const array ALLOWED_ROLES = [
         'accountant',
         'general_accountant',
+        'warehouse_manager',
     ];
 
     private const array MOVED_TRANSFER_STATUSES = [

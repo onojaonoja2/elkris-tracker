@@ -25,6 +25,8 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\On;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SupervisorDashboard extends BaseDashboard
 {
@@ -144,6 +146,12 @@ class SupervisorDashboard extends BaseDashboard
                 ->action(fn () => $this->exportReport())
                 ->modalHeading('Export Sales Report'),
         ];
+    }
+
+    #[On('open-period-sales-export')]
+    public function exportPeriodSales(): StreamedResponse
+    {
+        return $this->exportReport();
     }
 
     protected function exportReport()

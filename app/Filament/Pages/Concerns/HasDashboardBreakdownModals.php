@@ -253,7 +253,7 @@ trait HasDashboardBreakdownModals
                     'grammage' => $this->breakdownGrammage,
                 ]);
             })
-            ->visible(fn (): bool => auth()->user()?->hasAnyRole(['accountant', 'general_accountant']) ?? false);
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole(['accountant', 'general_accountant', 'warehouse_manager']) ?? false);
     }
 
     protected function getApprovalBreakdownHeading(): string

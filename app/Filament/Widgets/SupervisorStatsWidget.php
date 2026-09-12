@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\HtmlString;
 use Livewire\Attributes\On;
 
 class SupervisorStatsWidget extends StatsOverviewWidget
@@ -93,7 +94,12 @@ class SupervisorStatsWidget extends StatsOverviewWidget
                 ->color('info'),
 
             Stat::make('Revenue', '₦'.number_format($salesRevenue, 2))
-                ->description('Total sales value in period')
+                ->description(new HtmlString(
+                    'Total sales value in period '
+                    .'<button type="button" wire:click.stop="$dispatch(\'open-period-sales-export\')" '
+                    .'class="ml-1 align-middle inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-white bg-blue-600 rounded hover:bg-blue-700">'
+                    .'Export</button>'
+                ))
                 ->icon('heroicon-o-banknotes')
                 ->color('success')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-revenue-breakdown')"]),
