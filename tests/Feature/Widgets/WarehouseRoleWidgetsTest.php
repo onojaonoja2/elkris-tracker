@@ -2,17 +2,21 @@
 
 namespace Tests\Feature\Widgets;
 
+use App\Enums\OrderStatus;
 use App\Filament\Widgets\WarehouseCsrStockWidget;
 use App\Filament\Widgets\WarehouseOutgoingDispatchesWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
 use App\Filament\Widgets\WarehouseStocksWidget;
 use App\Models\AgentStock;
+use App\Models\Customer;
 use App\Models\Inventory;
+use App\Models\Order;
 use App\Models\ProductType;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Session;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -70,6 +74,65 @@ class WarehouseRoleWidgetsTest extends TestCase
         Livewire::test(WarehouseCsrStockWidget::class)
             ->callTableAction('viewBreakdown', $csr->id)
             ->assertHasNoTableActionErrors();
+    }
+
+    public function test_warehouse_manager_sees_csr_completed_orders_scoped_by_dashboard_date(): void
+    {
+        $manager = User::factory()->warehouseManager()->create();
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Mina CSR']);
+
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $this->order($csr, OrderStatus::Delivered, 1000, now());
+        $this->order($csr, OrderStatus::Delivered, 2500, now());
+        $this->order($csr, OrderStatus::Delivered, 3000, now()->subDay());
+        $this->order($csr, OrderStatus::Pending, 500, now());
+        $this->order($csr, OrderStatus::Delivered, 900, now(), isMigrated: true);
+
+        $this->actingAs($manager);
+
+        Livewire::test(WarehouseCsrStockWidget::class)
+            ->assertTableColumnStateSet('completed_orders', 2, $csr)
+            ->assertTableColumnStateSet('completed_value', 3500, $csr);
+    }
+
+    public function test_warehouse_manager_csr_modal_shows_order_summary_for_selected_period(): void
+    {
+        $manager = User::factory()->warehouseManager()->create();
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Mina CSR']);
+
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $this->order($csr, OrderStatus::Delivered, 1000, now());
+        $this->order($csr, OrderStatus::Pending, 500, now());
+        $this->order($csr, OrderStatus::Cancelled, 700, now());
+
+        $this->actingAs($manager);
+
+        $periodLabel = now()->format('d M Y').' - '.now()->format('d M Y');
+
+        Livewire::test(WarehouseCsrStockWidget::class)
+            ->mountTableAction('viewBreakdown', $csr->id)
+            ->assertHasNoActionErrors()
+            ->assertMountedActionModalSee('Completed Orders')
+            ->assertMountedActionModalSee('Pending Orders Assigned')
+            ->assertMountedActionModalSee('Completed Value')
+            ->assertMountedActionModalSee($periodLabel);
+    }
+
+    private function order(User $csr, OrderStatus $status, int $totalPrice, $createdAt, bool $isMigrated = false): Order
+    {
+        return Order::factory()->create([
+            'customer_id' => Customer::factory()->create()->id,
+            'user_id' => User::factory()->rep()->create()->id,
+            'assigned_to' => $csr->id,
+            'status' => $status,
+            'total_price' => $totalPrice,
+            'is_migrated_order' => $isMigrated,
+            'created_at' => $createdAt,
+        ]);
     }
 
     public function test_warehouse_manager_sees_stock_from_all_warehouses(): void

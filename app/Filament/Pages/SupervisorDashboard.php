@@ -16,6 +16,7 @@ use App\Filament\Widgets\SupervisorSalesByGeoWidget;
 use App\Filament\Widgets\SupervisorSalesRecordsWidget;
 use App\Filament\Widgets\SupervisorStatsWidget;
 use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
+use App\Filament\Widgets\SupervisorStockCountFinalApprovalWidget;
 use App\Filament\Widgets\SupervisorStockTransferApprovalWidget;
 use App\Filament\Widgets\SupervisorStockWidget;
 use App\Models\SalesRecord;
@@ -83,6 +84,7 @@ class SupervisorDashboard extends BaseDashboard
             SupervisorCsrListWidget::class,
             SupervisorStockTransferApprovalWidget::class,
             SupervisorStockCountApprovalWidget::class,
+            SupervisorStockCountFinalApprovalWidget::class,
             SupervisorSalesByGeoWidget::class,
             SupervisorSalesRecordsWidget::class,
             SupervisorCreditSalesWidget::class,

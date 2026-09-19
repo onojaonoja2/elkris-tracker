@@ -15,7 +15,7 @@ use Filament\Widgets\TableWidget as BaseWidget;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
-class AccountantStockCountApprovalWidget extends BaseWidget
+class SupervisorStockCountFinalApprovalWidget extends BaseWidget
 {
     use HasBreakdownViewAction;
 
@@ -40,8 +40,9 @@ class AccountantStockCountApprovalWidget extends BaseWidget
             )
             ->columns([
                 TextColumn::make('user.name')->label('Agent'),
+                TextColumn::make('warehouse.name')->label('Warehouse')->placeholder('-'),
                 TextColumn::make('items_count')->label('Items')->counts('items'),
-                TextColumn::make('supervisor_verified_at')->label('Supervisor Verified')->dateTime(),
+                TextColumn::make('supervisor_verified_at')->label('Supervisor Verified')->dateTime()->placeholder('-'),
                 TextColumn::make('is_additional_count')
                     ->label('Type')
                     ->badge()
@@ -50,7 +51,7 @@ class AccountantStockCountApprovalWidget extends BaseWidget
             ])
             ->actions([
                 $this->breakdownViewAction(),
-                Action::make('accountantApprove')
+                Action::make('finalApprove')
                     ->label('Final Approve')
                     ->color('success')
                     ->icon('heroicon-o-check-circle')
@@ -74,7 +75,7 @@ class AccountantStockCountApprovalWidget extends BaseWidget
 
                         $this->dispatch('refresh-dashboard');
                     }),
-                Action::make('accountantReject')
+                Action::make('finalReject')
                     ->label('Reject')
                     ->color('danger')
                     ->icon('heroicon-o-x-circle')

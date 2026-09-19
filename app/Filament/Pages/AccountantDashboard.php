@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AccountantCreditSalesWidget;
+use App\Filament\Widgets\AccountantCsrOverviewWidget;
 use App\Filament\Widgets\AccountantCustomersWidget;
 use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
@@ -132,6 +133,7 @@ class AccountantDashboard extends BaseDashboard
             AccountantCreditSalesWidget::class,
             AccountantCustomersWidget::class,
             AccountantSalesRecordsWidget::class,
+            AccountantCsrOverviewWidget::class,
             AccountantRepSalesWidget::class,
             AccountantStockLevelsWidget::class,
             AccountantStockMovementsWidget::class,
