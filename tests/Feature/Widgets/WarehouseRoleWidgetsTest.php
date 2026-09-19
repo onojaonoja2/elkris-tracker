@@ -3,10 +3,13 @@
 namespace Tests\Feature\Widgets;
 
 use App\Filament\Widgets\WarehouseCsrStockWidget;
+use App\Filament\Widgets\WarehouseOutgoingDispatchesWidget;
+use App\Filament\Widgets\WarehouseRecentMovementsWidget;
 use App\Filament\Widgets\WarehouseStocksWidget;
 use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\ProductType;
+use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -112,5 +115,53 @@ class WarehouseRoleWidgetsTest extends TestCase
         Livewire::test(WarehouseStocksWidget::class)
             ->callTableAction('viewMovements', $inventory->id)
             ->assertDispatched('open-stock-movement-breakdown');
+    }
+
+    public function test_recent_movements_widget_has_view_action_with_modal(): void
+    {
+        $manager = User::factory()->warehouseManager()->create();
+        $warehouse = Warehouse::factory()->create(['name' => 'Main Hub', 'manager_id' => $manager->id]);
+        $toWarehouse = Warehouse::factory()->create(['name' => 'Remote Hub']);
+        $transfer = StockTransfer::factory()->create([
+            'from_warehouse_id' => $warehouse->id,
+            'to_warehouse_id' => $toWarehouse->id,
+            'status' => 'dispatched',
+        ]);
+
+        $this->actingAs($manager);
+
+        Livewire::test(WarehouseRecentMovementsWidget::class)
+            ->assertCanSeeTableRecords([$transfer])
+            ->assertTableActionExists('view')
+            ->mountTableAction('view', $transfer->id)
+            ->assertHasNoActionErrors()
+            ->assertMountedActionModalSee('Main Hub')
+            ->assertMountedActionModalSee('Remote Hub');
+    }
+
+    public function test_outgoing_dispatches_widget_has_view_action_with_modal(): void
+    {
+        $manager = User::factory()->warehouseManager()->create();
+        $warehouse = Warehouse::factory()->create(['name' => 'Main Hub', 'manager_id' => $manager->id]);
+        $toWarehouse = Warehouse::factory()->create(['name' => 'Remote Hub']);
+        $agent = User::factory()->communitySalesRepresentative()->create(['name' => 'Jude Agent']);
+        $transfer = StockTransfer::factory()->create([
+            'from_warehouse_id' => $warehouse->id,
+            'to_warehouse_id' => $toWarehouse->id,
+            'to_agent_id' => $agent->id,
+            'dispatched_by' => $manager->id,
+            'status' => 'dispatched',
+        ]);
+
+        $this->actingAs($manager);
+
+        Livewire::test(WarehouseOutgoingDispatchesWidget::class)
+            ->assertCanSeeTableRecords([$transfer])
+            ->assertTableActionExists('view')
+            ->mountTableAction('view', $transfer->id)
+            ->assertHasNoActionErrors()
+            ->assertMountedActionModalSee('Main Hub')
+            ->assertMountedActionModalSee('Remote Hub')
+            ->assertMountedActionModalSee('Jude Agent');
     }
 }
