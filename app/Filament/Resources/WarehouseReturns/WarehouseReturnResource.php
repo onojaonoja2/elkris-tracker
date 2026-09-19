@@ -2,15 +2,11 @@
 
 namespace App\Filament\Resources\WarehouseReturns;
 
-use App\Filament\Resources\WarehouseReturns\Pages\CreateWarehouseReturn;
-use App\Filament\Resources\WarehouseReturns\Pages\EditWarehouseReturn;
 use App\Filament\Resources\WarehouseReturns\Pages\ListWarehouseReturns;
-use App\Filament\Resources\WarehouseReturns\Schemas\WarehouseReturnForm;
 use App\Filament\Resources\WarehouseReturns\Tables\WarehouseReturnsTable;
 use App\Models\WarehouseReturn;
 use BackedEnum;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
@@ -29,11 +25,6 @@ class WarehouseReturnResource extends Resource
         return auth()->user()->hasAnyRole(['admin', 'manager', 'warehouse_manager']);
     }
 
-    public static function form(Schema $schema): Schema
-    {
-        return WarehouseReturnForm::configure($schema);
-    }
-
     public static function table(Table $table): Table
     {
         return WarehouseReturnsTable::configure($table);
@@ -50,8 +41,6 @@ class WarehouseReturnResource extends Resource
     {
         return [
             'index' => ListWarehouseReturns::route('/'),
-            'create' => CreateWarehouseReturn::route('/create'),
-            'edit' => EditWarehouseReturn::route('/{record}/edit'),
         ];
     }
 }
