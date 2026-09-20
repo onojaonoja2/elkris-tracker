@@ -5,9 +5,8 @@ namespace Tests\Feature\Filament;
 use App\Filament\Pages\ManagerDashboard;
 use App\Filament\Resources\Users\Pages\CreateUser;
 use App\Filament\Resources\Users\Pages\EditUser;
-use App\Models\Lga;
-use App\Models\Region;
-use App\Models\State;
+use App\Filament\Resources\Users\Schemas\UserForm;
+use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -77,31 +76,22 @@ class UserCreationFormTest extends TestCase
             ->assertFormFieldVisible('sms_notifications');
     }
 
-    public function test_manager_quick_create_action_accepts_phone(): void
+    public function test_manager_dashboard_links_to_user_creation(): void
     {
         $manager = User::factory()->manager()->create();
         $this->actingAs($manager);
 
-        $region = Region::create(['name' => 'South West', 'code' => 'SW']);
-        $state = State::create(['name' => 'Lagos', 'code' => 'LA', 'region_id' => $region->id]);
-        $lga = Lga::create(['name' => 'Ikeja', 'state_id' => $state->id]);
-
         Livewire::test(ManagerDashboard::class)
-            ->callAction('create_user', data: [
-                'name' => 'Market Agent',
-                'email' => 'market-agent@example.com',
-                'phone' => '+2348098765432',
-                'role' => 'open_market',
-                'state_id' => $state->id,
-                'lga_id' => $lga->id,
-                'password' => 'secret-password',
-            ])
-            ->assertHasNoActionErrors();
+            ->assertActionExists('addUser')
+            ->assertActionDoesNotExist('create_user')
+            ->assertActionHasUrl('addUser', UserResource::getUrl('create'));
+    }
 
-        $this->assertDatabaseHas('users', [
-            'email' => 'market-agent@example.com',
-            'phone' => '+2348098765432',
-            'role' => 'open_market',
-        ]);
+    public function test_manager_can_assign_csr_role(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $this->actingAs($manager);
+
+        $this->assertArrayHasKey('community_sales_representative', UserForm::getRoleOptions());
     }
 }

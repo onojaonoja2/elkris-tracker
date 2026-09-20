@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Inventory;
+use App\Models\Warehouse;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -13,9 +14,9 @@ use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\On;
 
-class ManagerStockLevelsOverviewWidget extends TableWidget
+class ProductionStoreStockWidget extends TableWidget
 {
-    protected static ?string $heading = 'Stock Levels Overview';
+    protected static ?string $heading = 'Production Store Stock';
 
     protected int|string|array $columnSpan = 'full';
 
@@ -24,7 +25,14 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasAnyRole(['admin', 'manager', 'general_manager']);
+        return auth()->user()->hasAnyRole([
+            'admin',
+            'production_management',
+            'manager',
+            'general_manager',
+            'accountant',
+            'general_accountant',
+        ]);
     }
 
     private function cartonsDisplay(Inventory $record): string
@@ -34,29 +42,17 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
         return number_format(intdiv($record->quantity, $perCarton)).' ctns + '.number_format($record->quantity % $perCarton).' pcs';
     }
 
-    private function warehouseType(Inventory $record): string
-    {
-        return $record->warehouse?->type === 'central' ? 'Central Warehouse' : 'State Warehouse';
-    }
-
     public function table(Table $table): Table
     {
+        $storeId = Warehouse::productionStore()?->id ?? 0;
+
         return $table
             ->query(fn (): Builder => Inventory::query()
+                ->where('warehouse_id', $storeId)
                 ->where('quantity', '>', 0)
                 ->with(['warehouse', 'productType'])
                 ->orderByDesc('quantity'))
             ->columns([
-                TextColumn::make('warehouse.name')
-                    ->label('Warehouse')
-                    ->searchable()
-                    ->sortable()
-                    ->placeholder('Unknown'),
-                TextColumn::make('type')
-                    ->label('Type')
-                    ->badge()
-                    ->getStateUsing(fn (Inventory $record): string => $this->warehouseType($record))
-                    ->color(fn (string $state): string => $state === 'Central Warehouse' ? 'warning' : 'info'),
                 TextColumn::make('productType.name')
                     ->label('Product')
                     ->searchable()
@@ -76,19 +72,11 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
             ])
             ->recordActions([
                 ViewAction::make()
-                    ->modalHeading(fn (Inventory $record): string => "Stock: {$record->productType?->name} at {$record->warehouse?->name}")
+                    ->modalHeading(fn (Inventory $record): string => "Stock: {$record->productType?->name} ({$record->grammage}g)")
                     ->infolist([
                         TextEntry::make('warehouse.name')
                             ->label('Warehouse')
                             ->placeholder('Unknown'),
-                        TextEntry::make('type')
-                            ->label('Type')
-                            ->badge()
-                            ->getStateUsing(fn (Inventory $record): string => $this->warehouseType($record))
-                            ->color(fn (string $state): string => $state === 'Central Warehouse' ? 'warning' : 'info'),
-                        TextEntry::make('warehouse.phone')
-                            ->label('Warehouse Phone')
-                            ->placeholder('-'),
                         TextEntry::make('productType.name')
                             ->label('Product')
                             ->placeholder('Unknown'),
@@ -113,12 +101,11 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
                         return response()->streamDownload(function () use ($records) {
                             $file = fopen('php://output', 'w');
                             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-                            fputcsv($file, ['Warehouse', 'Type', 'Product', 'Grammage (g)', 'Cartons', 'Quantity']);
+                            fputcsv($file, ['Warehouse', 'Product', 'Grammage (g)', 'Cartons', 'Quantity']);
 
                             foreach ($records as $record) {
                                 fputcsv($file, [
                                     $record->warehouse?->name ?? 'Unknown',
-                                    $this->warehouseType($record),
                                     $record->productType?->name ?? 'Unknown',
                                     $record->grammage,
                                     $this->cartonsDisplay($record),
@@ -127,12 +114,13 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
                             }
 
                             fclose($file);
-                        }, 'stock_levels_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                        }, 'production_store_stock_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
                             'Content-Type' => 'text/csv',
                         ]);
                     }),
             ])
             ->paginated([5, 10, 25])
-            ->defaultPaginationPageOption(5);
+            ->defaultPaginationPageOption(5)
+            ->emptyStateHeading('No stock in the production store');
     }
 }

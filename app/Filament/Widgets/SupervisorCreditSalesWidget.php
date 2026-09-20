@@ -27,7 +27,7 @@ class SupervisorCreditSalesWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasRole('supervisor');
+        return auth()->user()->hasAnyRole(['supervisor', 'manager']);
     }
 
     private function todaySql(): string
@@ -129,7 +129,7 @@ class SupervisorCreditSalesWidget extends TableWidget
                             ->get()
                             ->keyBy('agent_id');
 
-                        $records = $this->getFilteredQuery()->get();
+                        $records = $this->getFilteredTableQuery()->get();
 
                         return response()->streamDownload(function () use ($records, $aggregates) {
                             $file = fopen('php://output', 'w');

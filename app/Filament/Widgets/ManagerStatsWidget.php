@@ -20,10 +20,9 @@ use App\Models\SalesRecord;
 use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Support\DashboardDateScope;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
 
 class ManagerStatsWidget extends BaseWidget
@@ -33,31 +32,7 @@ class ManagerStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $now = Carbon::now('Africa/Lagos');
-
-        $preset = Session::get('manager_date_preset', 'today');
-
-        match ($preset) {
-            'yesterday' => $from = $now->copy()->subDay()->startOfDay(),
-            'this_week' => $from = $now->copy()->startOfWeek(),
-            'this_month' => $from = $now->copy()->startOfMonth(),
-            'lifetime' => $from = Carbon::now('Africa/Lagos')->subYears(10),
-            default => $from = $now->copy()->setHour(8)->setMinute(0)->setSecond(0),
-        };
-
-        if ($preset !== 'lifetime') {
-            if ($preset === 'yesterday') {
-                $to = $now->copy()->subDay()->endOfDay();
-            } elseif ($preset === 'this_week') {
-                $to = $now->copy()->endOfWeek();
-            } elseif ($preset === 'this_month') {
-                $to = $now->copy()->endOfMonth();
-            } else {
-                $to = $now;
-            }
-        } else {
-            $to = Carbon::now('Africa/Lagos');
-        }
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $totalCustomers = Customer::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)

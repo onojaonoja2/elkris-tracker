@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AgentCustomerViewWidget;
 use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
@@ -20,16 +21,19 @@ use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrdersPerCityChart;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
+use App\Filament\Widgets\ProductionRawMaterialsWidget;
+use App\Filament\Widgets\ProductionRunsWidget;
+use App\Filament\Widgets\ProductionStoreStockWidget;
 use App\Filament\Widgets\RevenueTrendChart;
 use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
-use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Support\Facades\Session;
 
 class GeneralManagerDashboard extends BaseDashboard
 {
     use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
 
     protected static string $routePath = '/general-manager-dashboard';
 
@@ -53,6 +57,11 @@ class GeneralManagerDashboard extends BaseDashboard
     {
         if (! auth()->check() || ! auth()->user()->hasRole('general_manager')) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if (! Session::has('dashboard_date_from')) {
+            Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+            Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
         }
     }
 
@@ -82,6 +91,10 @@ class GeneralManagerDashboard extends BaseDashboard
             AgentCustomerViewWidget::class,
             DamagedReturnsBreakdownWidget::class,
             WarehouseReturnApprovalsWidget::class,
+            ProductionRunsWidget::class,
+            ProductionRawMaterialsWidget::class,
+            ProductionStoreStockWidget::class,
+            ProductionOutgoingTransfersWidget::class,
             RevenueTrendChart::class,
             OrdersPerCityChart::class,
         ];
@@ -93,27 +106,8 @@ class GeneralManagerDashboard extends BaseDashboard
             $this->getCreditBreakdownAction(),
             $this->getOrderBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
-            Action::make('filter_date')
-                ->label('Filter by Date')
-                ->icon('heroicon-o-calendar')
-                ->color('secondary')
-                ->form([
-                    Select::make('preset')
-                        ->options([
-                            'today' => 'Today (8AM-5PM)',
-                            'yesterday' => 'Yesterday',
-                            'this_week' => 'This Week',
-                            'this_month' => 'This Month',
-                            'lifetime' => 'Lifetime',
-                        ])
-                        ->default('today')
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    Session::put('manager_date_preset', $data['preset']);
-                    $this->redirect($this->getUrl());
-                })
-                ->successNotificationTitle('Date filter applied'),
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
         ];
     }
 }

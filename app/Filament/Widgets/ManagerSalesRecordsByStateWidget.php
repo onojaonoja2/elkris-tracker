@@ -4,10 +4,13 @@ namespace App\Filament\Widgets;
 
 use App\Models\SalesRecord;
 use App\Models\State;
+use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\On;
 
@@ -25,7 +28,10 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
         return auth()->user()->hasAnyRole(['admin', 'manager', 'general_manager']);
     }
 
-    public function table(Table $table): Table
+    /**
+     * @return array{0: Collection, 1: Collection}
+     */
+    private function salesAggregates(): array
     {
         $aggregates = SalesRecord::select(
             DB::raw('lga_state.name as state_name'),
@@ -42,7 +48,12 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
             ->get()
             ->keyBy('state_name');
 
-        $revenueByState = SalesRecord::revenueByState();
+        return [$aggregates, SalesRecord::revenueByState()];
+    }
+
+    public function table(Table $table): Table
+    {
+        [$aggregates, $revenueByState] = $this->salesAggregates();
 
         return $table
             ->query(fn (): Builder => State::query()->orderBy('name'))
@@ -77,6 +88,54 @@ class ManagerSalesRecordsByStateWidget extends TableWidget
                     ->money('NGN')
                     ->sortable(),
             ])
-            ->paginated(false);
+            ->recordActions([
+                Action::make('viewStateBreakdown')
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->modalHeading(fn (State $record): string => "Sales Records in {$record->name}")
+                    ->modalContent(fn (State $record) => view('filament.state-breakdown-modal', [
+                        'entity' => 'sales',
+                        'stateId' => $record->id,
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalWidth('5xl'),
+            ])
+            ->headerActions([
+                Action::make('export')
+                    ->label('Export')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->color('info')
+                    ->action(function () {
+                        [$aggregates, $revenueByState] = $this->salesAggregates();
+                        $records = $this->getFilteredTableQuery()->orderBy('name')->get();
+
+                        return response()->streamDownload(function () use ($records, $aggregates, $revenueByState) {
+                            $file = fopen('php://output', 'w');
+                            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+                            fputcsv($file, ['State', 'Total', 'Pending', 'Approved', 'Rejected', 'Total Value (₦)']);
+
+                            foreach ($records as $record) {
+                                $agg = $aggregates->get($record->name);
+
+                                fputcsv($file, [
+                                    $record->name,
+                                    $agg?->total ?? 0,
+                                    $agg?->pending ?? 0,
+                                    $agg?->approved ?? 0,
+                                    $agg?->rejected ?? 0,
+                                    number_format($revenueByState->get($record->name)?->revenue ?? 0, 2),
+                                ]);
+                            }
+
+                            fclose($file);
+                        }, 'sales_records_by_state_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv', [
+                            'Content-Type' => 'text/csv',
+                        ]);
+                    }),
+            ])
+            ->paginated([5, 10, 25])
+            ->defaultPaginationPageOption(5);
     }
 }

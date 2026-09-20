@@ -12,7 +12,9 @@ class RevenueTrendChart extends ChartWidget
 {
     protected static ?int $sort = 0;
 
-    protected int|string|array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 6;
+
+    protected ?string $maxHeight = '240px';
 
     protected ?string $heading = 'Monthly Revenue Trend (12 Months)';
 

@@ -21,6 +21,10 @@ use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
+use App\Filament\Widgets\ProductionRawMaterialsWidget;
+use App\Filament\Widgets\ProductionRunsWidget;
+use App\Filament\Widgets\ProductionStoreStockWidget;
 use App\Models\SalesRecord;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
@@ -139,6 +143,10 @@ class AccountantDashboard extends BaseDashboard
             AccountantRepSalesWidget::class,
             AccountantStockLevelsWidget::class,
             AccountantStockMovementsWidget::class,
+            ProductionRunsWidget::class,
+            ProductionRawMaterialsWidget::class,
+            ProductionStoreStockWidget::class,
+            ProductionOutgoingTransfersWidget::class,
         ];
     }
 }

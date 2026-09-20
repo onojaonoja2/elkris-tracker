@@ -18,6 +18,9 @@ class ProductionRun extends Model implements Auditable
         'output_name',
         'output_quantity',
         'output_unit',
+        'product_type_id',
+        'grammage',
+        'finished_quantity',
         'status',
         'accountant_reviewed_by',
         'accountant_reviewed_at',
@@ -32,7 +35,21 @@ class ProductionRun extends Model implements Auditable
             'output_quantity' => 'decimal:4',
             'production_date' => 'date',
             'accountant_reviewed_at' => 'datetime',
+            'grammage' => 'integer',
+            'finished_quantity' => 'integer',
         ];
+    }
+
+    public function productType(): BelongsTo
+    {
+        return $this->belongsTo(ProductType::class);
+    }
+
+    public function mapsToStockableProduct(): bool
+    {
+        return $this->product_type_id !== null
+            && $this->grammage !== null
+            && ((int) $this->finished_quantity) > 0;
     }
 
     public function rawMaterials(): BelongsToMany

@@ -23,6 +23,11 @@ use App\Filament\Widgets\ManagerPortfolioPerAgentWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrderStatsWidget;
+use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
+use App\Filament\Widgets\ProductionRawMaterialsWidget;
+use App\Filament\Widgets\ProductionRunsWidget;
+use App\Filament\Widgets\ProductionStoreStockWidget;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class GeneralAccountantDashboard extends BaseDashboard
@@ -62,6 +67,7 @@ class GeneralAccountantDashboard extends BaseDashboard
             GeneralAccountantStatsWidget::class,
             CreditSalesOutstandingStatsWidget::class,
             OrderStatsWidget::class,
+            ProductionActivityWidget::class,
         ];
     }
 
@@ -95,6 +101,10 @@ class GeneralAccountantDashboard extends BaseDashboard
             ManagerStockLevelsOverviewWidget::class,
             AccountantStockLevelsWidget::class,
             AccountantStockMovementsWidget::class,
+            ProductionRunsWidget::class,
+            ProductionRawMaterialsWidget::class,
+            ProductionStoreStockWidget::class,
+            ProductionOutgoingTransfersWidget::class,
         ];
     }
 }

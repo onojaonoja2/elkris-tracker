@@ -3,6 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
+use App\Filament\Resources\Users\UserResource;
+use App\Filament\Widgets\AgentCustomerViewWidget;
 use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
 use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\ManagerAgentManagementWidget;
@@ -18,31 +21,39 @@ use App\Filament\Widgets\ManagerStatsWidget;
 use App\Filament\Widgets\ManagerStockLevelsOverviewWidget;
 use App\Filament\Widgets\ManagerStockMovementsWidget;
 use App\Filament\Widgets\OfficeSalesStatsWidget;
-use App\Filament\Widgets\OrdersPerCityChart;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
+use App\Filament\Widgets\ProductionRawMaterialsWidget;
+use App\Filament\Widgets\ProductionRunsWidget;
+use App\Filament\Widgets\ProductionStoreStockWidget;
 use App\Filament\Widgets\RevenueTrendChart;
+use App\Filament\Widgets\SupervisorCreditSalesWidget;
+use App\Filament\Widgets\SupervisorCsrListWidget;
+use App\Filament\Widgets\SupervisorDamagedReturnsWidget;
+use App\Filament\Widgets\SupervisorDispatchStockWidget;
+use App\Filament\Widgets\SupervisorSalesByGeoWidget;
+use App\Filament\Widgets\SupervisorSalesRecordsWidget;
+use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
+use App\Filament\Widgets\SupervisorStockCountFinalApprovalWidget;
+use App\Filament\Widgets\SupervisorStockTransferApprovalWidget;
+use App\Filament\Widgets\SupervisorStockWidget;
 use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
 use App\Models\Customer;
-use App\Models\Lga;
 use App\Models\Order;
 use App\Models\SalesRecord;
-use App\Models\State;
 use App\Models\User;
+use App\Support\DashboardDateScope;
 use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Str;
 
 class ManagerDashboard extends BaseDashboard
 {
     use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
 
     protected static string $routePath = '/manager-dashboard';
 
@@ -71,6 +82,11 @@ class ManagerDashboard extends BaseDashboard
     {
         if (! auth()->check() || ! auth()->user()->hasAnyRole(['manager', 'admin'])) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if (! Session::has('dashboard_date_from')) {
+            Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+            Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
         }
     }
 
@@ -101,8 +117,22 @@ class ManagerDashboard extends BaseDashboard
             ManagerConversionWidget::class,
             DamagedReturnsBreakdownWidget::class,
             WarehouseReturnApprovalsWidget::class,
+            ProductionRunsWidget::class,
+            ProductionRawMaterialsWidget::class,
+            ProductionStoreStockWidget::class,
+            ProductionOutgoingTransfersWidget::class,
+            AgentCustomerViewWidget::class,
+            SupervisorCsrListWidget::class,
+            SupervisorStockTransferApprovalWidget::class,
+            SupervisorStockCountApprovalWidget::class,
+            SupervisorStockCountFinalApprovalWidget::class,
+            SupervisorSalesByGeoWidget::class,
+            SupervisorSalesRecordsWidget::class,
+            SupervisorCreditSalesWidget::class,
+            SupervisorDamagedReturnsWidget::class,
+            SupervisorDispatchStockWidget::class,
+            SupervisorStockWidget::class,
             RevenueTrendChart::class,
-            OrdersPerCityChart::class,
         ];
     }
 
@@ -111,132 +141,36 @@ class ManagerDashboard extends BaseDashboard
         return [
             $this->getCreditBreakdownAction(),
             $this->getOrderBreakdownAction(),
+            $this->getCsrOrderBreakdownAction(),
+            $this->getRevenueBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
             $this->getApprovalBreakdownAction(),
-            Action::make('create_user')
-                ->label('Add Agent')
+            Action::make('addUser')
+                ->label('Add User')
                 ->icon('heroicon-o-user-plus')
-                ->color('primary')
-                ->form([
-                    TextInput::make('name')
-                        ->label('Full Name')
-                        ->required(),
-                    TextInput::make('email')
-                        ->label('Email Address')
-                        ->email()
-                        ->required()
-                        ->unique('users', 'email'),
-                    TextInput::make('phone')
-                        ->label('Phone Number')
-                        ->tel()
-                        ->placeholder('e.g. +2348012345678'),
-                    Select::make('role')
-                        ->label('Agent Type')
-                        ->options([
-                            'open_market' => 'Open Market Agent',
-                            'retail_market' => 'Retail Market Agent',
-                        ])
-                        ->required()
-                        ->live()
-                        ->selectablePlaceholder(false),
-                    Select::make('state_id')
-                        ->label('State')
-                        ->options(fn () => State::pluck('name', 'id'))
-                        ->searchable()
-                        ->live(debounce: 300)
-                        ->afterStateUpdated(fn ($set) => $set('lga_id', null))
-                        ->required(),
-                    Select::make('lga_id')
-                        ->label('Local Government Area')
-                        ->options(fn ($get) => $get('state_id')
-                            ? Lga::where('state_id', $get('state_id'))->pluck('name', 'id')
-                            : [])
-                        ->searchable()
-                        ->required(),
-                    TextInput::make('password')
-                        ->label('Password (leave blank to auto-generate)')
-                        ->password()
-                        ->helperText('If left blank, a secure one-time password will be generated and shown once.')
-                        ->autocomplete('new-password'),
-                ])
-                ->action(function (array $data): void {
-                    // Re-validate the role server-side to prevent privilege escalation via crafted payloads.
-                    if (! in_array($data['role'], ['open_market', 'retail_market'], true)) {
-                        Notification::make()
-                            ->title('Invalid agent type')
-                            ->danger()
-                            ->send();
-
-                        $this->halt();
-                    }
-
-                    // Generate a secure one-time password when none is provided; never default to a known string.
-                    $plainPassword = ! empty($data['password']) ? $data['password'] : Str::random(16);
-
-                    $user = User::create([
-                        'name' => $data['name'],
-                        'email' => $data['email'],
-                        'phone' => $data['phone'] ?? null,
-                        'role' => $data['role'],
-                        'state_id' => $data['state_id'],
-                        'lga_id' => $data['lga_id'],
-                        'password' => Hash::make($plainPassword),
-                        'lead_id' => auth()->id(),
-                    ]);
-
-                    Notification::make()
-                        ->title('Agent created')
-                        ->body(empty($data['password'])
-                            ? "{$user->name} has been created as a ".str_replace('_', ' ', $user->getPrimaryRole()).". Share this one-time password securely (it will not be shown again): **{$plainPassword}**"
-                            : "{$user->name} has been created as a ".str_replace('_', ' ', $user->getPrimaryRole()).'.')
-                        ->success()
-                        ->persistent()
-                        ->send();
-
-                    $this->dispatch('refresh-dashboard');
-                }),
-            Action::make('filter_date')
-                ->label('Filter by Date')
-                ->icon('heroicon-o-calendar')
-                ->color('secondary')
-                ->form([
-                    Select::make('preset')
-                        ->options([
-                            'today' => 'Today (8AM-5PM)',
-                            'yesterday' => 'Yesterday',
-                            'this_week' => 'This Week',
-                            'this_month' => 'This Month',
-                            'lifetime' => 'Lifetime',
-                        ])
-                        ->default('today')
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    Session::put('manager_date_preset', $data['preset']);
-                    $this->redirect($this->getUrl());
-                })
-                ->successNotificationTitle('Date filter applied'),
+                ->button()
+                ->url(UserResource::getUrl('create')),
+            $this->getDateFilterAction(),
+            $this->getClearDateFilterAction(),
             Action::make('export_report')
                 ->label('Export Report')
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
                 ->action(function () {
-                    $from = Session::get('manager_date_preset') === 'lifetime'
-                        ? Carbon::now()->subYears(10)
-                        : Carbon::now()->startOfDay();
+                    [$from, $to] = DashboardDateScope::fromSession();
 
                     $filename = 'system_report_'.Carbon::now()->format('Y_m_d_H_i_s').'.csv';
 
-                    return response()->streamDownload(function () use ($from) {
+                    return response()->streamDownload(function () use ($from, $to) {
                         $handle = fopen('php://output', 'w');
                         fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
 
                         fputcsv($handle, ['Section', 'Metric', 'Value']);
 
-                        $totalCustomers = Customer::where('created_at', '>=', $from)->count();
-                        $totalOrders = Order::where('created_at', '>=', $from)->where('is_migrated_order', false)->count();
-                        $orderRevenue = Order::where('created_at', '>=', $from)->where('is_migrated_order', false)->sum('total_price');
-                        $salesRecords = SalesRecord::where('created_at', '>=', $from)->count();
+                        $totalCustomers = Customer::whereBetween('created_at', [$from, $to])->count();
+                        $totalOrders = Order::whereBetween('created_at', [$from, $to])->where('is_migrated_order', false)->count();
+                        $orderRevenue = Order::whereBetween('created_at', [$from, $to])->where('is_migrated_order', false)->sum('total_price');
+                        $salesRecords = SalesRecord::whereBetween('created_at', [$from, $to])->count();
                         $pendingSales = SalesRecord::whereIn('status', ['pending', 'receipt_uploaded'])->count();
                         $activeAgents = User::whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])->active()->count();
 

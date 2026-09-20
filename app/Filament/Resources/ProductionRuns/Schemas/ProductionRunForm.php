@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductionRuns\Schemas;
 
+use App\Models\ProductType;
 use App\Models\RawMaterial;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -9,6 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 
 class ProductionRunForm
@@ -66,6 +68,49 @@ class ProductionRunForm
                     ->required()
                     ->maxLength(50)
                     ->placeholder('e.g. units, cartons, bags'),
+
+                Select::make('product_type_id')
+                    ->label('Finished Product')
+                    ->helperText('Maps this run to finished-goods stock posted to the production warehouse on review.')
+                    ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'id'))
+                    ->searchable()
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function (Set $set, Get $get): void {
+                        $set('grammage', null);
+
+                        $productType = ProductType::find($get('product_type_id'));
+
+                        if ($productType && blank($get('output_name'))) {
+                            $set('output_name', $productType->name);
+                        }
+                    }),
+
+                Select::make('grammage')
+                    ->label('Weight (g)')
+                    ->options(function (Get $get): array {
+                        $productType = ProductType::find($get('product_type_id'));
+
+                        if (! $productType) {
+                            return [];
+                        }
+
+                        return collect($productType->available_grammages)
+                            ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                            ->toArray();
+                    })
+                    ->required()
+                    ->searchable(),
+
+                TextInput::make('finished_quantity')
+                    ->label('Finished Quantity (pieces)')
+                    ->helperText('Units credited to the production warehouse on review.')
+                    ->numeric()
+                    ->required()
+                    ->minValue(1)
+                    ->step(1)
+                    ->rules(['integer', 'min:1']),
 
                 Textarea::make('notes')
                     ->label('Production Notes')

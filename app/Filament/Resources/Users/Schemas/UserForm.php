@@ -143,6 +143,7 @@ class UserForm
 
         if ($user->hasRole('manager')) {
             return [
+                'community_sales_representative' => 'Community Sales Representative',
                 'open_market' => 'Open Market Agent',
                 'retail_market' => 'Retail Market Agent',
             ];

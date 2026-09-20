@@ -34,7 +34,7 @@ class SupervisorDispatchStockWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasRole('supervisor');
+        return auth()->user()->hasAnyRole(['supervisor', 'manager']);
     }
 
     public function table(Table $table): Table

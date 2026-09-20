@@ -5,7 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Exports\CustomerExporter;
 use App\Models\Customer;
 use App\Models\User;
-use Carbon\Carbon;
+use App\Support\DashboardDateScope;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Columns\TextColumn;
@@ -14,7 +14,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
 
 class ManagerCustomersWidget extends TableWidget
@@ -33,31 +32,7 @@ class ManagerCustomersWidget extends TableWidget
 
     protected function getDefaultDateRange(): array
     {
-        $now = Carbon::now('Africa/Lagos');
-
-        $preset = Session::get('manager_customer_date_preset', 'today');
-
-        match ($preset) {
-            'yesterday' => $from = $now->copy()->subDay()->startOfDay(),
-            'this_week' => $from = $now->copy()->startOfWeek(),
-            'this_month' => $from = $now->copy()->startOfMonth(),
-            'lifetime' => $from = Carbon::now('Africa/Lagos')->subYears(10),
-            default => $from = $now->copy()->setHour(8)->setMinute(0)->setSecond(0),
-        };
-
-        if ($preset !== 'lifetime') {
-            if ($preset === 'yesterday') {
-                $to = $now->copy()->subDay()->endOfDay();
-            } elseif ($preset === 'this_week') {
-                $to = $now->copy()->endOfWeek();
-            } elseif ($preset === 'this_month') {
-                $to = $now->copy()->endOfMonth();
-            } else {
-                $to = $now;
-            }
-        } else {
-            $to = Carbon::now('Africa/Lagos');
-        }
+        [$from, $to] = DashboardDateScope::fromSession();
 
         return ['from' => $from, 'to' => $to];
     }

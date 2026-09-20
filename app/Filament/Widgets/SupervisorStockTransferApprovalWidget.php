@@ -27,7 +27,7 @@ class SupervisorStockTransferApprovalWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasRole('supervisor');
+        return auth()->user()->hasAnyRole(['supervisor', 'manager']);
     }
 
     public function table(Table $table): Table
