@@ -7,6 +7,14 @@
                 placeholder="Search agent..."
                 class="w-full sm:w-64 px-3 py-2 text-sm border rounded-lg dark:bg-gray-800 dark:border-gray-700"
             />
+
+            <button
+                type="button"
+                wire:click="exportCsv"
+                class="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+                Export Summary
+            </button>
         </div>
 
         <div class="overflow-auto max-h-[60vh]">
@@ -55,6 +63,14 @@
                 <button type="button" wire:click="back" class="text-sm text-blue-600 hover:underline">← Back to all agents</button>
                 <h4 class="mt-1 text-lg font-semibold">{{ $this->selectedAgent?->name }}</h4>
             </div>
+
+            <button
+                type="button"
+                wire:click="exportCsv"
+                class="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+                Export Records
+            </button>
         </div>
 
         <div class="overflow-auto max-h-[60vh]">

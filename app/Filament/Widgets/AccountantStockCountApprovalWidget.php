@@ -4,15 +4,15 @@ namespace App\Filament\Widgets;
 
 use App\Enums\UserRole;
 use App\Filament\Traits\HasBreakdownViewAction;
-use App\Models\AgentStock;
-use App\Models\Inventory;
 use App\Models\StockCount;
+use App\Services\StockCountService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
 class AccountantStockCountApprovalWidget extends BaseWidget
@@ -55,65 +55,17 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                     ->color('success')
                     ->icon('heroicon-o-check-circle')
                     ->action(function (StockCount $record) {
-                        \DB::transaction(function () use ($record) {
-                            $record->update([
-                                'status' => 'approved',
-                                'approved_by' => auth()->id(),
-                                'approved_at' => now(),
-                            ]);
+                        try {
+                            StockCountService::finalApprove($record, auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Approval failed')
+                                ->body($e->getMessage())
+                                ->send();
 
-                            if ($record->is_additional_count) {
-                                if ($record->warehouse_id) {
-                                    foreach ($record->items as $item) {
-                                        Inventory::firstOrCreate(
-                                            [
-                                                'warehouse_id' => $record->warehouse_id,
-                                                'product_type_id' => $item->product_type_id,
-                                                'grammage' => $item->grammage,
-                                            ],
-                                            ['quantity' => 0]
-                                        )->increment('quantity', $item->quantity);
-                                    }
-                                } else {
-                                    foreach ($record->items as $item) {
-                                        AgentStock::firstOrCreate(
-                                            [
-                                                'user_id' => $record->user_id,
-                                                'product_type_id' => $item->product_type_id,
-                                                'product_name' => $item->product_name ?? $item->productType?->name ?? 'Unknown',
-                                                'grammage' => $item->grammage,
-                                            ],
-                                            ['quantity' => 0]
-                                        )->increment('quantity', $item->quantity);
-                                    }
-                                }
-                            } else {
-                                if ($record->warehouse_id) {
-                                    foreach ($record->items as $item) {
-                                        Inventory::updateOrCreate(
-                                            [
-                                                'warehouse_id' => $record->warehouse_id,
-                                                'product_type_id' => $item->product_type_id,
-                                                'grammage' => $item->grammage,
-                                            ],
-                                            ['quantity' => $item->quantity]
-                                        );
-                                    }
-                                } else {
-                                    foreach ($record->items as $item) {
-                                        AgentStock::updateOrCreate(
-                                            [
-                                                'user_id' => $record->user_id,
-                                                'product_type_id' => $item->product_type_id,
-                                                'product_name' => $item->product_name ?? $item->productType?->name ?? 'Unknown',
-                                                'grammage' => $item->grammage,
-                                            ],
-                                            ['quantity' => $item->quantity]
-                                        );
-                                    }
-                                }
-                            }
-                        });
+                            return;
+                        }
 
                         Notification::make()
                             ->title('Stock count approved')
@@ -131,10 +83,7 @@ class AccountantStockCountApprovalWidget extends BaseWidget
                         Textarea::make('rejection_reason')->required(),
                     ])
                     ->action(function (StockCount $record, array $data) {
-                        $record->update([
-                            'status' => 'rejected',
-                            'rejection_reason' => $data['rejection_reason'],
-                        ]);
+                        StockCountService::reject($record, $data['rejection_reason']);
 
                         Notification::make()
                             ->title('Stock count rejected')

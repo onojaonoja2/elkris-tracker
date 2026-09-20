@@ -2,13 +2,16 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
+use App\Filament\Widgets\WarehouseCsrStockWidget;
 use App\Filament\Widgets\WarehouseDamagedReturnsWidget;
 use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseOutgoingDispatchesWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
 use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
+use App\Filament\Widgets\WarehouseStocksWidget;
 use App\Models\Inventory;
 use App\Models\ProductType;
 use App\Models\Setting;
@@ -28,11 +31,12 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 
 class WarehouseManagerDashboard extends BaseDashboard
 {
-    use HasDashboardDateFilter;
+    use HasDashboardBreakdownModals, HasDashboardDateFilter;
 
     protected static string $routePath = '/warehouse-dashboard';
 
@@ -71,6 +75,8 @@ class WarehouseManagerDashboard extends BaseDashboard
         return [
             WarehouseOutgoingDispatchesWidget::class,
             WarehouseManagerStockBreakdownWidget::class,
+            WarehouseCsrStockWidget::class,
+            WarehouseStocksWidget::class,
             WarehouseDamagedReturnsWidget::class,
             WarehouseReturnApprovalsWidget::class,
             WarehouseRecentMovementsWidget::class,
@@ -87,11 +93,23 @@ class WarehouseManagerDashboard extends BaseDashboard
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('success')
                 ->action(fn () => $this->exportReport()),
+            Action::make('csrSalesValue')
+                ->label('CSR Sales Value')
+                ->icon('heroicon-o-currency-dollar')
+                ->color('info')
+                ->modalHeading('CSR Sales Value')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Close')
+                ->modalContent(function (): View {
+                    return view('filament.csr-sales-value-modal');
+                })
+                ->visible(fn (): bool => auth()->user()?->hasRole('warehouse_manager') ?? false),
             Action::make('damagedStock')
                 ->label('Damaged Stock')
                 ->icon('heroicon-o-archive-box-x-mark')
                 ->color('danger')
                 ->url(WarehouseDamagedStock::getUrl()),
+            $this->getStockMovementBreakdownAction(),
         ];
 
         $actions[] = Action::make('receiveStock')

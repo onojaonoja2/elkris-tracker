@@ -6,8 +6,11 @@ use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\StockTransactions\Pages\ManageStockTransactions;
 use App\Models\StockTransaction;
 use BackedEnum;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -15,6 +18,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class StockTransactionResource extends Resource
 {
@@ -131,7 +135,36 @@ class StockTransactionResource extends Resource
                             );
                     }),
             ])
-            ->recordActions([])
+            ->recordActions([
+                ViewAction::make()
+                    ->label('View')
+                    ->icon('heroicon-o-eye')
+                    ->color('gray')
+                    ->modalHeading(fn (?Model $record): string => $record ? "Stock Transaction #{$record->id}" : 'Stock Transaction')
+                    ->modalWidth('3xl')
+                    ->infolist(fn (StockTransaction $record): array => [
+                        Fieldset::make('Transaction Details')
+                            ->columns(3)
+                            ->schema([
+                                TextEntry::make('product_name')->label('Product'),
+                                TextEntry::make('grammage')->label('Weight')->formatStateUsing(fn ($state): string => $state.'g'),
+                                TextEntry::make('quantity')->label('Quantity'),
+                                TextEntry::make('type')
+                                    ->label('Type')
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'received' => 'success',
+                                        'disbursed' => 'warning',
+                                        'delivered' => 'info',
+                                        default => 'gray',
+                                    }),
+                                TextEntry::make('transaction_date')->label('Date')->date('d/m/Y'),
+                                TextEntry::make('disbursed_to')->label('Recipient / Notes')->placeholder('N/A'),
+                                TextEntry::make('warehouse.name')->label('Warehouse')->default('N/A'),
+                                TextEntry::make('user.name')->label('Recorded By')->default('N/A'),
+                            ]),
+                    ]),
+            ])
             ->toolbarActions([]);
     }
 

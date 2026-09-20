@@ -3,8 +3,13 @@
 namespace App\Filament\Resources\Customers\RelationManagers;
 
 use App\Enums\OrderStatus;
+use App\Models\Order;
 use App\Models\ProductType;
 use App\Models\Setting;
+use App\Models\User;
+use App\Services\OrderAssignmentService;
+use BackedEnum;
+use Closure;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -16,12 +21,14 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Validation\ValidationException;
 
 class OrdersRelationManager extends RelationManager
 {
@@ -71,7 +78,49 @@ class OrdersRelationManager extends RelationManager
                     ])
                     ->default('pending')
                     ->required()
+                    ->live()
+                    ->rules([
+                        fn (Get $get, ?Order $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get, $record) {
+                            $status = $value instanceof BackedEnum ? $value->value : $value;
+
+                            if ($status !== OrderStatus::Delivered->value) {
+                                return;
+                            }
+
+                            if ($record && ($record->status === OrderStatus::Delivered || $record->is_migrated_order)) {
+                                return;
+                            }
+
+                            if (! $record?->hasPaymentProof()) {
+                                $fail('A payment proof must be uploaded before this order can be marked as delivered.');
+
+                                return;
+                            }
+
+                            $handlerId = $get('delivered_by_sales');
+
+                            if (blank($record?->assigned_to) && blank($handlerId)) {
+                                $fail('Select the sales personnel who handled the delivery.');
+
+                                return;
+                            }
+
+                            $processor = $record->assignedTo ?? ($handlerId ? User::find($handlerId) : null);
+
+                            if ($processor && ! OrderAssignmentService::hasSufficientStock($processor, $record)) {
+                                $fail("{$processor->name} does not hold enough stock to deliver this order.");
+                            }
+                        },
+                    ])
                     ->hidden(fn (Get $get): bool => (bool) $get('is_migrated_order')),
+
+                Select::make('delivered_by_sales')
+                    ->label('Delivered By (Sales Personnel)')
+                    ->helperText('Select the sales personnel who handled the delivery.')
+                    ->options(fn () => User::where('role', 'sales')->active()->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->visible(fn (Get $get, ?Order $record): bool => self::isDeliveredSelected($get('status')) && blank($record?->assigned_to) && ! ($record?->is_migrated_order ?? false))
+                    ->required(fn (Get $get, ?Order $record): bool => self::isDeliveredSelected($get('status')) && blank($record?->assigned_to) && ! ($record?->is_migrated_order ?? false)),
 
                 Textarea::make('delivery_details')
                     ->columnSpanFull(),
@@ -173,6 +222,8 @@ class OrdersRelationManager extends RelationManager
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['user_id'] = auth()->id();
 
+                        unset($data['delivered_by_sales']);
+
                         if ($data['is_migrated_order'] ?? false) {
                             $data['status'] = 'delivered';
                         }
@@ -197,9 +248,20 @@ class OrdersRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make()
-                    ->hidden(fn ($record): bool => $record->status === 'delivered'),
+                    ->hidden(fn (Order $record): bool => $record->status === OrderStatus::Delivered)
+                    ->after(function (Order $record, array $data): void {
+                        try {
+                            OrderAssignmentService::completeDeliveredEdit($record, $data['delivered_by_sales'] ?? null);
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Delivery sync failed')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    }),
                 DeleteAction::make()
-                    ->hidden(fn ($record): bool => $record->status === 'delivered'),
+                    ->hidden(fn (Order $record): bool => $record->status === OrderStatus::Delivered),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -207,6 +269,13 @@ class OrdersRelationManager extends RelationManager
                         ->hidden(fn (): bool => true),
                 ]),
             ]);
+    }
+
+    private static function isDeliveredSelected(mixed $status): bool
+    {
+        $value = $status instanceof BackedEnum ? $status->value : $status;
+
+        return $value === OrderStatus::Delivered->value;
     }
 
     private static function recalculateLineTotal(Set $set, Get $get): void

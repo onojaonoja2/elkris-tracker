@@ -1,0 +1,58 @@
+
+   FAIL  Tests\Feature\Dashboards\AccountantDashboardTest
+  Ô£ô accountant dashboard renders                                                                                 4.21s  
+  Ô£ô accountant transaction widgets expose view actions                                                           1.03s  
+  Ô£ô sales record view action shows credit details                                                                0.49s  
+  Ô£ô rep sales widget dispatches open rep sales breakdown                                                         0.46s  
+  Ô£ô open rep sales breakdown mounts modal                                                                        0.60s  
+  Ô£ô rep sales breakdown action shows picker without crash                                                        0.48s  
+  Ô£ô rep sales breakdown action picker lists reps and leads                                                       0.58s  
+  Ô£ô rep sales breakdown table shows daily records and drills down                                                0.49s  
+  Ô£ô stock levels widget is searchable                                                                            0.35s  
+  Ô£ô open stock movement breakdown mounts modal                                                                   0.45s  
+  Ô£ô stock movement action shows picker without crash                                                             0.48s  
+  Ô£ô stock movement action picker lists agents and warehouses                                                     0.53s  
+  Ô£ô stock movement breakdown lists entity movements and filters                                                  0.31s  
+  Ô£ô accountant csr overview shows aggregates and breakdown modal                                                 0.46s  
+  Ô¿» accountant csr overview is read only and exports xlsx                                                        0.36s  
+  Ô¿» accountant sales records widget exposes payment proof download                                               0.28s  
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILED  Tests\Feature\Dashboards\AccountantDashboardTest > accountant csr overview is reaÔÇª  BadMethodCallException   
+  Method Illuminate\Http\Response::assertTableHeaderActionExists does not exist.
+
+  at vendor\laravel\framework\src\Illuminate\Macroable\Traits\Macroable.php:117
+    113Ôûò      */
+    114Ôûò     public function __call($method, $parameters)
+    115Ôûò     {
+    116Ôûò         if (! static::hasMacro($method)) {
+  Ô×£ 117Ôûò             throw new BadMethodCallException(sprintf(
+    118Ôûò                 'Method %s::%s does not exist.', static::class, $method
+    119Ôûò             ));
+    120Ôûò         }
+    121Ôûò
+
+  1   vendor\laravel\framework\src\Illuminate\Macroable\Traits\Macroable.php:117
+  2   vendor\livewire\livewire\src\Features\SupportTesting\Testable.php:417
+
+  ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ  
+   FAILED  Tests\Feature\Dashboards\AccountantDashboardTest > accountant sales records widgeÔÇª  BadMethodCallException   
+  Call to undefined method App\Models\Order::salesRecords()
+
+  at vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:67
+     63Ôûò      * @throws \BadMethodCallException
+     64Ôûò      */
+     65Ôûò     protected static function throwBadMethodCallException($method)
+     66Ôûò     {
+  Ô×£  67Ôûò         throw new BadMethodCallException(sprintf(
+     68Ôûò             'Call to undefined method %s::%s()', static::class, $method
+     69Ôûò         ));
+     70Ôûò     }
+     71Ôûò }
+
+  1   vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:67
+  2   vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:36
+
+
+  Tests:    2 failed, 14 passed (80 assertions)
+  Duration: 12.89s
+

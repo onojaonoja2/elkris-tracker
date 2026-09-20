@@ -285,6 +285,64 @@ class DashboardBreakdownTableTest extends TestCase
             ->assertSee('Assigned CSR Name');
     }
 
+    public function test_supervisor_order_breakdown_search_matches_assigned_csr_name(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $csrA = User::factory()->communitySalesRepresentative()->create(['name' => 'Charles CSR']);
+        $csrB = User::factory()->communitySalesRepresentative()->create(['name' => 'Martha CSR']);
+        $sales = User::factory()->sales()->create();
+        $customer = Customer::factory()->create();
+
+        $this->actingAs($supervisor);
+
+        $orderA = $this->createAssignedOrder($sales, $csrA, $customer, OrderStatus::Delivered);
+        $orderB = $this->createAssignedOrder($sales, $csrB, $customer, OrderStatus::Delivered);
+
+        Livewire::test(DashboardBreakdownTable::class, ['type' => 'order', 'category' => 'delivered'])
+            ->assertSee('#'.$orderA->id)
+            ->assertSee('#'.$orderB->id)
+            ->set('search', 'charles')
+            ->assertSee('#'.$orderA->id)
+            ->assertDontSee('#'.$orderB->id);
+    }
+
+    public function test_order_breakdown_pending_status_filter_uses_awaiting_delivery(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $csr = User::factory()->communitySalesRepresentative()->create();
+        $sales = User::factory()->sales()->create();
+        $customer = Customer::factory()->create();
+
+        $this->actingAs($supervisor);
+
+        $pending = $this->createAssignedOrder($sales, $csr, $customer, OrderStatus::Pending);
+        $dispatched = $this->createAssignedOrder($sales, $csr, $customer, OrderStatus::Dispatched);
+        $assigned = $this->createAssignedOrder($sales, $csr, $customer, OrderStatus::Assigned);
+        $delivered = $this->createAssignedOrder($sales, $csr, $customer, OrderStatus::Delivered);
+
+        Livewire::test(DashboardBreakdownTable::class, ['type' => 'order', 'category' => 'total'])
+            ->set('statusFilter', 'pending')
+            ->assertSee('#'.$pending->id)
+            ->assertSee('#'.$dispatched->id)
+            ->assertSee('#'.$assigned->id)
+            ->assertDontSee('#'.$delivered->id);
+    }
+
+    public function test_order_breakdown_exports_csv(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $sales = User::factory()->sales()->create();
+        $customer = Customer::factory()->create();
+
+        $this->actingAs($supervisor);
+
+        $this->createOrder($sales, $customer, OrderStatus::Pending);
+
+        Livewire::test(DashboardBreakdownTable::class, ['type' => 'order', 'category' => 'total'])
+            ->call('exportCsv')
+            ->assertFileDownloaded();
+    }
+
     private function creditRecord(User $user, array $attributes = [], ?string $agentType = null): SalesRecord
     {
         return SalesRecord::factory()->create(array_merge([

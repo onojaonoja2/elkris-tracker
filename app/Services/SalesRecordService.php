@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class SalesRecordService
@@ -493,6 +494,91 @@ class SalesRecordService
                 'proof_review_requested_at' => null,
                 'proof_review_requested_by' => null,
             ]);
+        });
+    }
+
+    /**
+     * Replace the payment proof on an outstanding credit sale with a
+     * corrected upload. Collected sales are final and cannot be changed.
+     * The previous file is removed from storage.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function replacePaymentProof(SalesRecord $record, array $data, int $uploaderId): void
+    {
+        DB::transaction(function () use ($record, $data, $uploaderId) {
+            $record = SalesRecord::whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $record->is_credit || $record->status !== 'approved' || ! $record->isOutstanding()) {
+                throw ValidationException::withMessages([
+                    'payment_proof_path' => 'Payment proof can only be replaced on an outstanding approved credit sale.',
+                ]);
+            }
+
+            if (! $record->hasPaymentProof()) {
+                throw ValidationException::withMessages([
+                    'payment_proof_path' => 'No payment proof has been uploaded yet.',
+                ]);
+            }
+
+            $oldPath = $record->payment_proof_path;
+
+            $record->update([
+                'payment_proof_path' => $data['payment_proof_path'],
+                'payment_proof_uploaded_by' => $uploaderId,
+                'payment_proof_uploaded_at' => now(),
+                'proof_review_requested_at' => null,
+                'proof_review_requested_by' => null,
+            ]);
+
+            if ($oldPath && $oldPath !== $data['payment_proof_path']) {
+                Storage::disk('s3')->delete($oldPath);
+            }
+        });
+    }
+
+    /**
+     * Replace the payment receipt on a sales record with a corrected upload.
+     * Only the owning agent or an admin may replace, and only while the
+     * record is still editable (not approved or rejected).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function replaceReceipt(SalesRecord $record, array $data, int $actorId): void
+    {
+        DB::transaction(function () use ($record, $data, $actorId) {
+            $record = SalesRecord::whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $record->receipt_path) {
+                throw ValidationException::withMessages([
+                    'receipt_path' => 'This sale has no receipt to replace.',
+                ]);
+            }
+
+            if ($record->isLocked()) {
+                throw ValidationException::withMessages([
+                    'receipt_path' => 'Receipts on approved or rejected sales cannot be changed.',
+                ]);
+            }
+
+            $actor = User::find($actorId);
+
+            if (! $actor || (! $actor->hasRole('admin') && $record->agent_id !== $actorId)) {
+                throw ValidationException::withMessages([
+                    'receipt_path' => 'You can only replace receipts on your own sales.',
+                ]);
+            }
+
+            $oldPath = $record->receipt_path;
+
+            $record->update([
+                'receipt_path' => $data['receipt_path'],
+                'receipt_original_name' => $data['receipt_original_name'] ?? $record->receipt_original_name,
+            ]);
+
+            if ($oldPath && $oldPath !== $data['receipt_path']) {
+                Storage::disk('s3')->delete($oldPath);
+            }
         });
     }
 

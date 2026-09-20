@@ -5,7 +5,6 @@ namespace App\Filament\Widgets;
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
 use App\Filament\Exports\OrderExporter;
-use App\Models\AgentStock;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\OrderAssignmentService;
@@ -18,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
 class SalesPendingOrdersWidget extends TableWidget
@@ -121,7 +121,16 @@ class SalesPendingOrdersWidget extends TableWidget
                     ->visible(fn (Order $record): bool => $record->hasPaymentProof())
                     ->modalContent(fn (Order $record) => view('filament.payment-proof', ['record' => $record]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
+                    ->modalCancelActionLabel('Close')
+                    ->modalFooterActions(fn (Order $record): array => [
+                        ...($this->canReplacePaymentProof($record) ? [$this->makeReplacePaymentProofAction('replaceProofFromPreview')->cancelParentActions()] : []),
+                        Action::make('closePreview')
+                            ->label('Close')
+                            ->color('gray')
+                            ->close(),
+                    ]),
+
+                $this->makeReplacePaymentProofAction(),
 
                 Action::make('processOrder')
                     ->label('Process')
@@ -136,21 +145,7 @@ class SalesPendingOrdersWidget extends TableWidget
                     ->action(function (Order $record) {
                         $user = auth()->user();
 
-                        $hasStock = true;
-                        foreach ($record->products as $product) {
-                            $stock = AgentStock::where([
-                                'user_id' => $user->id,
-                                'product_name' => $product->product_name,
-                                'grammage' => $product->grammage,
-                            ])->first();
-
-                            if (! $stock || $stock->quantity < $product->quantity) {
-                                $hasStock = false;
-                                break;
-                            }
-                        }
-
-                        if (! $hasStock) {
+                        if (! OrderAssignmentService::hasSufficientStock($user, $record)) {
                             Notification::make()
                                 ->title('Insufficient stock')
                                 ->body('You do not have enough stock to process this order. Please request stock from the warehouse first.')
@@ -167,7 +162,17 @@ class SalesPendingOrdersWidget extends TableWidget
                             'assignment_status' => AssignmentStatus::Accepted,
                         ]);
 
-                        OrderAssignmentService::confirmDeliveryBySales($record);
+                        try {
+                            OrderAssignmentService::markOrderDelivered($record->fresh(), null, $user->id);
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Processing failed')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
 
                         Notification::make()
                             ->title('Order processed')
@@ -218,5 +223,53 @@ class SalesPendingOrdersWidget extends TableWidget
                     ->exporter(OrderExporter::class),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    private function canReplacePaymentProof(Order $record): bool
+    {
+        return $record->status === OrderStatus::Pending && $record->hasPaymentProof();
+    }
+
+    private function makeReplacePaymentProofAction(string $name = 'replacePaymentProof'): Action
+    {
+        return Action::make($name)
+            ->label('Replace Proof')
+            ->icon('heroicon-o-arrow-path')
+            ->color('warning')
+            ->size('sm')
+            ->visible(fn (Order $record): bool => $this->canReplacePaymentProof($record))
+            ->form([
+                FileUpload::make('payment_proof_path')
+                    ->label('Payment Proof')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/payment-proofs')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->required(),
+            ])
+            ->action(function (Order $record, array $data) {
+                try {
+                    OrderAssignmentService::replacePaymentProof($record, $data['payment_proof_path'], auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Replacement failed')
+                        ->body($e->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Payment proof replaced')
+                    ->success()
+                    ->send();
+
+                $this->dispatch('refresh-dashboard');
+            })
+            ->modalHeading('Replace Payment Proof')
+            ->modalDescription('Upload a corrected proof. The previous file will be removed.');
     }
 }

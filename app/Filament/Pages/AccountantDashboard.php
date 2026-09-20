@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\AccountantCreditSalesWidget;
+use App\Filament\Widgets\AccountantCsrOverviewWidget;
 use App\Filament\Widgets\AccountantCustomersWidget;
 use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
@@ -20,6 +21,10 @@ use App\Filament\Widgets\DamagedReturnsBreakdownWidget;
 use App\Filament\Widgets\OfficeSalesStatsWidget;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
+use App\Filament\Widgets\ProductionRawMaterialsWidget;
+use App\Filament\Widgets\ProductionRunsWidget;
+use App\Filament\Widgets\ProductionStoreStockWidget;
 use App\Models\SalesRecord;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
@@ -72,6 +77,8 @@ class AccountantDashboard extends BaseDashboard
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
             $this->getCreditBreakdownAction(),
+            $this->getOrderBreakdownAction(),
+            $this->getCsrOrderBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
             $this->getRepSalesBreakdownAction(),
             $this->getStockMovementBreakdownAction(),
@@ -132,9 +139,14 @@ class AccountantDashboard extends BaseDashboard
             AccountantCreditSalesWidget::class,
             AccountantCustomersWidget::class,
             AccountantSalesRecordsWidget::class,
+            AccountantCsrOverviewWidget::class,
             AccountantRepSalesWidget::class,
             AccountantStockLevelsWidget::class,
             AccountantStockMovementsWidget::class,
+            ProductionRunsWidget::class,
+            ProductionRawMaterialsWidget::class,
+            ProductionStoreStockWidget::class,
+            ProductionOutgoingTransfersWidget::class,
         ];
     }
 }

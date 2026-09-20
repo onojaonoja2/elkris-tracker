@@ -4,11 +4,11 @@ namespace App\Filament\Widgets;
 
 use App\Models\SalesRecord;
 use App\Models\State;
+use App\Support\DashboardDateScope;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 
@@ -38,8 +38,7 @@ class SupervisorSalesByGeoWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $baseQuery = SalesRecord::query()
             ->join('users', 'sales_records.agent_id', '=', 'users.id')

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\StockTransfer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
@@ -13,6 +14,8 @@ use Livewire\Attributes\On;
 
 class WarehouseRecentMovementsWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Recent Stock Movements';
 
     protected int|string|array $columnSpan = 'full';
@@ -57,6 +60,7 @@ class WarehouseRecentMovementsWidget extends TableWidget
                     ->dateTime(),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('printPdf')
                     ->label('Print')
                     ->icon('heroicon-o-printer')

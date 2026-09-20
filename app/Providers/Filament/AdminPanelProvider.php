@@ -53,6 +53,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->profile(Profile::class)
+            ->favicon(asset('favicon.svg'))
             ->colors([
                 'primary' => Color::Cyan,
             ])

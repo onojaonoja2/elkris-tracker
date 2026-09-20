@@ -59,7 +59,7 @@ trait HasBreakdownViewAction
      */
     protected function stockTransferBreakdown(StockTransfer $record): array
     {
-        $record->loadMissing(['requester', 'fromWarehouse', 'toAgent', 'dispatcher', 'items.productType']);
+        $record->loadMissing(['requester', 'fromWarehouse', 'toWarehouse', 'toAgent', 'dispatcher', 'receiver', 'items.productType']);
 
         return [
             Fieldset::make('Request Details')
@@ -68,12 +68,21 @@ trait HasBreakdownViewAction
                     TextEntry::make('id')->label('Transfer #')->state(fn (): string => "#{$record->id}"),
                     TextEntry::make('requester.name')->label('Requested By')->default('N/A'),
                     TextEntry::make('fromWarehouse.name')->label('From Warehouse')->default('N/A'),
+                    TextEntry::make('toWarehouse.name')->label('To Warehouse')->default('N/A'),
                     TextEntry::make('toAgent.name')->label('To Agent')->default('N/A'),
                     TextEntry::make('status')->label('Status')->badge(),
                     TextEntry::make('notes')->label('Notes')->placeholder('N/A'),
                     TextEntry::make('created_at')->label('Submitted')->dateTime(),
                     TextEntry::make('supervisor_approved_at')->label('Supervisor Approved')->dateTime()->placeholder('N/A'),
                     TextEntry::make('approved_at')->label('Approved')->dateTime()->placeholder('N/A'),
+                ]),
+            Fieldset::make('Dispatch / Receipt Details')
+                ->columns(4)
+                ->schema([
+                    TextEntry::make('dispatcher.name')->label('Dispatched By')->default('N/A'),
+                    TextEntry::make('receiver.name')->label('Received By')->default('N/A'),
+                    TextEntry::make('received_at')->label('Received At')->dateTime()->placeholder('N/A'),
+                    TextEntry::make('updated_at')->label('Last Updated')->dateTime(),
                 ]),
             Section::make('Items')
                 ->schema([

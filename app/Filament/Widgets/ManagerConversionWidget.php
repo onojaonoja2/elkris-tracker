@@ -88,7 +88,7 @@ class ManagerConversionWidget extends TableWidget
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('info')
                     ->action(function () {
-                        $records = $this->getFilteredQuery()->get();
+                        $records = $this->getFilteredTableQuery()->get();
 
                         return response()->streamDownload(function () use ($records) {
                             $file = fopen('php://output', 'w');

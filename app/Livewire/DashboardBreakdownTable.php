@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DashboardBreakdownTable extends Component
 {
@@ -61,13 +62,16 @@ class DashboardBreakdownTable extends Component
     #[Computed]
     public function records(): LengthAwarePaginator
     {
+        return $this->breakdownQuery()->paginate(10);
+    }
+
+    private function breakdownQuery(): Builder
+    {
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $query = $this->type === 'credit'
+        return $this->type === 'credit'
             ? $this->creditQuery($from, $to)
             : $this->orderQuery($from, $to);
-
-        return $query->paginate(10);
     }
 
     private function creditQuery(string $from, string $to): Builder
@@ -146,10 +150,14 @@ class DashboardBreakdownTable extends Component
         }
 
         if ($this->statusFilter) {
-            $query->where('status', $this->statusFilter);
+            $query->when(
+                $this->statusFilter === 'pending',
+                fn (Builder $q) => $q->pendingDelivery(),
+                fn (Builder $q) => $q->where('status', $this->statusFilter),
+            );
         }
 
-        $this->applySearch($query, ['id'], 'customer', 'user');
+        $this->applySearch($query, ['id'], 'customer', 'user', 'assignedTo');
 
         return $query->latest('created_at');
     }
@@ -175,11 +183,56 @@ class DashboardBreakdownTable extends Component
             }
 
             foreach ($relations as $relation) {
-                $q->orWhereHas($relation, function (Builder $rq) use ($search) {
-                    $rq->whereRaw('LOWER(name) LIKE ?', [$search]);
+                $q->orWhereHas($relation, function (Builder $rq) use ($search, $relation) {
+                    $rq->whereRaw('LOWER('.($relation === 'customer' ? 'customer_name' : 'name').') LIKE ?', [$search]);
                 });
             }
         });
+    }
+
+    public function exportCsv(): StreamedResponse
+    {
+        $query = $this->breakdownQuery();
+
+        $filename = $this->type === 'order'
+            ? 'order_value_breakdown_'.date('Y_m_d_H_i_s').'.csv'
+            : 'credit_breakdown_'.date('Y_m_d_H_i_s').'.csv';
+
+        return response()->streamDownload(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            if ($this->type === 'order') {
+                fputcsv($handle, ['Order #', 'Customer', 'Submitted By', 'Assigned To', 'Value', 'Status', 'Date']);
+
+                $query->with(['customer', 'user', 'assignedTo'])->each(function (Order $order) use ($handle) {
+                    fputcsv($handle, [
+                        $order->id,
+                        $order->customer?->customer_name ?? 'N/A',
+                        $order->user?->name ?? 'N/A',
+                        $order->assignedTo?->name ?? 'N/A',
+                        (float) $order->total_price,
+                        $order->status->value,
+                        $order->created_at?->format('d/m/Y H:i'),
+                    ]);
+                });
+            } else {
+                fputcsv($handle, ['Agent', 'Customer', 'Value', 'Expected Date', 'Status', 'Created']);
+
+                $query->with('agent')->each(function (SalesRecord $record) use ($handle) {
+                    fputcsv($handle, [
+                        $record->agent?->name ?? 'N/A',
+                        $record->customer_name ?? '-',
+                        (float) $record->total_value,
+                        $record->expected_collection_date?->format('d/m/Y') ?? '-',
+                        str_replace('_', ' ', ucfirst($record->credit_status ?? $record->status)),
+                        $record->created_at?->format('d/m/Y H:i'),
+                    ]);
+                });
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 
     public function render()

@@ -194,6 +194,15 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->modalContent(fn (SalesRecord $record) => view('filament.sales-record-receipt', ['record' => $record]))
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close'),
+
+                Action::make('viewPaymentProof')
+                    ->label('View Payment Proof')
+                    ->icon('heroicon-o-photo')
+                    ->color('info')
+                    ->visible(fn (SalesRecord $record): bool => (bool) $record->payment_proof_path)
+                    ->modalContent(fn (SalesRecord $record) => view('filament.payment-proof', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
             ])
             ->headerActions([
                 ExportAction::make()

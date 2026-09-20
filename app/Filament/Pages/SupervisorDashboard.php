@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
+use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Widgets\AgentCustomerViewWidget;
 use App\Filament\Widgets\CreditSalesOutstandingStatsWidget;
@@ -16,19 +17,22 @@ use App\Filament\Widgets\SupervisorSalesByGeoWidget;
 use App\Filament\Widgets\SupervisorSalesRecordsWidget;
 use App\Filament\Widgets\SupervisorStatsWidget;
 use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
+use App\Filament\Widgets\SupervisorStockCountFinalApprovalWidget;
 use App\Filament\Widgets\SupervisorStockTransferApprovalWidget;
 use App\Filament\Widgets\SupervisorStockWidget;
 use App\Models\SalesRecord;
 use App\Models\User;
+use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DatePicker;
-use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\On;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SupervisorDashboard extends BaseDashboard
 {
     use HasDashboardBreakdownModals;
+    use HasDashboardDateFilter;
 
     protected static string $routePath = '/supervisor-dashboard';
 
@@ -59,9 +63,9 @@ class SupervisorDashboard extends BaseDashboard
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
-        if (! Session::has('supervisor_date_from')) {
-            Session::put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-            Session::put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        if (! Session::has('dashboard_date_from')) {
+            Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+            Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
         }
     }
 
@@ -81,6 +85,7 @@ class SupervisorDashboard extends BaseDashboard
             SupervisorCsrListWidget::class,
             SupervisorStockTransferApprovalWidget::class,
             SupervisorStockCountApprovalWidget::class,
+            SupervisorStockCountFinalApprovalWidget::class,
             SupervisorSalesByGeoWidget::class,
             SupervisorSalesRecordsWidget::class,
             SupervisorCreditSalesWidget::class,
@@ -105,37 +110,9 @@ class SupervisorDashboard extends BaseDashboard
                 ->button()
                 ->url(UserResource::getUrl('create')),
 
-            Action::make('filterDates')
-                ->label('Filter')
-                ->icon('heroicon-o-funnel')
-                ->button()
-                ->form([
-                    DatePicker::make('date_from')
-                        ->label('From')
-                        ->default(fn () => Session::get('supervisor_date_from', now()->startOfDay()))
-                        ->required(),
-                    DatePicker::make('date_to')
-                        ->label('To')
-                        ->default(fn () => Session::get('supervisor_date_to', now()->endOfDay()))
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    Session::put('supervisor_date_from', $data['date_from']);
-                    Session::put('supervisor_date_to', $data['date_to']);
-                    $this->dispatch('refresh-dashboard');
-                    Notification::make()->title('Filter applied')->success()->send();
-                })
-                ->modalHeading('Filter by Date Range'),
+            $this->getDateFilterAction(),
 
-            Action::make('clearFilter')
-                ->label('Today')
-                ->icon('heroicon-o-x-mark')
-                ->color('gray')
-                ->action(function () {
-                    Session::put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-                    Session::put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
-                    $this->dispatch('refresh-dashboard');
-                }),
+            $this->getClearDateFilterAction(),
 
             Action::make('exportReport')
                 ->label('Export')
@@ -146,10 +123,15 @@ class SupervisorDashboard extends BaseDashboard
         ];
     }
 
+    #[On('open-period-sales-export')]
+    public function exportPeriodSales(): StreamedResponse
+    {
+        return $this->exportReport();
+    }
+
     protected function exportReport()
     {
-        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $csrIds = User::where('role', 'community_sales_representative')->pluck('id');
 

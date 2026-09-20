@@ -59,7 +59,7 @@ class AccountantStatsOverviewWidget extends BaseWidget
                 ->description('Approved sales records in selected range')
                 ->icon('heroicon-o-banknotes')
                 ->color('success')
-                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-credit-breakdown', { category: 'total' })"]),
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-revenue-breakdown')"]),
             Stat::make('Rep Sales Value', self::formatCurrency($repSalesValue))
                 ->description('Delivered orders in selected range')
                 ->icon('heroicon-o-shopping-bag')

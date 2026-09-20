@@ -96,7 +96,7 @@ class StockTransferResource extends Resource
         return [
             'items' => [
                 'label' => 'Transfer Items',
-                'columns' => ['product_type_id', 'grammage', 'quantity', 'rejected_quantity'],
+                'columns' => ['productType.name', 'grammage', 'quantity', 'rejected_quantity'],
             ],
         ];
     }

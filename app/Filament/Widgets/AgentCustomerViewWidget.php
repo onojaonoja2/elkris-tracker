@@ -32,7 +32,7 @@ class AgentCustomerViewWidget extends BaseWidget
     public function table(Table $table): Table
     {
         $user = auth()->user();
-        $query = Customer::query()->with('orders', 'salesRecords');
+        $query = Customer::query()->with('orders');
 
         if ($user->hasRole('supervisor')) {
             $agentIds = User::where('lead_id', $user->id)
@@ -101,7 +101,7 @@ class AgentCustomerViewWidget extends BaseWidget
                         $from = $dateFilter['from'] ?? now()->startOfDay()->toDateString();
                         $to = $dateFilter['to'] ?? now()->endOfDay()->toDateString();
 
-                        $records = $this->getFilteredQuery()->get();
+                        $records = $this->getFilteredTableQuery()->get();
 
                         return response()->streamDownload(function () use ($records, $from, $to) {
                             $file = fopen('php://output', 'w');

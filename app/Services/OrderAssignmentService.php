@@ -14,6 +14,7 @@ use App\Models\StockTransaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class OrderAssignmentService
@@ -105,6 +106,33 @@ class OrderAssignmentService
         });
     }
 
+    /**
+     * Replace an existing payment proof with a corrected upload.
+     * The previous file is removed from storage.
+     */
+    public static function replacePaymentProof(Order $order, string $path, int $uploadedBy): void
+    {
+        DB::transaction(function () use ($order, $path, $uploadedBy) {
+            if (! $order->hasPaymentProof()) {
+                throw ValidationException::withMessages([
+                    'payment_proof_path' => 'No payment proof has been uploaded yet.',
+                ]);
+            }
+
+            $oldPath = $order->payment_proof_path;
+
+            $order->update([
+                'payment_proof_path' => $path,
+                'payment_proof_uploaded_by' => $uploadedBy,
+                'payment_proof_uploaded_at' => now(),
+            ]);
+
+            if ($oldPath && $oldPath !== $path) {
+                Storage::disk('s3')->delete($oldPath);
+            }
+        });
+    }
+
     public static function confirmDeliveryByCsr(Order $order): void
     {
         if (! $order->hasPaymentProof()) {
@@ -157,6 +185,81 @@ class OrderAssignmentService
                 'assignment_status' => AssignmentStatus::Delivered,
             ]);
         });
+    }
+
+    /**
+     * Mark any order as delivered through the proper delivery flow.
+     *
+     * Assigned orders are routed to the CSR or sales confirmation path based
+     * on the assignee's role, keeping status and assignment status in sync so
+     * every dashboard reflects the delivery. Unassigned orders must name the
+     * sales personnel who handled the delivery; the order is assigned to them
+     * before the sales confirmation path runs.
+     */
+    public static function markOrderDelivered(Order $order, ?User $salesHandler = null, ?int $actorId = null): void
+    {
+        $order->refresh();
+
+        if ($order->status === OrderStatus::Delivered && $order->assignment_status === AssignmentStatus::Delivered) {
+            throw ValidationException::withMessages([
+                'status' => 'This order has already been marked as delivered.',
+            ]);
+        }
+
+        if (! $order->hasPaymentProof()) {
+            throw ValidationException::withMessages([
+                'payment_proof' => 'A payment proof must be uploaded before this order can be marked as delivered.',
+            ]);
+        }
+
+        $assignee = $order->assignedTo;
+
+        if ($assignee) {
+            if ($assignee->hasRole('community_sales_representative')) {
+                static::confirmDeliveryByCsr($order);
+            } else {
+                static::confirmDeliveryBySales($order);
+            }
+
+            return;
+        }
+
+        if (! $salesHandler || ! $salesHandler->hasRole('sales')) {
+            throw ValidationException::withMessages([
+                'delivered_by_sales' => 'Select the sales personnel who handled the delivery.',
+            ]);
+        }
+
+        DB::transaction(function () use ($order, $salesHandler, $actorId) {
+            $order->update([
+                'assigned_to' => $salesHandler->id,
+                'assigned_by' => $actorId ?? auth()->id(),
+                'assigned_at' => now(),
+                'assignment_status' => AssignmentStatus::Accepted,
+            ]);
+        });
+
+        static::confirmDeliveryBySales($order->fresh());
+    }
+
+    /**
+     * Sync helper for order edit forms: when an edit leaves an order with a
+     * delivered status but an out-of-sync assignment status, run it through
+     * the delivery flow. Migrated and already-synced orders are no-ops.
+     */
+    public static function completeDeliveredEdit(Order $order, mixed $handlerId): void
+    {
+        $order->refresh();
+
+        if ($order->is_migrated_order
+            || $order->status !== OrderStatus::Delivered
+            || $order->assignment_status === AssignmentStatus::Delivered) {
+            return;
+        }
+
+        $handler = filled($handlerId) ? User::find($handlerId) : null;
+
+        static::markOrderDelivered($order, $handler, auth()->id());
     }
 
     public static function confirmDeliveryBySales(Order $order): void

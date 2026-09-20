@@ -28,10 +28,12 @@ class WarehouseForm
                     ->options([
                         'central' => 'Central Warehouse',
                         'state' => 'State Warehouse',
+                        'production' => 'Production Warehouse',
                     ])
                     ->required()
                     ->default('state')
-                    ->live(),
+                    ->live()
+                    ->helperText('Only one warehouse can be the production store — designating a new one reverts the previous designation.'),
 
                 TextInput::make('phone')
                     ->tel()

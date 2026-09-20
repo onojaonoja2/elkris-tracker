@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Inventory;
 use App\Models\ProductionRun;
 use App\Models\RawMaterial;
+use App\Models\StockTransaction;
+use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -121,20 +124,74 @@ class ProductionRunService
      */
     public static function review(ProductionRun $run, array $data, int $reviewerId): ProductionRun
     {
-        if ($run->isLocked()) {
+        return DB::transaction(function () use ($run, $data, $reviewerId) {
+            if ($run->isLocked()) {
+                throw ValidationException::withMessages([
+                    'status' => 'This production run has already been reviewed.',
+                ]);
+            }
+
+            $run->update([
+                'status' => $data['status'],
+                'accountant_notes' => $data['accountant_notes'] ?? null,
+                'accountant_reviewed_by' => $reviewerId,
+                'accountant_reviewed_at' => now(),
+            ]);
+
+            if ($run->isReviewed()) {
+                self::postFinishedGoods($run->fresh(), $reviewerId);
+            }
+
+            return $run;
+        });
+    }
+
+    /**
+     * Credit the production warehouse with the run's finished goods.
+     * Only reviewed runs carrying a product mapping post stock, exactly once.
+     */
+    public static function postFinishedGoods(ProductionRun $run, int $reviewerId): void
+    {
+        if (! $run->mapsToStockableProduct()) {
+            return;
+        }
+
+        $store = Warehouse::productionStore();
+
+        if (! $store) {
             throw ValidationException::withMessages([
-                'status' => 'This production run has already been reviewed.',
+                'status' => 'No production warehouse has been designated.',
             ]);
         }
 
-        $run->update([
-            'status' => $data['status'],
-            'accountant_notes' => $data['accountant_notes'] ?? null,
-            'accountant_reviewed_by' => $reviewerId,
-            'accountant_reviewed_at' => now(),
-        ]);
+        $inventory = Inventory::where([
+            'warehouse_id' => $store->id,
+            'product_type_id' => $run->product_type_id,
+            'grammage' => $run->grammage,
+        ])->lockForUpdate()->first();
 
-        return $run;
+        if (! $inventory) {
+            $inventory = Inventory::create([
+                'warehouse_id' => $store->id,
+                'product_type_id' => $run->product_type_id,
+                'grammage' => $run->grammage,
+                'quantity' => 0,
+            ]);
+        }
+
+        $inventory->increment('quantity', (int) $run->finished_quantity);
+
+        StockTransaction::create([
+            'type' => 'received',
+            'transaction_date' => now()->toDateString(),
+            'product_type_id' => $run->product_type_id,
+            'product_name' => $run->productType?->name ?? $run->output_name,
+            'grammage' => $run->grammage,
+            'quantity' => (int) $run->finished_quantity,
+            'disbursed_to' => 'Production Run #'.$run->id,
+            'user_id' => $reviewerId,
+            'warehouse_id' => $store->id,
+        ]);
     }
 
     public static function restoreMaterials(ProductionRun $run): void

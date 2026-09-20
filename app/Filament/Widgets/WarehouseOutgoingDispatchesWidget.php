@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\StockTransfer;
 use App\Support\DashboardDateScope;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -14,6 +15,8 @@ use Livewire\Attributes\On;
 
 class WarehouseOutgoingDispatchesWidget extends TableWidget
 {
+    use HasBreakdownViewAction;
+
     protected static ?string $heading = 'Dispatched Stocks Awaiting Receipt Confirmation';
 
     protected int|string|array $columnSpan = 'full';
@@ -65,6 +68,7 @@ class WarehouseOutgoingDispatchesWidget extends TableWidget
                     ->limit(40),
             ])
             ->recordActions([
+                $this->breakdownViewAction(),
                 Action::make('printPdf')
                     ->label('Print')
                     ->icon('heroicon-o-printer')

@@ -313,10 +313,20 @@ class SalesRecordsTable
                     ->icon('heroicon-o-photo')
                     ->color('info')
                     ->visible(fn (SalesRecord $record): bool => (bool) $record->payment_proof_path
-                        && auth()->user()->hasAnyRole(['accountant', 'general_accountant', 'supervisor', 'admin', 'sales']))
+                        && (auth()->user()->hasAnyRole(['accountant', 'general_accountant', 'supervisor', 'admin', 'sales'])
+                            || $record->agent_id === auth()->id()))
                     ->modalContent(fn (SalesRecord $record) => view('filament.payment-proof', ['record' => $record]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
+                    ->modalCancelActionLabel('Close')
+                    ->modalFooterActions(fn (SalesRecord $record): array => [
+                        ...(self::canReplacePaymentProof($record) ? [self::makeReplacePaymentProofAction('replaceProofFromPreview')->cancelParentActions()] : []),
+                        Action::make('closePreview')
+                            ->label('Close')
+                            ->color('gray')
+                            ->close(),
+                    ]),
+
+                self::makeReplacePaymentProofAction(),
 
                 // AGENT: Request payment proof review from accountants
                 Action::make('requestProofReview')
@@ -386,10 +396,21 @@ class SalesRecordsTable
                     ->label('View Receipt')
                     ->icon('heroicon-o-photo')
                     ->color('info')
-                    ->visible(fn (SalesRecord $record) => $record->receipt_path && auth()->user()->hasAnyRole(['accountant', 'supervisor', 'admin']))
+                    ->visible(fn (SalesRecord $record) => (bool) $record->receipt_path
+                        && (auth()->user()->hasAnyRole(['accountant', 'supervisor', 'admin'])
+                            || $record->agent_id === auth()->id()))
                     ->modalContent(fn (SalesRecord $record) => view('filament.sales-record-receipt', ['record' => $record]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
+                    ->modalCancelActionLabel('Close')
+                    ->modalFooterActions(fn (SalesRecord $record): array => [
+                        ...(self::canReplaceReceipt($record) ? [self::makeReplaceReceiptAction('replaceReceiptFromPreview')->cancelParentActions()] : []),
+                        Action::make('closePreview')
+                            ->label('Close')
+                            ->color('gray')
+                            ->close(),
+                    ]),
+
+                self::makeReplaceReceiptAction(),
             ]);
     }
 
@@ -406,5 +427,98 @@ class SalesRecordsTable
         }
 
         return $record->agent_id === $user->id;
+    }
+
+    private static function canReplacePaymentProof(SalesRecord $record): bool
+    {
+        return $record->is_credit
+            && $record->status === 'approved'
+            && $record->isOutstanding()
+            && $record->hasPaymentProof()
+            && self::canAttachPaymentProof($record);
+    }
+
+    private static function makeReplacePaymentProofAction(string $name = 'replacePaymentProof'): Action
+    {
+        return Action::make($name)
+            ->label('Replace Proof')
+            ->icon('heroicon-o-arrow-path')
+            ->color('warning')
+            ->visible(fn (SalesRecord $record): bool => self::canReplacePaymentProof($record))
+            ->form([
+                FileUpload::make('payment_proof_path')
+                    ->label('Payment Proof')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/payment-proofs')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->required(),
+            ])
+            ->action(function (SalesRecord $record, array $data) {
+                try {
+                    SalesRecordService::replacePaymentProof($record, $data, auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Replacement failed')
+                        ->body($e->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Payment proof replaced')->success()->send();
+            })
+            ->modalHeading('Replace Payment Proof')
+            ->modalDescription('Upload a corrected proof. The previous file will be removed.');
+    }
+
+    private static function canReplaceReceipt(SalesRecord $record): bool
+    {
+        $user = auth()->user();
+
+        return (bool) $record->receipt_path
+            && ! $record->isLocked()
+            && ($user?->hasRole('admin') || $record->agent_id === $user?->id);
+    }
+
+    private static function makeReplaceReceiptAction(string $name = 'replaceReceipt'): Action
+    {
+        return Action::make($name)
+            ->label('Replace Receipt')
+            ->icon('heroicon-o-arrow-path')
+            ->color('warning')
+            ->visible(fn (SalesRecord $record): bool => self::canReplaceReceipt($record))
+            ->form([
+                FileUpload::make('receipt_path')
+                    ->label('Payment Receipt / Slip')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/sales-records')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->storeFileNamesIn('receipt_original_name')
+                    ->required(),
+            ])
+            ->action(function (SalesRecord $record, array $data) {
+                try {
+                    SalesRecordService::replaceReceipt($record, $data, auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Replacement failed')
+                        ->body($e->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Receipt replaced')->success()->send();
+            })
+            ->modalHeading('Replace Receipt')
+            ->modalDescription('Upload a corrected receipt. The previous file will be removed.');
     }
 }

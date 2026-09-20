@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Dashboards;
 
+use App\Enums\OrderStatus;
 use App\Enums\StockTransferStatus;
 use App\Filament\Pages\SupervisorDashboard;
 use App\Filament\Widgets\AccountantStockReceiveRequestsWidget;
@@ -13,9 +14,12 @@ use App\Filament\Widgets\SupervisorSalesRecordsWidget;
 use App\Filament\Widgets\SupervisorStatsWidget;
 use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
 use App\Filament\Widgets\SupervisorStockTransferApprovalWidget;
+use App\Livewire\CsrOrderBreakdownTable;
 use App\Livewire\RevenueBreakdownTable;
+use App\Models\Customer;
 use App\Models\DamagedStockReturn;
 use App\Models\Inventory;
+use App\Models\Order;
 use App\Models\ProductType;
 use App\Models\SalesRecord;
 use App\Models\StockCount;
@@ -23,7 +27,9 @@ use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Session;
 use Livewire\Livewire;
+use OpenSpout\Reader\XLSX\Reader;
 use Tests\TestCase;
 
 class SupervisorDashboardTest extends TestCase
@@ -82,6 +88,138 @@ class SupervisorDashboardTest extends TestCase
             ->call('selectAgent', $csr->id)
             ->assertSee('Revenue Agent')
             ->assertSee('Drilldown Customer');
+    }
+
+    public function test_revenue_stat_has_export_button(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        Livewire::test(SupervisorStatsWidget::class)
+            ->assertSee('open-period-sales-export', escape: false)
+            ->assertSee('Export');
+    }
+
+    public function test_open_period_sales_export_returns_csv(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        $csr = User::factory()->communitySalesRepresentative()->create();
+        SalesRecord::factory()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+        ]);
+
+        Livewire::test(SupervisorDashboard::class)
+            ->call('exportPeriodSales')
+            ->assertFileDownloaded();
+    }
+
+    public function test_filter_action_writes_shared_dashboard_date_keys(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        Livewire::test(SupervisorDashboard::class)
+            ->callAction('filterDates', data: [
+                'date_from' => now()->subDays(7)->toDateString(),
+                'date_to' => now()->toDateString(),
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(now()->subDays(7)->toDateString(), session()->get('dashboard_date_from'));
+        $this->assertSame(now()->toDateString(), session()->get('dashboard_date_to'));
+    }
+
+    public function test_revenue_breakdown_exports_summary_and_drilldown(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Export Agent']);
+        SalesRecord::factory()->approved()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'is_credit' => false,
+            'total_value' => 5000,
+            'customer_name' => 'Export Customer',
+        ]);
+
+        Livewire::test(RevenueBreakdownTable::class)
+            ->call('exportCsv')
+            ->assertFileDownloaded();
+
+        Livewire::test(RevenueBreakdownTable::class)
+            ->call('selectAgent', $csr->id)
+            ->call('exportCsv')
+            ->assertFileDownloaded();
+    }
+
+    public function test_csr_completed_orders_breakdown_shows_name_count_and_value(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        session()->put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        session()->put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Top CSR']);
+        $sales = User::factory()->sales()->create();
+        $customer = Customer::factory()->create();
+
+        $this->createCsrOrder($sales, $csr, $customer, ['total_price' => 4000]);
+        $this->createCsrOrder($sales, $csr, $customer, ['total_price' => 6000]);
+
+        Livewire::test(CsrOrderBreakdownTable::class)
+            ->assertSee('Top CSR')
+            ->assertSee('>2<', false)
+            ->assertSee('₦10,000.00');
+    }
+
+    public function test_csr_completed_orders_breakdown_respects_supervisor_period(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        session()->put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        session()->put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Period CSR']);
+        $sales = User::factory()->sales()->create();
+        $customer = Customer::factory()->create();
+
+        $this->createCsrOrder($sales, $csr, $customer, ['total_price' => 5000, 'created_at' => now()]);
+        $this->createCsrOrder($sales, $csr, $customer, ['total_price' => 9000, 'created_at' => now()->subDays(30)]);
+
+        Livewire::test(CsrOrderBreakdownTable::class)
+            ->assertSee('Period CSR')
+            ->assertSee('>1<', false)
+            ->assertSee('₦5,000.00')
+            ->assertDontSee('₦9,000.00');
+    }
+
+    public function test_csr_completed_orders_breakdown_exports_summary_and_detail(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Export CSR']);
+        $sales = User::factory()->sales()->create();
+        $customer = Customer::factory()->create();
+
+        $order = $this->createCsrOrder($sales, $csr, $customer, ['total_price' => 7500]);
+
+        Livewire::test(CsrOrderBreakdownTable::class)
+            ->call('exportCsv')
+            ->assertFileDownloaded();
+
+        Livewire::test(CsrOrderBreakdownTable::class)
+            ->call('selectCsr', $csr->id)
+            ->assertSee('>#'.$order->id.'<', false)
+            ->assertSee('₦7,500.00')
+            ->call('exportCsv')
+            ->assertFileDownloaded();
     }
 
     public function test_supervisor_widgets_expose_view_actions(): void
@@ -270,5 +408,161 @@ class SupervisorDashboardTest extends TestCase
             'grammage' => 100,
             'quantity' => 35,
         ]);
+    }
+
+    public function test_supervisor_csr_overview_shows_order_and_credit_aggregates(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        $csr = User::factory()->communitySalesRepresentative()->create();
+        $otherCsr = User::factory()->communitySalesRepresentative()->create();
+        $customer = Customer::factory()->create();
+
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $this->createCsrOrder($supervisor, $csr, $customer, ['total_price' => 1000.00]);
+        $this->createCsrOrder($supervisor, $csr, $customer, ['total_price' => 2500.00]);
+        $this->createCsrOrder($supervisor, $csr, $customer, [
+            'total_price' => 9000.00,
+            'created_at' => now()->subDays(3),
+        ]);
+        $this->createCsrOrder($supervisor, $otherCsr, $customer, ['total_price' => 5000.00]);
+        $this->createCsrOrder($supervisor, $csr, $customer, [
+            'status' => 'pending',
+            'total_price' => 1500.00,
+        ]);
+        $this->createCsrOrder($supervisor, $csr, $customer, [
+            'status' => OrderStatus::Cancelled,
+            'total_price' => 2000.00,
+        ]);
+
+        SalesRecord::factory()->approved()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 5000.00,
+        ]);
+        SalesRecord::factory()->credit()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 3000.00,
+        ]);
+        SalesRecord::factory()->collected()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 900.00,
+        ]);
+        SalesRecord::factory()->credit()->create([
+            'agent_id' => $otherCsr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 500.00,
+        ]);
+
+        Livewire::test(SupervisorCsrListWidget::class)
+            ->assertTableColumnStateSet('completed_orders', 2, $csr)
+            ->assertTableColumnStateSet('completed_value', 3500.0, $csr)
+            ->assertTableColumnStateSet('pending_orders', 1, $csr)
+            ->assertTableColumnStateSet('pending_value', 1500.0, $csr)
+            ->assertTableColumnStateSet('credit_sales_value', 3000.0, $csr)
+            ->assertTableColumnStateSet('sales_count', 3, $csr)
+            ->assertTableColumnStateSet('sales_value', 8900.0, $csr)
+            ->assertTableColumnStateSet('completed_orders', 1, $otherCsr)
+            ->assertTableColumnStateSet('credit_sales_value', 500.0, $otherCsr)
+            ->mountTableAction('view', $csr->id)
+            ->assertMountedActionModalSee('Order Summary')
+            ->assertMountedActionModalSee('Sales Summary')
+            ->assertMountedActionModalSee('Pending Orders')
+            ->assertMountedActionModalSee('Credit Sales Value');
+    }
+
+    public function test_supervisor_csr_overview_export_streams_xlsx_with_full_details(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        $csr = User::factory()->communitySalesRepresentative()->create();
+        $customer = Customer::factory()->create();
+
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $this->createCsrOrder($supervisor, $csr, $customer, ['total_price' => 2500.00]);
+        $this->createCsrOrder($supervisor, $csr, $customer, [
+            'status' => 'pending',
+            'total_price' => 1500.00,
+        ]);
+        SalesRecord::factory()->approved()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 5000.00,
+        ]);
+        SalesRecord::factory()->credit()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 3000.00,
+        ]);
+
+        $widget = Livewire::test(SupervisorCsrListWidget::class)->instance();
+        $response = $widget->exportXlsx();
+
+        $this->assertSame(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->headers->get('Content-Type'),
+        );
+        $this->assertStringContainsString('.xlsx', $response->headers->get('Content-Disposition'));
+
+        ob_start();
+        $response->sendContent();
+        $content = ob_get_clean();
+
+        $path = tempnam(sys_get_temp_dir(), 'export_').'.xlsx';
+        file_put_contents($path, $content);
+
+        $reader = new Reader;
+        $reader->open($path);
+
+        $rows = [];
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $rows[] = array_map(fn ($cell) => $cell->getValue(), $row->getCells());
+            }
+        }
+
+        $reader->close();
+        unlink($path);
+
+        $this->assertSame([
+            'CSR Name', 'LGA', 'State', 'Status', 'Stock Units',
+            'Sales Count', 'Sales Value', 'Credit Sales Value',
+            'Completed Orders', 'Completed Value', 'Pending Orders', 'Pending Value',
+        ], $rows[0]);
+
+        $this->assertEquals([
+            $csr->name,
+            'N/A',
+            'N/A',
+            'Active',
+            0,
+            2,
+            8000.0,
+            3000.0,
+            1,
+            2500.0,
+            1,
+            1500.0,
+        ], $rows[1] ?? []);
+    }
+
+    private function createCsrOrder(User $submitter, User $csr, Customer $customer, array $attributes = []): Order
+    {
+        return Order::factory()->create(array_merge([
+            'customer_id' => $customer->id,
+            'user_id' => $submitter->id,
+            'assigned_to' => $csr->id,
+            'status' => OrderStatus::Delivered,
+            'total_price' => 1000.00,
+            'is_migrated_order' => false,
+        ], $attributes));
     }
 }

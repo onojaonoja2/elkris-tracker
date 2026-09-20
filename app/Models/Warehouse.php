@@ -63,4 +63,27 @@ class Warehouse extends Model
     {
         return $this->hasMany(StockTransfer::class, 'to_warehouse_id');
     }
+
+    public function isProductionStore(): bool
+    {
+        return $this->type === 'production';
+    }
+
+    public static function productionStore(): ?self
+    {
+        return static::where('type', 'production')->where('is_active', true)->first();
+    }
+
+    protected static function booted(): void
+    {
+        // There can only be one designated production store: designating a
+        // new one transparently reverts any previous designation.
+        static::saving(function (Warehouse $warehouse) {
+            if ($warehouse->type === 'production') {
+                static::where('type', 'production')
+                    ->whereKeyNot($warehouse->getKey() ?? 0)
+                    ->update(['type' => 'state']);
+            }
+        });
+    }
 }

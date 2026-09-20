@@ -9,9 +9,11 @@ use App\Filament\Traits\HasViewModal;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\ProductType;
+use App\Models\User;
 use App\Services\OrderAssignmentService;
 use BackedEnum;
 use Carbon\Carbon;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
@@ -38,7 +40,7 @@ class OrderResource extends Resource
 {
     use HasRoleBasedNavigationGroup, HasViewModal;
 
-    protected static array $navigationRoles = ['admin', 'manager', 'general_manager', 'sales', 'rep', 'lead'];
+    protected static array $navigationRoles = ['admin', 'manager', 'general_manager', 'sales', 'rep', 'lead', 'accountant', 'general_accountant'];
 
     protected static ?string $model = Order::class;
 
@@ -48,7 +50,12 @@ class OrderResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasAnyRole(['admin', 'sales', 'rep', 'lead', 'manager']);
+        return auth()->user()->hasAnyRole(['admin', 'sales', 'rep', 'lead', 'manager', 'accountant', 'general_accountant']);
+    }
+
+    public static function canCreate(): bool
+    {
+        return ! auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -67,7 +74,48 @@ class OrderResource extends Resource
                     ->required(),
                 Select::make('status')
                     ->options(OrderStatus::class)
-                    ->required(),
+                    ->required()
+                    ->live()
+                    ->rules([
+                        fn (Get $get, ?Order $record): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get, $record) {
+                            $status = $value instanceof BackedEnum ? $value->value : $value;
+
+                            if ($status !== OrderStatus::Delivered->value) {
+                                return;
+                            }
+
+                            if ($record && ($record->status === OrderStatus::Delivered || $record->is_migrated_order)) {
+                                return;
+                            }
+
+                            if (! $record?->hasPaymentProof()) {
+                                $fail('A payment proof must be uploaded before this order can be marked as delivered.');
+
+                                return;
+                            }
+
+                            $handlerId = $get('delivered_by_sales');
+
+                            if (blank($record?->assigned_to) && blank($handlerId)) {
+                                $fail('Select the sales personnel who handled the delivery.');
+
+                                return;
+                            }
+
+                            $processor = $record->assignedTo ?? ($handlerId ? User::find($handlerId) : null);
+
+                            if ($processor && ! OrderAssignmentService::hasSufficientStock($processor, $record)) {
+                                $fail("{$processor->name} does not hold enough stock to deliver this order.");
+                            }
+                        },
+                    ]),
+                Select::make('delivered_by_sales')
+                    ->label('Delivered By (Sales Personnel)')
+                    ->helperText('Select the sales personnel who handled the delivery.')
+                    ->options(fn () => User::where('role', 'sales')->active()->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->visible(fn (Get $get, ?Order $record): bool => self::isDeliveredSelected($get('status')) && blank($record?->assigned_to) && ! ($record?->is_migrated_order ?? false))
+                    ->required(fn (Get $get, ?Order $record): bool => self::isDeliveredSelected($get('status')) && blank($record?->assigned_to) && ! ($record?->is_migrated_order ?? false)),
                 DatePicker::make('expected_delivery_date')
                     ->label('Expected Delivery Date')
                     ->native(false)
@@ -154,6 +202,56 @@ class OrderResource extends Resource
                     ->dehydrated()
                     ->default(0),
             ]);
+    }
+
+    private static function isDeliveredSelected(mixed $status): bool
+    {
+        $value = $status instanceof BackedEnum ? $status->value : $status;
+
+        return $value === OrderStatus::Delivered->value;
+    }
+
+    private static function canReplacePaymentProof(Order $record): bool
+    {
+        return $record->hasPaymentProof()
+            && auth()->user()->hasAnyRole(['admin', 'sales', 'rep', 'lead']);
+    }
+
+    private static function makeReplacePaymentProofAction(string $name = 'replacePaymentProof'): Action
+    {
+        return Action::make($name)
+            ->label('Replace Proof')
+            ->icon('heroicon-o-arrow-path')
+            ->color('warning')
+            ->visible(fn (Order $record): bool => self::canReplacePaymentProof($record))
+            ->form([
+                FileUpload::make('payment_proof_path')
+                    ->label('Payment Proof')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/payment-proofs')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->required(),
+            ])
+            ->action(function (Order $record, array $data) {
+                try {
+                    OrderAssignmentService::replacePaymentProof($record, $data['payment_proof_path'], auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Replacement failed')
+                        ->body($e->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Payment proof replaced')->success()->send();
+            })
+            ->modalHeading('Replace Payment Proof')
+            ->modalDescription('Upload a corrected proof. The previous file will be removed.');
     }
 
     private static function recalculateLineTotal(Set $set, Get $get): void
@@ -329,7 +427,16 @@ class OrderResource extends Resource
                     ->visible(fn (Order $record): bool => $record->hasPaymentProof())
                     ->modalContent(fn (Order $record) => view('filament.payment-proof', ['record' => $record]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
+                    ->modalCancelActionLabel('Close')
+                    ->modalFooterActions(fn (Order $record): array => [
+                        ...(self::canReplacePaymentProof($record) ? [self::makeReplacePaymentProofAction('replaceProofFromPreview')->cancelParentActions()] : []),
+                        Action::make('closePreview')
+                            ->label('Close')
+                            ->color('gray')
+                            ->close(),
+                    ]),
+
+                self::makeReplacePaymentProofAction(),
 
                 Action::make('view_customer')
                     ->label('View Customer')
@@ -385,7 +492,19 @@ class OrderResource extends Resource
 
                         return $entries;
                     }),
-                EditAction::make()->visible(fn () => auth()->user()->hasAnyRole(['admin', 'sales'])),
+                EditAction::make()
+                    ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'sales']))
+                    ->after(function (Order $record, array $data): void {
+                        try {
+                            OrderAssignmentService::completeDeliveredEdit($record, $data['delivered_by_sales'] ?? null);
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Delivery sync failed')
+                                ->body($e->getMessage())
+                                ->send();
+                        }
+                    }),
             ])
             ->toolbarActions([
                 Action::make('export')
@@ -428,7 +547,7 @@ class OrderResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $user = auth()->user();
-        if (auth()->user()->hasAnyRole(['admin', 'sales'])) {
+        if (auth()->user()->hasAnyRole(['admin', 'sales', 'accountant', 'general_accountant'])) {
             return parent::getEloquentQuery();
         }
 

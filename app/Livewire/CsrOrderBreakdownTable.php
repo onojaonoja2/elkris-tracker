@@ -6,12 +6,14 @@ use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\DashboardDateScope;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CsrOrderBreakdownTable extends Component
 {
@@ -62,27 +64,47 @@ class CsrOrderBreakdownTable extends Component
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{id: int, name: string, completed: int}>
+     * @return LengthAwarePaginator<int, array{id: int, name: string, completed: int, value: float}>
      */
     #[Computed]
     public function summaryRows(): LengthAwarePaginator
     {
-        [$from, $to] = DashboardDateScope::fromSession();
+        return $this->summaryCollection()->pipe(function (Collection $rows): LengthAwarePaginator {
+            $page = $this->getPage();
+
+            return new LengthAwarePaginator(
+                $rows->forPage($page, 10)->values(),
+                $rows->count(),
+                10,
+                $page,
+                ['path' => LengthAwarePaginator::resolveCurrentPath()],
+            );
+        });
+    }
+
+    /**
+     * @return Collection<int, array{id: int, name: string, completed: int, value: float}>
+     */
+    private function summaryCollection(): Collection
+    {
+        [$from, $to] = $this->scope();
 
         $counts = Order::query()
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to])
             ->where('status', OrderStatus::Delivered)
             ->whereIn('assigned_to', $this->csrs()->pluck('id'))
-            ->selectRaw('assigned_to, COUNT(*) as completed')
+            ->selectRaw('assigned_to, COUNT(*) as completed, COALESCE(SUM(total_price), 0) as value')
             ->groupBy('assigned_to')
-            ->pluck('completed', 'assigned_to');
+            ->get()
+            ->keyBy('assigned_to');
 
         return $this->csrs()
             ->map(fn (User $csr): array => [
                 'id' => $csr->id,
                 'name' => $csr->name,
-                'completed' => (int) ($counts->get($csr->id) ?? 0),
+                'completed' => (int) ($counts->get($csr->id)?->completed ?? 0),
+                'value' => (float) ($counts->get($csr->id)?->value ?? 0),
             ])
             ->sortByDesc('completed')
             ->values()
@@ -91,17 +113,6 @@ class CsrOrderBreakdownTable extends Component
 
                 return $rows->filter(fn (array $row): bool => str_contains(strtolower($row['name']), $search))
                     ->values();
-            })
-            ->pipe(function (Collection $rows): LengthAwarePaginator {
-                $page = $this->getPage();
-
-                return new LengthAwarePaginator(
-                    $rows->forPage($page, 10)->values(),
-                    $rows->count(),
-                    10,
-                    $page,
-                    ['path' => LengthAwarePaginator::resolveCurrentPath()],
-                );
             });
     }
 
@@ -127,7 +138,7 @@ class CsrOrderBreakdownTable extends Component
             return new LengthAwarePaginator([], 0, 10, $this->getPage(), ['path' => LengthAwarePaginator::resolveCurrentPath()]);
         }
 
-        [$from, $to] = DashboardDateScope::fromSession();
+        [$from, $to] = $this->scope();
 
         $query = Order::query()
             ->where('is_migrated_order', false)
@@ -154,6 +165,58 @@ class CsrOrderBreakdownTable extends Component
     private function csrs(): Collection
     {
         return User::where('role', 'community_sales_representative')->active()->orderBy('name')->get();
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function scope(): array
+    {
+        return DashboardDateScope::fromSession();
+    }
+
+    public function exportCsv(): StreamedResponse
+    {
+        $filename = 'csr_completed_orders_'.date('Y_m_d_H_i_s').'.csv';
+
+        return response()->streamDownload(function () {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            if ($this->selectedCsrId === null) {
+                fputcsv($handle, ['CSR', 'Completed Orders', 'Completed Value (₦)']);
+
+                foreach ($this->summaryCollection() as $row) {
+                    fputcsv($handle, [$row['name'], $row['completed'], $row['value']]);
+                }
+
+                fclose($handle);
+
+                return;
+            }
+
+            fputcsv($handle, ['Order #', 'Customer', 'Value', 'Date']);
+
+            [$from, $to] = $this->scope();
+
+            Order::query()
+                ->where('is_migrated_order', false)
+                ->whereBetween('created_at', [$from, $to])
+                ->where('status', OrderStatus::Delivered)
+                ->where('assigned_to', $this->selectedCsrId)
+                ->with('customer')
+                ->latest('created_at')
+                ->each(function (Order $order) use ($handle) {
+                    fputcsv($handle, [
+                        $order->id,
+                        $order->customer?->customer_name ?? '-',
+                        (float) $order->total_price,
+                        $order->created_at->format('d/m/Y H:i'),
+                    ]);
+                });
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 
     public function render()

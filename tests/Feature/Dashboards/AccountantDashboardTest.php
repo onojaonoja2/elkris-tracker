@@ -5,9 +5,11 @@ namespace Tests\Feature\Dashboards;
 use App\Enums\StockTransferStatus;
 use App\Filament\Pages\AccountantDashboard;
 use App\Filament\Widgets\AccountantCreditSalesWidget;
+use App\Filament\Widgets\AccountantCsrOverviewWidget;
 use App\Filament\Widgets\AccountantDamagedReturnsWidget;
 use App\Filament\Widgets\AccountantRepSalesWidget;
 use App\Filament\Widgets\AccountantSalesRecordsWidget;
+use App\Filament\Widgets\AccountantStatsOverviewWidget;
 use App\Filament\Widgets\AccountantStockCountApprovalWidget;
 use App\Filament\Widgets\AccountantStockLevelsWidget;
 use App\Filament\Widgets\AccountantStockMovementsWidget;
@@ -27,7 +29,9 @@ use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Session;
 use Livewire\Livewire;
+use OpenSpout\Reader\XLSX\Reader;
 use Tests\TestCase;
 
 class AccountantDashboardTest extends TestCase
@@ -360,5 +364,182 @@ class AccountantDashboardTest extends TestCase
             ->assertSee('Transfer In')
             ->assertDontSee('Stock Count')
             ->assertDontSee('Damaged Return');
+    }
+
+    public function test_accountant_csr_overview_shows_aggregates_and_breakdown_modal(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $this->actingAs($accountant);
+
+        $csr = User::factory()->communitySalesRepresentative()->create();
+        $otherCsr = User::factory()->communitySalesRepresentative()->create();
+        $customer = Customer::factory()->create();
+
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $this->createCsrOrder($accountant, $csr, $customer, ['total_price' => 1000.00]);
+        $this->createCsrOrder($accountant, $csr, $customer, ['total_price' => 2500.00]);
+        $this->createCsrOrder($accountant, $csr, $customer, [
+            'total_price' => 9000.00,
+            'created_at' => now()->subDays(3),
+        ]);
+        $this->createCsrOrder($accountant, $csr, $customer, [
+            'status' => 'pending',
+            'total_price' => 1500.00,
+        ]);
+        $this->createCsrOrder($accountant, $otherCsr, $customer, [
+            'status' => 'pending',
+            'total_price' => 6000.00,
+        ]);
+
+        SalesRecord::factory()->approved()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 5000.00,
+        ]);
+        SalesRecord::factory()->credit()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 3000.00,
+        ]);
+        SalesRecord::factory()->collected()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 900.00,
+        ]);
+
+        Livewire::test(AccountantCsrOverviewWidget::class)
+            ->assertTableColumnStateSet('completed_orders', 2, $csr)
+            ->assertTableColumnStateSet('completed_value', 3500.0, $csr)
+            ->assertTableColumnStateSet('pending_orders', 1, $csr)
+            ->assertTableColumnStateSet('pending_value', 1500.0, $csr)
+            ->assertTableColumnStateSet('credit_sales_value', 3000.0, $csr)
+            ->assertTableColumnStateSet('sales_count', 3, $csr)
+            ->assertTableColumnStateSet('sales_value', 8900.0, $csr)
+            ->assertTableColumnStateSet('pending_orders', 1, $otherCsr)
+            ->assertTableColumnStateSet('pending_value', 6000.0, $otherCsr)
+            ->mountTableAction('view', $csr->id)
+            ->assertMountedActionModalSee('Sales Summary')
+            ->assertMountedActionModalSee('Order Summary')
+            ->assertMountedActionModalSee('Completed Value')
+            ->assertMountedActionModalSee('Pending Value');
+    }
+
+    public function test_accountant_csr_overview_is_read_only_and_exports_xlsx(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $this->actingAs($accountant);
+
+        $csr = User::factory()->communitySalesRepresentative()->create();
+        $customer = Customer::factory()->create();
+        $this->createCsrOrder($accountant, $csr, $customer, ['total_price' => 2500.00]);
+
+        Livewire::test(AccountantCsrOverviewWidget::class)
+            ->assertTableColumnExists('stock_units')
+            ->assertTableColumnExists('completed_orders')
+            ->assertTableActionExists('view');
+
+        $widget = Livewire::test(AccountantCsrOverviewWidget::class)->instance();
+        $response = $widget->exportXlsx();
+
+        $this->assertSame(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            $response->headers->get('Content-Type'),
+        );
+
+        ob_start();
+        $response->sendContent();
+        $content = ob_get_clean();
+
+        $path = tempnam(sys_get_temp_dir(), 'acct_').'.xlsx';
+        file_put_contents($path, $content);
+
+        $reader = new Reader;
+        $reader->open($path);
+
+        $rows = [];
+        foreach ($reader->getSheetIterator() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                $rows[] = array_map(fn ($cell) => $cell->getValue(), $row->getCells());
+            }
+        }
+
+        $reader->close();
+        unlink($path);
+
+        $this->assertSame([
+            'CSR Name', 'LGA', 'State', 'Status', 'Stock Units',
+            'Sales Count', 'Sales Value', 'Credit Sales Value',
+            'Completed Orders', 'Completed Value', 'Pending Orders', 'Pending Value',
+        ], $rows[0]);
+
+        $this->assertEquals([
+            $csr->name,
+            'N/A',
+            'N/A',
+            'Active',
+            0,
+            0,
+            0.0,
+            0.0,
+            1,
+            2500.0,
+            0,
+            0.0,
+        ], $rows[1] ?? []);
+    }
+
+    public function test_channel_sales_card_opens_revenue_breakdown_not_credit_breakdown(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $this->actingAs($accountant);
+
+        Livewire::test(AccountantStatsOverviewWidget::class)
+            ->assertSeeHtml("\$dispatch('open-revenue-breakdown')")
+            ->assertSeeHtml("\$dispatch('open-credit-breakdown', { category: 'total' })");
+    }
+
+    public function test_accountant_sales_records_widget_exposes_payment_proof_download(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $this->actingAs($accountant);
+
+        $csr = User::factory()->communitySalesRepresentative()->create();
+
+        $withProof = SalesRecord::factory()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 2000.00,
+            'status' => 'receipt_uploaded',
+            'supervisor_verified_at' => now(),
+            'payment_proof_path' => 'proofs/proof_a.jpg',
+        ]);
+
+        $withoutProof = SalesRecord::factory()->create([
+            'agent_id' => $csr->id,
+            'agent_type' => 'community_sales_representative',
+            'total_value' => 800.00,
+            'status' => 'receipt_uploaded',
+            'supervisor_verified_at' => now(),
+            'payment_proof_path' => null,
+        ]);
+
+        Livewire::test(AccountantSalesRecordsWidget::class)
+            ->assertTableActionExists('viewPaymentProof')
+            ->assertTableActionVisible('viewPaymentProof', $withProof)
+            ->assertTableActionHidden('viewPaymentProof', $withoutProof);
+    }
+
+    private function createCsrOrder(User $submitter, User $csr, Customer $customer, array $attributes = []): Order
+    {
+        return Order::factory()->create(array_merge([
+            'customer_id' => $customer->id,
+            'user_id' => $submitter->id,
+            'assigned_to' => $csr->id,
+            'status' => 'delivered',
+            'total_price' => 1000.00,
+            'is_migrated_order' => false,
+        ], $attributes));
     }
 }
