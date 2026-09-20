@@ -8,7 +8,6 @@ use App\Support\DashboardDateScope;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -49,13 +48,6 @@ class RevenueBreakdownTable extends Component
      */
     private function scope(): array
     {
-        if (auth()->user()?->hasRole('supervisor')) {
-            $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-            $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
-
-            return [$from, $to];
-        }
-
         $scope = DashboardDateScope::fromSession();
 
         return [$scope[0]->toDateTimeString(), $scope[1]->toDateTimeString()];

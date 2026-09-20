@@ -29,11 +29,9 @@ class UserForm
                 TextInput::make('phone')
                     ->label('Phone Number')
                     ->tel()
-                    ->placeholder('e.g. +2348012345678')
-                    ->visible(fn (string $operation): bool => $operation === 'edit'),
+                    ->placeholder('e.g. +2348012345678'),
                 Checkbox::make('sms_notifications')
-                    ->label('Receive SMS notifications')
-                    ->visible(fn (string $operation): bool => $operation === 'edit'),
+                    ->label('Receive SMS notifications'),
                 DateTimePicker::make('email_verified_at'),
                 TextInput::make('password')
                     ->password()

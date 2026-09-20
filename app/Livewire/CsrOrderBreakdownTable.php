@@ -10,7 +10,6 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -173,13 +172,6 @@ class CsrOrderBreakdownTable extends Component
      */
     private function scope(): array
     {
-        if (auth()->user()?->hasRole('supervisor')) {
-            $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-            $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
-
-            return [Carbon::parse($from), Carbon::parse($to)];
-        }
-
         return DashboardDateScope::fromSession();
     }
 

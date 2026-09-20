@@ -126,6 +126,10 @@ class ManagerDashboard extends BaseDashboard
                         ->email()
                         ->required()
                         ->unique('users', 'email'),
+                    TextInput::make('phone')
+                        ->label('Phone Number')
+                        ->tel()
+                        ->placeholder('e.g. +2348012345678'),
                     Select::make('role')
                         ->label('Agent Type')
                         ->options([
@@ -172,6 +176,7 @@ class ManagerDashboard extends BaseDashboard
                     $user = User::create([
                         'name' => $data['name'],
                         'email' => $data['email'],
+                        'phone' => $data['phone'] ?? null,
                         'role' => $data['role'],
                         'state_id' => $data['state_id'],
                         'lga_id' => $data['lga_id'],

@@ -7,6 +7,7 @@ use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\SalesRecord;
 use App\Models\User;
 use App\Services\SalesRecordService;
+use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Textarea;
@@ -16,7 +17,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
@@ -35,8 +35,7 @@ class SupervisorSalesRecordsWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
 

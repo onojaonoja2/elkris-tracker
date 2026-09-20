@@ -125,7 +125,16 @@ class AccountantCreditSalesWidget extends TableWidget
                     ->visible(fn (SalesRecord $record): bool => (bool) $record->payment_proof_path)
                     ->modalContent(fn (SalesRecord $record) => view('filament.payment-proof', ['record' => $record]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
+                    ->modalCancelActionLabel('Close')
+                    ->modalFooterActions(fn (SalesRecord $record): array => [
+                        ...($this->canReplacePaymentProof($record) ? [$this->makeReplacePaymentProofAction('replaceProofFromPreview')->cancelParentActions()] : []),
+                        Action::make('closePreview')
+                            ->label('Close')
+                            ->color('gray')
+                            ->close(),
+                    ]),
+
+                $this->makeReplacePaymentProofAction(),
 
                 Action::make('markCollected')
                     ->label('Mark as Collected')
@@ -186,5 +195,47 @@ class AccountantCreditSalesWidget extends TableWidget
                         Notification::make()->title('Payment recorded')->success()->send();
                     }),
             ]);
+    }
+
+    private function canReplacePaymentProof(SalesRecord $record): bool
+    {
+        return $record->isOutstanding() && $record->hasPaymentProof();
+    }
+
+    private function makeReplacePaymentProofAction(string $name = 'replacePaymentProof'): Action
+    {
+        return Action::make($name)
+            ->label('Replace Proof')
+            ->icon('heroicon-o-arrow-path')
+            ->color('warning')
+            ->visible(fn (SalesRecord $record): bool => $this->canReplacePaymentProof($record))
+            ->form([
+                FileUpload::make('payment_proof_path')
+                    ->label('Payment Proof')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/payment-proofs')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->required(),
+            ])
+            ->action(function (SalesRecord $record, array $data) {
+                try {
+                    SalesRecordService::replacePaymentProof($record, $data, auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Replacement failed')
+                        ->body($e->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Payment proof replaced')->success()->send();
+            })
+            ->modalHeading('Replace Payment Proof')
+            ->modalDescription('Upload a corrected proof. The previous file will be removed.');
     }
 }

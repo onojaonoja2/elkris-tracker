@@ -116,6 +116,22 @@ class SupervisorDashboardTest extends TestCase
             ->assertFileDownloaded();
     }
 
+    public function test_filter_action_writes_shared_dashboard_date_keys(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $this->actingAs($supervisor);
+
+        Livewire::test(SupervisorDashboard::class)
+            ->callAction('filterDates', data: [
+                'date_from' => now()->subDays(7)->toDateString(),
+                'date_to' => now()->toDateString(),
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertSame(now()->subDays(7)->toDateString(), session()->get('dashboard_date_from'));
+        $this->assertSame(now()->toDateString(), session()->get('dashboard_date_to'));
+    }
+
     public function test_revenue_breakdown_exports_summary_and_drilldown(): void
     {
         $supervisor = User::factory()->supervisor()->create();
@@ -145,8 +161,8 @@ class SupervisorDashboardTest extends TestCase
         $supervisor = User::factory()->supervisor()->create();
         $this->actingAs($supervisor);
 
-        session()->put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        session()->put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        session()->put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        session()->put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
 
         $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Top CSR']);
         $sales = User::factory()->sales()->create();
@@ -166,8 +182,8 @@ class SupervisorDashboardTest extends TestCase
         $supervisor = User::factory()->supervisor()->create();
         $this->actingAs($supervisor);
 
-        session()->put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        session()->put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        session()->put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        session()->put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
 
         $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Period CSR']);
         $sales = User::factory()->sales()->create();
@@ -403,8 +419,8 @@ class SupervisorDashboardTest extends TestCase
         $otherCsr = User::factory()->communitySalesRepresentative()->create();
         $customer = Customer::factory()->create();
 
-        Session::put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        Session::put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
 
         $this->createCsrOrder($supervisor, $csr, $customer, ['total_price' => 1000.00]);
         $this->createCsrOrder($supervisor, $csr, $customer, ['total_price' => 2500.00]);
@@ -468,8 +484,8 @@ class SupervisorDashboardTest extends TestCase
         $csr = User::factory()->communitySalesRepresentative()->create();
         $customer = Customer::factory()->create();
 
-        Session::put('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        Session::put('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
 
         $this->createCsrOrder($supervisor, $csr, $customer, ['total_price' => 2500.00]);
         $this->createCsrOrder($supervisor, $csr, $customer, [

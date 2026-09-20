@@ -15,7 +15,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
-use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\On;
 
 class SupervisorCsrListWidget extends TableWidget
@@ -273,13 +272,5 @@ class SupervisorCsrListWidget extends TableWidget
                     }),
             ])
             ->paginated([10, 25, 50, -1]);
-    }
-
-    protected function appliedPeriod(): array
-    {
-        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
-
-        return [$from, $to];
     }
 }

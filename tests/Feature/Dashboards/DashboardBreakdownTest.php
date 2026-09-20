@@ -3,6 +3,7 @@
 namespace Tests\Feature\Dashboards;
 
 use App\Filament\Pages\AccountantDashboard;
+use App\Filament\Pages\GeneralAccountantDashboard;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -84,5 +85,52 @@ class DashboardBreakdownTest extends TestCase
         Livewire::test(AccountantDashboard::class)
             ->call('openOfficeSalesBreakdown')
             ->assertSet('breakdownType', 'office_sales');
+    }
+
+    public function test_accountant_dashboard_opens_order_breakdown_from_stat_cards(): void
+    {
+        $user = User::factory()->accountant()->create();
+
+        $this->actingAs($user);
+
+        Livewire::test(AccountantDashboard::class)
+            ->call('openOrderBreakdown', 'pending')
+            ->assertSet('breakdownType', 'order')
+            ->assertSet('breakdownCategory', 'pending')
+            ->assertActionMounted('orderBreakdown');
+    }
+
+    public function test_accountant_dashboard_opens_csr_order_breakdown(): void
+    {
+        $user = User::factory()->accountant()->create();
+
+        $this->actingAs($user);
+
+        Livewire::test(AccountantDashboard::class)
+            ->call('openCsrOrderBreakdown')
+            ->assertSet('breakdownType', 'csr_order')
+            ->assertActionMounted('csrOrderBreakdown');
+    }
+
+    public function test_general_accountant_dashboard_renders(): void
+    {
+        $user = User::factory()->state(['role' => 'general_accountant'])->create();
+
+        $this->actingAs($user)
+            ->get('/admin/general-accountant-dashboard')
+            ->assertOk();
+    }
+
+    public function test_general_accountant_dashboard_opens_order_breakdown_from_stat_cards(): void
+    {
+        $user = User::factory()->state(['role' => 'general_accountant'])->create();
+
+        $this->actingAs($user);
+
+        Livewire::test(GeneralAccountantDashboard::class)
+            ->call('openOrderBreakdown', 'total')
+            ->assertSet('breakdownType', 'order')
+            ->assertSet('breakdownCategory', 'total')
+            ->assertActionMounted('orderBreakdown');
     }
 }

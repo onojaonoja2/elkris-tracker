@@ -11,10 +11,10 @@ use App\Models\SalesRecord;
 use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\User;
+use App\Support\DashboardDateScope;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Support\HtmlString;
 use Livewire\Attributes\On;
 
@@ -27,8 +27,7 @@ class SupervisorStatsWidget extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $from = Session::get('supervisor_date_from', now()->startOfDay()->toDateTimeString());
-        $to = Session::get('supervisor_date_to', now()->endOfDay()->toDateTimeString());
+        [$from, $to] = DashboardDateScope::fromSession();
 
         $csrIds = User::where('role', 'community_sales_representative')->active()->pluck('id');
 

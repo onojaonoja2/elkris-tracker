@@ -73,6 +73,8 @@ class AccountantDashboard extends BaseDashboard
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
             $this->getCreditBreakdownAction(),
+            $this->getOrderBreakdownAction(),
+            $this->getCsrOrderBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
             $this->getRepSalesBreakdownAction(),
             $this->getStockMovementBreakdownAction(),

@@ -16,6 +16,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
 class CsrAssignedOrdersWidget extends TableWidget
@@ -234,7 +235,16 @@ class CsrAssignedOrdersWidget extends TableWidget
                     ->visible(fn (Order $record): bool => $record->hasPaymentProof())
                     ->modalContent(fn (Order $record) => view('filament.payment-proof', ['record' => $record]))
                     ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Close'),
+                    ->modalCancelActionLabel('Close')
+                    ->modalFooterActions(fn (Order $record): array => [
+                        ...($this->canReplacePaymentProof($record) ? [$this->makeReplacePaymentProofAction('replaceProofFromPreview')->cancelParentActions()] : []),
+                        Action::make('closePreview')
+                            ->label('Close')
+                            ->color('gray')
+                            ->close(),
+                    ]),
+
+                $this->makeReplacePaymentProofAction(),
 
                 Action::make('confirmDelivery')
                     ->label('Confirm Delivery')
@@ -271,5 +281,53 @@ class CsrAssignedOrdersWidget extends TableWidget
                     }),
             ])
             ->defaultSort('created_at', 'desc');
+    }
+
+    private function canReplacePaymentProof(Order $record): bool
+    {
+        return $record->assignment_status === AssignmentStatus::Accepted && $record->hasPaymentProof();
+    }
+
+    private function makeReplacePaymentProofAction(string $name = 'replacePaymentProof'): Action
+    {
+        return Action::make($name)
+            ->label('Replace Proof')
+            ->icon('heroicon-o-arrow-path')
+            ->color('warning')
+            ->size('sm')
+            ->visible(fn (Order $record): bool => $this->canReplacePaymentProof($record))
+            ->form([
+                FileUpload::make('payment_proof_path')
+                    ->label('Payment Proof')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/payment-proofs')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->required(),
+            ])
+            ->action(function (Order $record, array $data) {
+                try {
+                    OrderAssignmentService::replacePaymentProof($record, $data['payment_proof_path'], auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Replacement failed')
+                        ->body($e->getMessage())
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Payment proof replaced')
+                    ->success()
+                    ->send();
+
+                $this->dispatch('refresh-dashboard');
+            })
+            ->modalHeading('Replace Payment Proof')
+            ->modalDescription('Upload a corrected proof. The previous file will be removed.');
     }
 }
