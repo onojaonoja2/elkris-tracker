@@ -6,6 +6,7 @@ use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\WarehouseCsrStockWidget;
 use App\Filament\Widgets\WarehouseDamagedReturnsWidget;
+use App\Filament\Widgets\WarehouseDispatchRequestsWidget;
 use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseOutgoingDispatchesWidget;
@@ -72,6 +73,7 @@ class WarehouseManagerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            WarehouseDispatchRequestsWidget::class,
             WarehouseOutgoingDispatchesWidget::class,
             WarehouseManagerStockBreakdownWidget::class,
             WarehouseCsrStockWidget::class,

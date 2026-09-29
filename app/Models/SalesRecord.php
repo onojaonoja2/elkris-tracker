@@ -100,7 +100,7 @@ class SalesRecord extends Model implements Auditable
 
     public function requiresWarehouseAllocation(): bool
     {
-        return in_array($this->agent_type, ['open_market', 'retail_market'], true)
+        return in_array($this->agent_type, ['open_market', 'retail_market', 'sales'], true)
             && $this->stock_source !== 'held';
     }
 

@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
+use App\Enums\StockTransferStatus;
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\OfficeSalesStatsWidget;
@@ -21,8 +22,10 @@ use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
 use App\Services\SalesRecordService;
+use App\Services\StockTransferService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -221,6 +224,21 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->integer()
                     ->minValue(1)
                     ->required(),
+                Radio::make('stock_source')
+                    ->label('Stock Source')
+                    ->options([
+                        'held' => 'Stock at hand',
+                        'warehouse' => 'From warehouse',
+                    ])
+                    ->default('held')
+                    ->required()
+                    ->live(),
+                Select::make('warehouse_id')
+                    ->label('Warehouse')
+                    ->options(fn () => auth()->user()->salesWarehouses()->pluck('name', 'id'))
+                    ->searchable()
+                    ->visible(fn (callable $get) => $get('stock_source') === 'warehouse')
+                    ->required(fn (callable $get) => $get('stock_source') === 'warehouse'),
                 TextInput::make('price')
                     ->label('Unit Price (₦)')
                     ->numeric()
@@ -245,10 +263,13 @@ class SalesOrdersDashboard extends BaseDashboard
                 $user = auth()->user();
                 $pt = ProductType::find($data['product_type_id']);
                 $lineTotal = (int) $data['quantity'] * (float) $data['price'];
+                $stockSource = $data['stock_source'] ?? 'held';
 
                 try {
                     SalesRecordService::submitSale([
                         'agent_type' => 'sales',
+                        'stock_source' => $stockSource,
+                        'warehouse_id' => $stockSource === 'warehouse' ? ($data['warehouse_id'] ?? null) : null,
                         'products' => [
                             [
                                 'product_name' => $pt->name,
@@ -275,7 +296,9 @@ class SalesOrdersDashboard extends BaseDashboard
 
                 Notification::make()
                     ->title('Office sale submitted')
-                    ->body("Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) submitted for accountant approval.")
+                    ->body($stockSource === 'warehouse'
+                        ? "Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) submitted. Stock will be dispatched from the warehouse and is pending accountant approval."
+                        : "Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) submitted for accountant approval.")
                     ->success()
                     ->send();
 
@@ -353,11 +376,27 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->defaultItems(1)
                     ->minItems(1)
                     ->required(),
+                Radio::make('stock_source')
+                    ->label('Stock Source')
+                    ->options([
+                        'held' => 'Stock at hand',
+                        'warehouse' => 'From warehouse',
+                    ])
+                    ->default('held')
+                    ->required()
+                    ->live(),
+                Select::make('warehouse_id')
+                    ->label('Warehouse')
+                    ->options(fn () => auth()->user()->salesWarehouses()->pluck('name', 'id'))
+                    ->searchable()
+                    ->visible(fn (callable $get) => $get('stock_source') === 'warehouse')
+                    ->required(fn (callable $get) => $get('stock_source') === 'warehouse'),
                 Textarea::make('notes')
                     ->label('Order Notes'),
             ])
             ->action(function (array $data) {
                 $user = auth()->user();
+                $stockSource = $data['stock_source'] ?? 'held';
 
                 $customerId = $data['customer_id'];
                 if (! $customerId && filled($data['new_customer_name'] ?? null)) {
@@ -369,6 +408,29 @@ class SalesOrdersDashboard extends BaseDashboard
                     $customerId = $customer->id;
                 }
 
+                $lines = collect($data['items'])->map(fn ($item) => [
+                    'product_type_id' => $item['product_type_id'],
+                    'product_name' => ProductType::find($item['product_type_id'])?->name ?? 'Unknown',
+                    'grammage' => $item['grammage'],
+                    'quantity' => (int) $item['quantity'],
+                ])->all();
+
+                $warehouseId = $stockSource === 'warehouse' ? ($data['warehouse_id'] ?? null) : null;
+
+                if ($warehouseId) {
+                    try {
+                        StockTransferService::assertWarehouseStockAvailable($warehouseId, $lines);
+                    } catch (ValidationException $e) {
+                        Notification::make()
+                            ->title('Insufficient warehouse stock')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
+                }
+
                 $totalPrice = collect($data['items'])->sum(fn ($item) => (int) $item['quantity'] * (float) $item['price']);
 
                 $order = Order::create([
@@ -377,6 +439,8 @@ class SalesOrdersDashboard extends BaseDashboard
                     'status' => OrderStatus::Pending,
                     'total_price' => $totalPrice,
                     'assignment_status' => AssignmentStatus::None,
+                    'stock_source' => $stockSource,
+                    'warehouse_id' => $warehouseId,
                 ]);
 
                 foreach ($data['items'] as $item) {
@@ -390,9 +454,32 @@ class SalesOrdersDashboard extends BaseDashboard
                     ]);
                 }
 
+                if ($warehouseId) {
+                    $transfer = StockTransfer::create([
+                        'from_warehouse_id' => $warehouseId,
+                        'to_agent_id' => $user->id,
+                        'requested_by' => $user->id,
+                        'status' => StockTransferStatus::Requested,
+                        'source_type' => 'sales_order',
+                        'source_name' => "Order #{$order->id}",
+                    ]);
+
+                    foreach ($data['items'] as $item) {
+                        $transfer->items()->create([
+                            'product_type_id' => $item['product_type_id'],
+                            'grammage' => $item['grammage'],
+                            'quantity' => (int) $item['quantity'],
+                        ]);
+                    }
+
+                    StockTransferService::notifyWarehouseManager($transfer);
+                }
+
                 Notification::make()
                     ->title('Order initiated')
-                    ->body("Order #{$order->id} created successfully.")
+                    ->body($warehouseId
+                        ? "Order #{$order->id} created successfully. Stock will be dispatched from the warehouse."
+                        : "Order #{$order->id} created successfully.")
                     ->success()
                     ->send();
 

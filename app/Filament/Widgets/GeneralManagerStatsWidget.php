@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Enums\OrderStatus;
 use App\Enums\TrialOrderStatus;
-use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
@@ -29,6 +28,7 @@ class GeneralManagerStatsWidget extends BaseWidget
         [$from, $to] = DashboardDateScope::fromSession();
 
         $totalCustomers = Customer::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->count();
+        $customersAddedToday = Customer::whereDate('created_at', today())->count();
         $convertedCustomers = Customer::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))->count();
         $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
@@ -44,7 +44,12 @@ class GeneralManagerStatsWidget extends BaseWidget
                 ->description($conversionRate.'% conversion rate')
                 ->icon('heroicon-o-users')
                 ->color('info')
-                ->url(CustomerResource::getUrl('index')),
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customer-breakdown')"]),
+            Stat::make('Customers Added Today', $customersAddedToday)
+                ->description('Added today')
+                ->icon('heroicon-o-user-plus')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customers-added-today')"]),
             Stat::make('Revenue', self::formatCurrency($revenue))
                 ->description('Total revenue')
                 ->icon('heroicon-o-banknotes')

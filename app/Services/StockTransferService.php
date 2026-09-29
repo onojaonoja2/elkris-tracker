@@ -7,11 +7,176 @@ use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\StockTransaction;
 use App\Models\StockTransfer;
+use App\Models\Warehouse;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class StockTransferService
 {
+    /**
+     * Validate that the warehouse has enough stock for the given lines.
+     *
+     * @param  array<int, array{product_type_id: ?int, product_name: ?string, grammage: int, quantity: int}>  $lines
+     */
+    public static function assertWarehouseStockAvailable(int $warehouseId, array $lines): void
+    {
+        $inventories = Inventory::where('warehouse_id', $warehouseId)
+            ->where(function ($query) use ($lines) {
+                foreach ($lines as $line) {
+                    $query->orWhere(function ($q) use ($line) {
+                        $q->where('product_type_id', $line['product_type_id'])
+                            ->where('grammage', $line['grammage']);
+                    });
+                }
+            })
+            ->get()
+            ->keyBy(fn (Inventory $inventory) => "{$inventory->warehouse_id}-{$inventory->product_type_id}-{$inventory->grammage}");
+
+        $insufficient = [];
+
+        foreach ($lines as $line) {
+            $key = "{$warehouseId}-{$line['product_type_id']}-{$line['grammage']}";
+            $available = $inventories[$key]->quantity ?? 0;
+
+            if ($available < $line['quantity']) {
+                $insufficient[] = ($line['product_name'] ?? 'Unknown')." {$line['grammage']}g (requested: {$line['quantity']}, available: {$available})";
+            }
+        }
+
+        if (! empty($insufficient)) {
+            throw ValidationException::withMessages([
+                'items' => 'Insufficient warehouse stock: '.implode(', ', $insufficient),
+            ]);
+        }
+    }
+
+    /**
+     * Notify the warehouse manager that a dispatch is needed for a transfer.
+     */
+    public static function notifyWarehouseManager(StockTransfer $transfer): void
+    {
+        $managerId = Warehouse::whereKey($transfer->from_warehouse_id)->value('manager_id');
+
+        if (! $managerId) {
+            return;
+        }
+
+        NotificationService::notifyUser(
+            $managerId,
+            'stock_dispatch_requested',
+            'Stock dispatch requested',
+            "Dispatch #{$transfer->id} ({$transfer->source_name}) is awaiting dispatch from your warehouse.",
+            $transfer->id,
+            'stock_transfer'
+        );
+    }
+
+    /**
+     * Dispatch a requested transfer from the warehouse manager's dashboard.
+     *
+     * Locks the warehouse inventory rows, validates availability, deducts the
+     * stock and marks the transfer as dispatched. For sales orders the goods
+     * are handed to the sales agent's stock immediately so that delivery can
+     * be confirmed from stock at hand later.
+     */
+    public static function dispatchByWarehouse(StockTransfer $record, int $dispatcherId): void
+    {
+        DB::transaction(function () use ($record, $dispatcherId) {
+            $record = StockTransfer::whereKey($record->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($record->status !== StockTransferStatus::Requested) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only requested transfers can be dispatched.',
+                ]);
+            }
+
+            $warehouseId = $record->from_warehouse_id;
+
+            if (! $warehouseId) {
+                throw ValidationException::withMessages([
+                    'status' => 'This transfer has no source warehouse.',
+                ]);
+            }
+
+            $record->load('items.productType');
+
+            $lines = $record->items->map(fn ($item): array => [
+                'product_type_id' => $item->product_type_id,
+                'product_name' => $item->productType?->name ?? 'Unknown',
+                'grammage' => $item->grammage,
+                'quantity' => $item->quantity,
+            ])->all();
+
+            $inventories = Inventory::where('warehouse_id', $warehouseId)
+                ->where(function ($query) use ($lines) {
+                    foreach ($lines as $line) {
+                        $query->orWhere(function ($q) use ($line) {
+                            $q->where('product_type_id', $line['product_type_id'])
+                                ->where('grammage', $line['grammage']);
+                        });
+                    }
+                })
+                ->lockForUpdate()
+                ->get()
+                ->keyBy(fn (Inventory $inventory) => "{$inventory->warehouse_id}-{$inventory->product_type_id}-{$inventory->grammage}");
+
+            $insufficient = [];
+
+            foreach ($lines as $line) {
+                $key = "{$warehouseId}-{$line['product_type_id']}-{$line['grammage']}";
+                $available = $inventories[$key]->quantity ?? 0;
+
+                if ($available < $line['quantity']) {
+                    $insufficient[] = "{$line['product_name']} {$line['grammage']}g (requested: {$line['quantity']}, available: {$available})";
+                }
+            }
+
+            if (! empty($insufficient)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Insufficient warehouse stock: '.implode(', ', $insufficient),
+                ]);
+            }
+
+            foreach ($lines as $line) {
+                $key = "{$warehouseId}-{$line['product_type_id']}-{$line['grammage']}";
+
+                $inventories[$key]->decrement('quantity', $line['quantity']);
+
+                StockTransaction::create([
+                    'type' => 'disbursed',
+                    'transaction_date' => now()->toDateString(),
+                    'product_type_id' => $line['product_type_id'],
+                    'product_name' => $line['product_name'],
+                    'grammage' => $line['grammage'],
+                    'quantity' => $line['quantity'],
+                    'disbursed_to' => $record->to_agent_id
+                        ? "Dispatched to Agent #{$record->to_agent_id} ({$record->source_name})"
+                        : "Dispatched ({$record->source_name})",
+                    'user_id' => $record->to_agent_id,
+                    'warehouse_id' => $warehouseId,
+                ]);
+
+                if ($record->source_type === 'sales_order' && $record->to_agent_id) {
+                    AgentStock::firstOrCreate(
+                        [
+                            'user_id' => $record->to_agent_id,
+                            'product_type_id' => $line['product_type_id'],
+                            'product_name' => $line['product_name'],
+                            'grammage' => $line['grammage'],
+                        ],
+                        ['quantity' => 0]
+                    )->increment('quantity', $line['quantity']);
+                }
+            }
+
+            $record->update([
+                'status' => StockTransferStatus::Dispatched,
+                'dispatched_by' => $dispatcherId,
+            ]);
+        });
+    }
+
     public static function receive(StockTransfer $record, array $items): void
     {
         DB::transaction(function () use ($record, $items) {

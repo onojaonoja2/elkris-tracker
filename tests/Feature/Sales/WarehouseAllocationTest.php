@@ -307,7 +307,7 @@ class WarehouseAllocationTest extends TestCase
         $this->assertEquals('approved', $record->fresh()->status);
     }
 
-    public function test_approve_fails_when_stock_request_was_dispatched_standalone(): void
+    public function test_approve_completes_after_warehouse_manager_dispatched_the_request(): void
     {
         $agent = User::factory()->openMarket()->create();
         $warehouse = $this->makeWarehouseWithStock(20);
@@ -324,26 +324,39 @@ class WarehouseAllocationTest extends TestCase
 
         $transfer = StockTransfer::where('sales_record_id', $record->id)->firstOrFail();
 
+        // The warehouse manager dispatched the goods first, deducting inventory.
         $transfer->update([
             'status' => StockTransferStatus::Dispatched,
-            'dispatched_by' => $accountant->id,
+            'dispatched_by' => User::factory()->warehouseManager()->create()->id,
         ]);
 
-        try {
-            SalesRecordService::approve($record, [], $accountant->id);
-            $this->fail('Expected ValidationException was not thrown.');
-        } catch (ValidationException $e) {
-            $this->assertArrayHasKey('status', $e->errors());
-        }
+        Inventory::where('warehouse_id', $warehouse->id)
+            ->where('product_type_id', $this->productType->id)
+            ->decrement('quantity', 5);
+
+        SalesRecordService::approve($record, [], $accountant->id);
 
         $this->assertDatabaseHas('inventories', [
             'warehouse_id' => $warehouse->id,
             'product_type_id' => $this->productType->id,
             'grammage' => 100,
-            'quantity' => 20,
+            'quantity' => 15,
         ]);
 
-        $this->assertDatabaseMissing('agent_stocks', ['user_id' => $agent->id]);
+        $this->assertDatabaseHas('agent_stocks', [
+            'user_id' => $agent->id,
+            'product_type_id' => $this->productType->id,
+            'product_name' => $this->productType->name,
+            'grammage' => 100,
+            'quantity' => 5,
+        ]);
+
+        $transfer->refresh();
+
+        $this->assertEquals(StockTransferStatus::Received, $transfer->status);
+        $this->assertNotNull($transfer->received_at);
+
+        $this->assertEquals('approved', $record->fresh()->status);
     }
 
     public function test_approve_fails_when_stock_request_was_already_received(): void

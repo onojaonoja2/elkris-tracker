@@ -87,6 +87,18 @@ trait HasDashboardBreakdownModals
         $this->mountAction('stockMovementBreakdown');
     }
 
+    #[On('open-customer-breakdown')]
+    public function openCustomerBreakdown(): void
+    {
+        $this->mountAction('customerBreakdown');
+    }
+
+    #[On('open-customers-added-today')]
+    public function openCustomersAddedToday(): void
+    {
+        $this->mountAction('customersAddedToday');
+    }
+
     protected function getCreditBreakdownAction(): Action
     {
         return Action::make('creditBreakdown')
@@ -256,6 +268,46 @@ trait HasDashboardBreakdownModals
                 ]);
             })
             ->visible(fn (): bool => auth()->user()?->hasAnyRole(['accountant', 'general_accountant', 'warehouse_manager']) ?? false);
+    }
+
+    protected function getCustomerBreakdownAction(): Action
+    {
+        return Action::make('customerBreakdown')
+            ->label('Customer Breakdown')
+            ->icon('heroicon-o-users')
+            ->modalHeading('Customer Breakdown')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.customer-breakdown-modal');
+            })
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                'admin',
+                'manager',
+                'general_manager',
+                'accountant',
+                'general_accountant',
+            ]) ?? false);
+    }
+
+    protected function getCustomersAddedTodayAction(): Action
+    {
+        return Action::make('customersAddedToday')
+            ->label('Customers Added Today')
+            ->icon('heroicon-o-user-plus')
+            ->modalHeading('Customers Added Today')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.customers-added-today-modal');
+            })
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                'admin',
+                'manager',
+                'general_manager',
+                'accountant',
+                'general_accountant',
+            ]) ?? false);
     }
 
     protected function getApprovalBreakdownHeading(): string

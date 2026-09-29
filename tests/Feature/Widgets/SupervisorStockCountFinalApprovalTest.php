@@ -70,6 +70,32 @@ class SupervisorStockCountFinalApprovalTest extends TestCase
         ]);
     }
 
+    public function test_pending_stock_counts_are_listed_newest_first(): void
+    {
+        $supervisor = User::factory()->supervisor()->create();
+        $warehouse = Warehouse::factory()->create();
+        $productType = ProductType::factory()->create(['available_grammages' => [100, 200]]);
+        $warehouseManager = User::factory()->warehouseManager()->create();
+
+        $older = $this->pendingStockCount([
+            'user_id' => $warehouseManager->id,
+            'warehouse_id' => $warehouse->id,
+        ], $productType, 5);
+
+        $newer = $this->pendingStockCount([
+            'user_id' => $warehouseManager->id,
+            'warehouse_id' => $warehouse->id,
+        ], $productType, 10);
+
+        $older->forceFill(['created_at' => now()->subHours(3)])->save();
+        $newer->forceFill(['created_at' => now()])->save();
+
+        $this->actingAs($supervisor);
+
+        Livewire::test(SupervisorStockCountFinalApprovalWidget::class)
+            ->assertCanSeeTableRecords([$newer, $older], inOrder: true);
+    }
+
     public function test_supervisor_widget_includes_verifiable_counts_but_excludes_unverified_csr_count(): void
     {
         $supervisor = User::factory()->supervisor()->create();

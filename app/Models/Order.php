@@ -36,6 +36,8 @@ class Order extends Model implements Auditable
         'assigned_at',
         'assignment_status',
         'assignment_notes',
+        'stock_source',
+        'warehouse_id',
     ];
 
     protected function casts(): array
@@ -77,6 +79,11 @@ class Order extends Model implements Auditable
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
     }
 
     public function hasPaymentProof(): bool
