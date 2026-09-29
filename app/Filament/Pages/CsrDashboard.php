@@ -15,11 +15,9 @@ use App\Filament\Widgets\DamagedStockReturnFormWidget;
 use App\Filament\Widgets\OrderStatsWidget;
 use App\Filament\Widgets\OverdueCreditSalesWidget;
 use App\Filament\Widgets\WarehouseReturnFormWidget;
-use App\Models\AgentStock;
 use App\Models\ProductType;
 use App\Models\Setting;
 use App\Models\StockCount;
-use App\Models\StockTransaction;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -164,11 +162,10 @@ class CsrDashboard extends BaseDashboard
             ])
             ->action(function (array $data) {
                 $userId = auth()->id();
-                $isAdditional = $data['is_additional_count'] ?? false;
 
                 $stockCount = StockCount::create([
                     'user_id' => $userId,
-                    'is_additional_count' => $isAdditional,
+                    'is_additional_count' => $data['is_additional_count'] ?? false,
                     'status' => 'pending',
                     'notes' => $data['notes'] ?? null,
                 ]);
@@ -183,45 +180,11 @@ class CsrDashboard extends BaseDashboard
                     ]);
                 }
 
-                if ($isAdditional) {
-                    foreach ($data['items'] as $item) {
-                        $pt = ProductType::find($item['product_type_id']);
-                        $productName = $pt?->name ?? 'Unknown Product';
-                        $agentStock = AgentStock::firstOrCreate(
-                            [
-                                'user_id' => $userId,
-                                'product_type_id' => $item['product_type_id'],
-                                'product_name' => $productName,
-                                'grammage' => $item['grammage'],
-                            ],
-                            ['quantity' => 0]
-                        );
-                        $agentStock->increment('quantity', $item['quantity']);
-
-                        StockTransaction::create([
-                            'type' => 'received',
-                            'transaction_date' => now()->toDateString(),
-                            'product_type_id' => $item['product_type_id'],
-                            'product_name' => $productName,
-                            'grammage' => $item['grammage'],
-                            'quantity' => $item['quantity'],
-                            'disbursed_to' => 'Additional stock count #'.$stockCount->id,
-                            'user_id' => $userId,
-                        ]);
-                    }
-
-                    Notification::make()
-                        ->title('Additional stock count submitted')
-                        ->body('The quantities have been added to your current stock.')
-                        ->success()
-                        ->send();
-                } else {
-                    Notification::make()
-                        ->title('Stock count submitted')
-                        ->body('Your physical stock count is pending supervisor approval.')
-                        ->success()
-                        ->send();
-                }
+                Notification::make()
+                    ->title('Stock count submitted')
+                    ->body('Your physical stock count is pending supervisor approval.')
+                    ->success()
+                    ->send();
 
                 $this->dispatch('refresh-dashboard');
             })

@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\AgentStock;
 use App\Models\Inventory;
 use App\Models\StockCount;
+use App\Models\StockCountItem;
+use App\Models\StockTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -25,10 +27,10 @@ class StockCountService
                 'approved_at' => now(),
             ]);
 
-            foreach ($record->items as $item) {
-                if ($record->warehouse_id) {
-                    self::withWarehouseStock($record, $item);
-                } else {
+            if ($record->warehouse_id) {
+                self::withWarehouseStock($record);
+            } else {
+                foreach ($record->items as $item) {
                     self::withAgentStock($record, $item);
                 }
             }
@@ -49,22 +51,36 @@ class StockCountService
         ]);
     }
 
-    private static function withWarehouseStock(StockCount $record, mixed $item): void
+    /**
+     * An initial count replaces the warehouse's entire inventory with the counted
+     * items; an additional count increments existing quantities on top of them.
+     */
+    private static function withWarehouseStock(StockCount $record): void
     {
-        $attributes = [
-            'warehouse_id' => $record->warehouse_id,
-            'product_type_id' => $item->product_type_id,
-            'grammage' => $item->grammage,
-        ];
-
         if ($record->is_additional_count) {
-            Inventory::firstOrCreate($attributes, ['quantity' => 0])
-                ->increment('quantity', $item->quantity);
+            foreach ($record->items as $item) {
+                Inventory::firstOrCreate([
+                    'warehouse_id' => $record->warehouse_id,
+                    'product_type_id' => $item->product_type_id,
+                    'grammage' => $item->grammage,
+                ], ['quantity' => 0])
+                    ->increment('quantity', $item->quantity);
+
+                self::logAdditionalTransaction($record, $item);
+            }
 
             return;
         }
 
-        Inventory::updateOrCreate($attributes, ['quantity' => $item->quantity]);
+        Inventory::where('warehouse_id', $record->warehouse_id)->delete();
+
+        foreach ($record->items as $item) {
+            Inventory::updateOrCreate([
+                'warehouse_id' => $record->warehouse_id,
+                'product_type_id' => $item->product_type_id,
+                'grammage' => $item->grammage,
+            ], ['quantity' => $item->quantity]);
+        }
     }
 
     private static function withAgentStock(StockCount $record, mixed $item): void
@@ -80,9 +96,26 @@ class StockCountService
             AgentStock::firstOrCreate($attributes, ['quantity' => 0])
                 ->increment('quantity', $item->quantity);
 
+            self::logAdditionalTransaction($record, $item);
+
             return;
         }
 
         AgentStock::updateOrCreate($attributes, ['quantity' => $item->quantity]);
+    }
+
+    private static function logAdditionalTransaction(StockCount $record, StockCountItem $item): void
+    {
+        StockTransaction::create([
+            'type' => 'received',
+            'transaction_date' => now()->toDateString(),
+            'product_type_id' => $item->product_type_id,
+            'product_name' => $item->product_name ?? $item->productType?->name ?? 'Unknown',
+            'grammage' => $item->grammage,
+            'quantity' => $item->quantity,
+            'disbursed_to' => 'Additional stock count #'.$record->id,
+            'user_id' => $record->user_id,
+            'warehouse_id' => $record->warehouse_id,
+        ]);
     }
 }

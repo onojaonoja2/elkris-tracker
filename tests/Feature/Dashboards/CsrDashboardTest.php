@@ -14,7 +14,7 @@ class CsrDashboardTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_csr_additional_stock_count_adds_to_stock_and_records_transaction(): void
+    public function test_csr_additional_stock_count_is_pending_approval_without_applying_stock(): void
     {
         Setting::setValue('stock_at_hand_enabled', '1');
 
@@ -40,14 +40,13 @@ class CsrDashboardTest extends TestCase
             'status' => 'pending',
         ]);
 
-        $this->assertDatabaseHas('agent_stocks', [
+        $this->assertDatabaseMissing('agent_stocks', [
             'user_id' => $csr->id,
             'product_type_id' => $productType->id,
             'grammage' => 100,
-            'quantity' => 7,
         ]);
 
-        $this->assertDatabaseHas('stock_transactions', [
+        $this->assertDatabaseMissing('stock_transactions', [
             'type' => 'received',
             'product_type_id' => $productType->id,
             'quantity' => 7,
