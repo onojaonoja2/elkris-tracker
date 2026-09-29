@@ -34,12 +34,11 @@ class SalesRecordService
         $isWarehouseRole = $agent
             && in_array($agent->getPrimaryRole(), ['open_market', 'retail_market'], true);
 
-        $stockSource = $isWarehouseRole
-            ? ($data['stock_source'] ?? 'warehouse')
-            : 'held';
+        $stockSource = $data['stock_source']
+            ?? ($isWarehouseRole ? 'warehouse' : 'held');
 
-        return DB::transaction(function () use ($data, $agentId, $isWarehouseRole, $stockSource) {
-            if ($isWarehouseRole && $stockSource === 'warehouse') {
+        return DB::transaction(function () use ($data, $agentId, $stockSource) {
+            if ($stockSource === 'warehouse') {
                 return self::submitWarehouseFulfilledSale($data, $agentId);
             }
 
@@ -167,6 +166,8 @@ class SalesRecordService
                 'quantity' => $line['quantity'],
             ]);
         }
+
+        StockTransferService::notifyWarehouseManager($transfer);
 
         return $record;
     }
@@ -667,7 +668,10 @@ class SalesRecordService
             && blank($transfer->received_at)
             && blank($transfer->dispatched_at);
 
-        if ($transfer->status !== StockTransferStatus::Requested && ! $untouchedApproved) {
+        $alreadyDispatched = $transfer->status === StockTransferStatus::Dispatched
+            && blank($transfer->received_at);
+
+        if ($transfer->status !== StockTransferStatus::Requested && ! $untouchedApproved && ! $alreadyDispatched) {
             throw ValidationException::withMessages([
                 'status' => 'The stock request for this sales record has already been processed.',
             ]);
@@ -682,20 +686,26 @@ class SalesRecordService
             'quantity' => $item->quantity,
         ])->all();
 
-        $inventories = self::lockInventoryRows($warehouseId, $lines);
+        $inventories = collect();
 
-        $insufficient = self::insufficientInventoryLines($warehouseId, $inventories, $lines);
+        if (! $alreadyDispatched) {
+            $inventories = self::lockInventoryRows($warehouseId, $lines);
 
-        if (! empty($insufficient)) {
-            throw ValidationException::withMessages([
-                'status' => 'Insufficient warehouse stock for this sales record: '.implode(', ', $insufficient).' No stock was moved.',
-            ]);
+            $insufficient = self::insufficientInventoryLines($warehouseId, $inventories, $lines);
+
+            if (! empty($insufficient)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Insufficient warehouse stock for this sales record: '.implode(', ', $insufficient).' No stock was moved.',
+                ]);
+            }
         }
 
         foreach ($lines as $line) {
             $key = "{$warehouseId}-{$line['product_type_id']}-{$line['grammage']}";
 
-            $inventories[$key]->decrement('quantity', $line['quantity']);
+            if (! $alreadyDispatched) {
+                $inventories[$key]->decrement('quantity', $line['quantity']);
+            }
 
             AgentStock::firstOrCreate(
                 [
@@ -707,17 +717,19 @@ class SalesRecordService
                 ['quantity' => 0]
             )->increment('quantity', $line['quantity']);
 
-            StockTransaction::create([
-                'type' => 'disbursed',
-                'transaction_date' => now()->toDateString(),
-                'product_type_id' => $line['product_type_id'],
-                'product_name' => $line['product_name'],
-                'grammage' => $line['grammage'],
-                'quantity' => $line['quantity'],
-                'disbursed_to' => "Allocated to Agent #{$record->agent_id} (Sales #{$record->id})",
-                'user_id' => $record->agent_id,
-                'warehouse_id' => $warehouseId,
-            ]);
+            if (! $alreadyDispatched) {
+                StockTransaction::create([
+                    'type' => 'disbursed',
+                    'transaction_date' => now()->toDateString(),
+                    'product_type_id' => $line['product_type_id'],
+                    'product_name' => $line['product_name'],
+                    'grammage' => $line['grammage'],
+                    'quantity' => $line['quantity'],
+                    'disbursed_to' => "Allocated to Agent #{$record->agent_id} (Sales #{$record->id})",
+                    'user_id' => $record->agent_id,
+                    'warehouse_id' => $warehouseId,
+                ]);
+            }
         }
 
         $transfer->update([

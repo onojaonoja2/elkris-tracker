@@ -6,6 +6,7 @@ use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\WarehouseCsrStockWidget;
 use App\Filament\Widgets\WarehouseDamagedReturnsWidget;
+use App\Filament\Widgets\WarehouseDispatchRequestsWidget;
 use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseOutgoingDispatchesWidget;
@@ -16,7 +17,6 @@ use App\Models\Inventory;
 use App\Models\ProductType;
 use App\Models\Setting;
 use App\Models\StockCount;
-use App\Models\StockTransaction;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -73,6 +73,7 @@ class WarehouseManagerDashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            WarehouseDispatchRequestsWidget::class,
             WarehouseOutgoingDispatchesWidget::class,
             WarehouseManagerStockBreakdownWidget::class,
             WarehouseCsrStockWidget::class,
@@ -496,12 +497,10 @@ class WarehouseManagerDashboard extends BaseDashboard
                         ->label('Notes'),
                 ])
                 ->action(function (array $data) {
-                    $isAdditional = $data['is_additional_count'] ?? false;
-
                     $stockCount = StockCount::create([
                         'user_id' => auth()->id(),
                         'warehouse_id' => $data['warehouse_id'],
-                        'is_additional_count' => $isAdditional,
+                        'is_additional_count' => $data['is_additional_count'] ?? false,
                         'status' => 'pending',
                         'notes' => $data['notes'] ?? null,
                     ]);
@@ -516,46 +515,11 @@ class WarehouseManagerDashboard extends BaseDashboard
                         ]);
                     }
 
-                    if ($isAdditional) {
-                        foreach ($data['items'] as $item) {
-                            $pt = ProductType::find($item['product_type_id']);
-                            $productName = $pt?->name ?? 'Unknown Product';
-                            $totalPieces = self::totalPieces($item);
-
-                            Inventory::firstOrCreate(
-                                [
-                                    'warehouse_id' => $data['warehouse_id'],
-                                    'product_type_id' => $item['product_type_id'],
-                                    'grammage' => $item['grammage'],
-                                ],
-                                ['quantity' => 0]
-                            )->increment('quantity', $totalPieces);
-
-                            StockTransaction::create([
-                                'type' => 'received',
-                                'transaction_date' => now()->toDateString(),
-                                'product_type_id' => $item['product_type_id'],
-                                'product_name' => $productName,
-                                'grammage' => $item['grammage'],
-                                'quantity' => $totalPieces,
-                                'disbursed_to' => 'Additional stock count #'.$stockCount->id,
-                                'user_id' => auth()->id(),
-                                'warehouse_id' => $data['warehouse_id'],
-                            ]);
-                        }
-
-                        Notification::make()
-                            ->title('Additional stock count submitted')
-                            ->body('The quantities have been added to your current stock.')
-                            ->success()
-                            ->send();
-                    } else {
-                        Notification::make()
-                            ->title('Stock count submitted')
-                            ->body('Your physical stock count is pending accountant approval.')
-                            ->success()
-                            ->send();
-                    }
+                    Notification::make()
+                        ->title('Stock count submitted')
+                        ->body('Your physical stock count is pending accountant approval.')
+                        ->success()
+                        ->send();
 
                     $this->dispatch('refresh-dashboard');
                 })

@@ -106,6 +106,8 @@ class GeneralManagerDashboard extends BaseDashboard
             $this->getCreditBreakdownAction(),
             $this->getOrderBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
+            $this->getCustomerBreakdownAction(),
+            $this->getCustomersAddedTodayAction(),
             $this->getDateFilterAction(),
             $this->getClearDateFilterAction(),
         ];

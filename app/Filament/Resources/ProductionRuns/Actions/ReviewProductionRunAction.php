@@ -7,6 +7,7 @@ use App\Services\ProductionRunService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 
 class ReviewProductionRunAction extends Action
 {
@@ -35,6 +36,16 @@ class ReviewProductionRunAction extends Action
             ])
             ->action(function (array $data, ProductionRun $record): void {
                 ProductionRunService::review($record, $data, auth()->id());
+
+                $status = $record->fresh()->status;
+
+                Notification::make()
+                    ->title('Production run updated')
+                    ->body("Run #{$record->id} has been ".str_replace('_', ' ', $status).'.')
+                    ->color($status === 'flagged' ? 'warning' : 'success')
+                    ->send();
+
+                $this->dispatch('refresh-dashboard');
             });
     }
 

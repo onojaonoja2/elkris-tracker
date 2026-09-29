@@ -80,6 +80,8 @@ class GeneralAccountantDashboard extends BaseDashboard
             $this->getOrderBreakdownAction(),
             $this->getCsrOrderBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
+            $this->getCustomerBreakdownAction(),
+            $this->getCustomersAddedTodayAction(),
         ];
     }
 

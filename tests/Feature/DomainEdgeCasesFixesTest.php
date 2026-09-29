@@ -18,6 +18,7 @@ use App\Models\StockTransferItem;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Services\OrderAssignmentService;
+use App\Services\StockCountService;
 use App\Services\StockTransferService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -168,23 +169,26 @@ class DomainEdgeCasesFixesTest extends TestCase
             'quantity' => 5,
         ]);
 
-        $stockCount->update([
-            'status' => 'approved',
-            'approved_by' => $accountant->id,
-            'approved_at' => now(),
-        ]);
+        StockCountService::finalApprove($stockCount, $accountant->id);
 
-        Inventory::firstOrCreate([
-            'warehouse_id' => $warehouse->id,
-            'product_type_id' => $productType->id,
-            'grammage' => 250,
-        ], ['quantity' => 0])->increment('quantity', 5);
+        $this->assertDatabaseHas('stock_counts', [
+            'id' => $stockCount->id,
+            'status' => 'approved',
+        ]);
 
         $this->assertDatabaseHas('inventories', [
             'warehouse_id' => $warehouse->id,
             'product_type_id' => $productType->id,
             'grammage' => 250,
             'quantity' => 15,
+        ]);
+
+        $this->assertDatabaseHas('stock_transactions', [
+            'type' => 'received',
+            'product_type_id' => $productType->id,
+            'quantity' => 5,
+            'warehouse_id' => $warehouse->id,
+            'disbursed_to' => 'Additional stock count #'.$stockCount->id,
         ]);
     }
 }

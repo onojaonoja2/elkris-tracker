@@ -37,6 +37,7 @@ class SupervisorStockCountFinalApprovalWidget extends BaseWidget
                             ->orWhereHas('user', fn ($query) => $query->where('role', '!=', UserRole::CommunitySalesRepresentative->value));
                     })
                     ->with('user', 'items.productType')
+                    ->orderBy('created_at', 'desc')
             )
             ->columns([
                 TextColumn::make('user.name')->label('Agent'),

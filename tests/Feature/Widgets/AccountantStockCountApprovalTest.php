@@ -3,8 +3,11 @@
 namespace Tests\Feature\Widgets;
 
 use App\Filament\Widgets\AccountantStockCountApprovalWidget;
+use App\Models\AgentStock;
+use App\Models\Inventory;
 use App\Models\ProductType;
 use App\Models\StockCount;
+use App\Models\StockTransaction;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -94,6 +97,190 @@ class AccountantStockCountApprovalTest extends TestCase
         Livewire::test(AccountantStockCountApprovalWidget::class)
             ->assertSee('Wale Warehouse')
             ->assertDontSee('Cara CSR');
+    }
+
+    public function test_accountant_approving_warehouse_initial_stock_count_replaces_existing_inventory(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $warehouse = Warehouse::factory()->create();
+        $productType = ProductType::factory()->create(['available_grammages' => [100, 200]]);
+
+        Inventory::create([
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 50,
+        ]);
+        Inventory::create([
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 200,
+            'quantity' => 30,
+        ]);
+
+        $stockCount = $this->pendingStockCount([
+            'user_id' => User::factory()->warehouseManager()->create()->id,
+            'warehouse_id' => $warehouse->id,
+        ], $productType, 20);
+
+        $stockCount->items()->create([
+            'product_type_id' => $productType->id,
+            'product_name' => $productType->name,
+            'grammage' => 200,
+            'quantity' => 0,
+        ]);
+
+        $this->actingAs($accountant);
+
+        Livewire::test(AccountantStockCountApprovalWidget::class)
+            ->callTableAction('accountantApprove', $stockCount->id);
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 20,
+        ]);
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 200,
+            'quantity' => 0,
+        ]);
+
+        $this->assertSame(
+            2,
+            Inventory::where('warehouse_id', $warehouse->id)->count()
+        );
+    }
+
+    public function test_accountant_approving_warehouse_initial_stock_count_removes_uncounted_inventory(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $warehouse = Warehouse::factory()->create();
+        $countedType = ProductType::factory()->create(['available_grammages' => [100, 200]]);
+        $uncountedType = ProductType::factory()->create([
+            'name' => 'Uncounted Product',
+            'available_grammages' => [100, 200],
+        ]);
+
+        Inventory::create([
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $uncountedType->id,
+            'grammage' => 100,
+            'quantity' => 45,
+        ]);
+
+        $stockCount = $this->pendingStockCount([
+            'user_id' => User::factory()->warehouseManager()->create()->id,
+            'warehouse_id' => $warehouse->id,
+        ], $countedType, 12);
+
+        $this->actingAs($accountant);
+
+        Livewire::test(AccountantStockCountApprovalWidget::class)
+            ->callTableAction('accountantApprove', $stockCount->id);
+
+        $this->assertDatabaseMissing('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $uncountedType->id,
+            'grammage' => 100,
+        ]);
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $countedType->id,
+            'grammage' => 100,
+            'quantity' => 12,
+        ]);
+    }
+
+    public function test_accountant_approving_warehouse_additional_stock_count_increments_once_and_records_transaction(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $warehouse = Warehouse::factory()->create();
+        $productType = ProductType::factory()->create(['available_grammages' => [100, 200]]);
+
+        Inventory::create([
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 10,
+        ]);
+
+        $stockCount = $this->pendingStockCount([
+            'user_id' => User::factory()->warehouseManager()->create()->id,
+            'warehouse_id' => $warehouse->id,
+            'is_additional_count' => true,
+        ], $productType, 5);
+
+        $this->actingAs($accountant);
+
+        Livewire::test(AccountantStockCountApprovalWidget::class)
+            ->callTableAction('accountantApprove', $stockCount->id);
+
+        $this->assertDatabaseHas('inventories', [
+            'warehouse_id' => $warehouse->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 15,
+        ]);
+
+        $this->assertDatabaseHas('stock_transactions', [
+            'type' => 'received',
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 5,
+            'warehouse_id' => $warehouse->id,
+            'disbursed_to' => 'Additional stock count #'.$stockCount->id,
+        ]);
+
+        $this->assertSame(
+            1,
+            StockTransaction::where('disbursed_to', 'Additional stock count #'.$stockCount->id)->count()
+        );
+    }
+
+    public function test_accountant_approving_agent_additional_stock_count_increments_once_and_records_transaction(): void
+    {
+        $accountant = User::factory()->accountant()->create();
+        $agent = User::factory()->communitySalesRepresentative()->create();
+        $productType = ProductType::factory()->create(['available_grammages' => [100, 200]]);
+
+        AgentStock::create([
+            'user_id' => $agent->id,
+            'product_type_id' => $productType->id,
+            'product_name' => $productType->name,
+            'grammage' => 100,
+            'quantity' => 8,
+        ]);
+
+        $stockCount = $this->pendingStockCount([
+            'user_id' => $agent->id,
+            'is_additional_count' => true,
+        ], $productType, 4);
+
+        $this->actingAs($accountant);
+
+        Livewire::test(AccountantStockCountApprovalWidget::class)
+            ->callTableAction('accountantApprove', $stockCount->id);
+
+        $this->assertDatabaseHas('agent_stocks', [
+            'user_id' => $agent->id,
+            'product_type_id' => $productType->id,
+            'product_name' => $productType->name,
+            'grammage' => 100,
+            'quantity' => 12,
+        ]);
+
+        $this->assertDatabaseHas('stock_transactions', [
+            'type' => 'received',
+            'product_type_id' => $productType->id,
+            'quantity' => 4,
+            'user_id' => $agent->id,
+            'disbursed_to' => 'Additional stock count #'.$stockCount->id,
+        ]);
     }
 
     private function pendingStockCount(array $attributes, ProductType $productType, int $quantity): StockCount

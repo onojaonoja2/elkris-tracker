@@ -7,6 +7,7 @@ use App\Filament\Resources\Orders\OrderResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
 use App\Models\AgentStock;
+use App\Models\Customer;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\SalesRecord;
@@ -28,6 +29,10 @@ class AccountantStatsOverviewWidget extends BaseWidget
             ->whereBetween('created_at', [$from, $to])
             ->count();
 
+        $totalCustomers = Customer::count();
+
+        $customersAddedToday = Customer::whereDate('created_at', today())->count();
+
         $repSalesValue = Order::where('status', OrderStatus::Delivered)
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to])
@@ -45,6 +50,15 @@ class AccountantStatsOverviewWidget extends BaseWidget
             ->sum('total_value');
 
         return [
+            Stat::make('Total Customers', $totalCustomers)
+                ->icon('heroicon-o-users')
+                ->color('info')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customer-breakdown')"]),
+            Stat::make('Customers Added Today', $customersAddedToday)
+                ->description('Added today')
+                ->icon('heroicon-o-user-plus')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customers-added-today')"]),
             Stat::make('Pending Sales Records', $pendingSalesRecords)
                 ->description('Pending accountant verification in selected range')
                 ->icon('heroicon-o-receipt-percent')

@@ -5,7 +5,6 @@ namespace App\Filament\Widgets;
 use App\Enums\OrderStatus;
 use App\Enums\StockTransferStatus;
 use App\Filament\Resources\CallLogs\CallLogResource;
-use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
 use App\Filament\Resources\StockTransfers\StockTransferResource;
@@ -34,14 +33,9 @@ class ManagerStatsWidget extends BaseWidget
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $totalCustomers = Customer::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->count();
+        $totalCustomers = Customer::count();
 
-        $convertedCustomers = Customer::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))
-            ->count();
+        $customersAddedToday = Customer::whereDate('created_at', today())->count();
 
         $salesRecords = SalesRecord::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
@@ -64,8 +58,6 @@ class ManagerStatsWidget extends BaseWidget
             ->where('status', '!=', OrderStatus::Cancelled)
             ->where('is_migrated_order', false)
             ->sum('total_price');
-
-        $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
         $totalAgents = User::whereIn('role', ['field_agent', 'community_sales_representative', 'open_market', 'retail_market'])->active()->count();
         $totalTransfers = StockTransfer::whereDate('created_at', '>=', $from)
@@ -99,10 +91,14 @@ class ManagerStatsWidget extends BaseWidget
 
         return [
             Stat::make('Total Customers', $totalCustomers)
-                ->description($conversionRate.'% conversion rate')
                 ->icon('heroicon-o-users')
                 ->color('info')
-                ->url(CustomerResource::getUrl('index')),
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customer-breakdown')"]),
+            Stat::make('Customers Added Today', $customersAddedToday)
+                ->description('Added today')
+                ->icon('heroicon-o-user-plus')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customers-added-today')"]),
             Stat::make('Revenue', self::formatCurrency($revenue))
                 ->description('Total revenue')
                 ->icon('heroicon-o-banknotes')
