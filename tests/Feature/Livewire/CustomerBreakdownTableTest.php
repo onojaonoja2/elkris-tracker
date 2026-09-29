@@ -6,12 +6,31 @@ use App\Livewire\CustomerBreakdownTable;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Session;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class CustomerBreakdownTableTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_breakdown_counts_all_time_customers_regardless_of_dashboard_date_scope(): void
+    {
+        Session::put('dashboard_date_from', now()->startOfDay()->toDateTimeString());
+        Session::put('dashboard_date_to', now()->endOfDay()->toDateTimeString());
+
+        $csr = User::factory()->communitySalesRepresentative()->create(['name' => 'Cara CSR']);
+        Customer::factory()->agentId($csr)->create([
+            'customer_name' => 'Old Buyer',
+            'created_at' => now()->subDays(10),
+        ]);
+
+        $component = Livewire::test(CustomerBreakdownTable::class);
+
+        $groups = $component->instance()->groups;
+
+        $this->assertTrue($groups->contains(fn ($row) => $row->key === 'group-csr' && $row->count === 1));
+    }
 
     public function test_groups_list_individual_epas_and_team_leads_with_counts(): void
     {

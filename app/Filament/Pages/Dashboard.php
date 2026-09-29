@@ -92,6 +92,14 @@ class Dashboard extends BaseDashboard
             return redirect()->to(AccountantDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
 
+        if ($role === 'general_accountant') {
+            return redirect()->to(GeneralAccountantDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
+        if ($role === 'general_manager') {
+            return redirect()->to(GeneralManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
+        }
+
         if ($role === 'manager' || $role === 'admin') {
             return redirect()->to(ManagerDashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
@@ -114,6 +122,8 @@ class Dashboard extends BaseDashboard
         return [
             $this->getOrderBreakdownAction(),
             $this->getOfficeSalesBreakdownAction(),
+            $this->getCustomerBreakdownAction(),
+            $this->getCustomersAddedTodayAction(),
         ];
     }
 

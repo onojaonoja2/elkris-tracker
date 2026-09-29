@@ -22,6 +22,7 @@ class NavigationHelper
             'general_accountant' => '/admin/general-accountant-dashboard',
             'general_manager' => '/admin/general-manager-dashboard',
             'production_management' => '/admin/production-dashboard',
+            'admin', 'manager' => '/admin/manager-dashboard',
             default => '/admin',
         };
     }

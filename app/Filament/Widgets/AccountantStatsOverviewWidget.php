@@ -29,7 +29,7 @@ class AccountantStatsOverviewWidget extends BaseWidget
             ->whereBetween('created_at', [$from, $to])
             ->count();
 
-        $totalCustomers = Customer::whereBetween('created_at', [$from, $to])->count();
+        $totalCustomers = Customer::count();
 
         $customersAddedToday = Customer::whereDate('created_at', today())->count();
 
@@ -51,7 +51,6 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
         return [
             Stat::make('Total Customers', $totalCustomers)
-                ->description('Customers in selected range')
                 ->icon('heroicon-o-users')
                 ->color('info')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customer-breakdown')"]),

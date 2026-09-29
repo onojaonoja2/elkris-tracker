@@ -27,10 +27,8 @@ class GeneralManagerStatsWidget extends BaseWidget
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $totalCustomers = Customer::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->count();
+        $totalCustomers = Customer::count();
         $customersAddedToday = Customer::whereDate('created_at', today())->count();
-        $convertedCustomers = Customer::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))->count();
-        $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
         $revenue = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
         $orders = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
@@ -41,7 +39,6 @@ class GeneralManagerStatsWidget extends BaseWidget
 
         return [
             Stat::make('Total Customers', $totalCustomers)
-                ->description($conversionRate.'% conversion rate')
                 ->icon('heroicon-o-users')
                 ->color('info')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customer-breakdown')"]),

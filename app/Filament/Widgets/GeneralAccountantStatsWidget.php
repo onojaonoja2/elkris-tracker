@@ -24,8 +24,6 @@ class GeneralAccountantStatsWidget extends BaseWidget
     {
         $totalCustomers = Customer::count();
         $customersAddedToday = Customer::whereDate('created_at', today())->count();
-        $convertedCustomers = Customer::whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false))->count();
-        $conversionRate = $totalCustomers > 0 ? round(($convertedCustomers / $totalCustomers) * 100, 1) : 0;
 
         $orders = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
         $revenue = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
@@ -38,7 +36,6 @@ class GeneralAccountantStatsWidget extends BaseWidget
 
         return [
             Stat::make('Total Customers', $totalCustomers)
-                ->description($conversionRate.'% conversion rate')
                 ->icon('heroicon-o-users')
                 ->color('info')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customer-breakdown')"]),

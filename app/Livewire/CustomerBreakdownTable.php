@@ -5,7 +5,6 @@ namespace App\Livewire;
 use App\Enums\OrderStatus;
 use App\Models\Customer;
 use App\Models\User;
-use App\Support\DashboardDateScope;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -38,44 +37,27 @@ class CustomerBreakdownTable extends Component
     public string $search = '';
 
     /**
-     * @return array{0: string, 1: string}
-     */
-    #[Computed]
-    public function scope(): array
-    {
-        [$from, $to] = DashboardDateScope::fromSession();
-
-        return [$from->toDateTimeString(), $to->toDateTimeString()];
-    }
-
-    /**
      * @return Collection<int, object{key: string, label: string, type: string, count: int, user_id: ?int}>
      */
     #[Computed]
     public function groups(): Collection
     {
-        [$from, $to] = $this->scope;
-
-        $repCounts = Customer::whereBetween('created_at', [$from, $to])
-            ->whereNotNull('rep_id')
+        $repCounts = Customer::whereNotNull('rep_id')
             ->selectRaw('rep_id as user_id, COUNT(*) as c')
             ->groupBy('rep_id')
             ->pluck('c', 'user_id');
 
-        $leadCounts = Customer::whereBetween('created_at', [$from, $to])
-            ->whereNotNull('lead_id')
+        $leadCounts = Customer::whereNotNull('lead_id')
             ->selectRaw('lead_id as user_id, COUNT(*) as c')
             ->groupBy('lead_id')
             ->pluck('c', 'user_id');
 
-        $agentCounts = Customer::whereBetween('created_at', [$from, $to])
-            ->whereNotNull('agent_id')
+        $agentCounts = Customer::whereNotNull('agent_id')
             ->selectRaw('agent_id as user_id, COUNT(*) as c')
             ->groupBy('agent_id')
             ->pluck('c', 'user_id');
 
-        $unassigned = Customer::whereBetween('created_at', [$from, $to])
-            ->whereNull('agent_id')
+        $unassigned = Customer::whereNull('agent_id')
             ->whereNull('rep_id')
             ->whereNull('lead_id')
             ->count();
@@ -98,7 +80,7 @@ class CustomerBreakdownTable extends Component
                 'label' => $user->name,
                 'type' => 'lead',
                 'count' => (int) ($leadCounts->get($user->id) ?? 0)
-                    + $this->leadRepCustomerCount($user, $from, $to),
+                    + $this->leadRepCustomerCount($user),
                 'user_id' => $user->id,
             ])
         );
@@ -128,7 +110,7 @@ class CustomerBreakdownTable extends Component
         return $rows->filter(fn (object $row): bool => $row->count > 0)->values();
     }
 
-    private function leadRepCustomerCount(User $lead, string $from, string $to): int
+    private function leadRepCustomerCount(User $lead): int
     {
         $repIds = $lead->reps()->pluck('id');
 
@@ -136,9 +118,7 @@ class CustomerBreakdownTable extends Component
             return 0;
         }
 
-        return Customer::whereBetween('created_at', [$from, $to])
-            ->whereIn('rep_id', $repIds)
-            ->count();
+        return Customer::whereIn('rep_id', $repIds)->count();
     }
 
     /**
@@ -153,10 +133,7 @@ class CustomerBreakdownTable extends Component
             return collect();
         }
 
-        [$from, $to] = $this->scope;
-
-        $counts = Customer::whereBetween('created_at', [$from, $to])
-            ->whereNotNull('agent_id')
+        $counts = Customer::whereNotNull('agent_id')
             ->selectRaw('agent_id as user_id, COUNT(*) as c')
             ->groupBy('agent_id')
             ->pluck('c', 'user_id');
@@ -177,10 +154,7 @@ class CustomerBreakdownTable extends Component
     #[Computed]
     public function customers(): LengthAwarePaginator
     {
-        [$from, $to] = $this->scope;
-
         return $this->customerQuery()
-            ->whereBetween('created_at', [$from, $to])
             ->when(filled($this->search), function ($query) {
                 $query->where(function ($q) {
                     $q->where('customer_name', 'like', '%'.$this->search.'%')
@@ -345,10 +319,7 @@ class CustomerBreakdownTable extends Component
      */
     private function exportRows(): array
     {
-        [$from, $to] = $this->scope;
-
         return $this->customerQuery()
-            ->whereBetween('created_at', [$from, $to])
             ->when(filled($this->search), function ($query) {
                 $query->where(function ($q) {
                     $q->where('customer_name', 'like', '%'.$this->search.'%')
