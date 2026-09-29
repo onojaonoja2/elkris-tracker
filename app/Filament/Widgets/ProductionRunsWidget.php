@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\ProductionRuns\Actions\ReviewProductionRunAction;
 use App\Models\ProductionRun;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -82,6 +83,7 @@ class ProductionRunsWidget extends TableWidget
                     ]),
             ])
             ->recordActions([
+                ReviewProductionRunAction::make(),
                 ViewAction::make()
                     ->modalHeading(fn (ProductionRun $record): string => "Production Run #{$record->id}")
                     ->infolist([

@@ -120,6 +120,10 @@ class ProductionRunService
     /**
      * Review a production run and lock it from further edits.
      *
+     * The review decision is always recorded. Finished goods are posted to the
+     * production warehouse when the run maps to a stockable product and a
+     * production warehouse is designated; otherwise the reviewer is notified.
+     *
      * @param  array<string, mixed>  $data
      */
     public static function review(ProductionRun $run, array $data, int $reviewerId): ProductionRun
@@ -139,7 +143,20 @@ class ProductionRunService
             ]);
 
             if ($run->isReviewed()) {
-                self::postFinishedGoods($run->fresh(), $reviewerId);
+                $freshRun = $run->fresh();
+
+                if ($freshRun->mapsToStockableProduct() && ! Warehouse::productionStore()) {
+                    NotificationService::notifyUser(
+                        $reviewerId,
+                        'production_goods_not_posted',
+                        'Production review saved',
+                        "Run #{$run->id} was reviewed, but finished goods were not posted to inventory because no production warehouse is designated.",
+                        $run->id,
+                        'production_run'
+                    );
+                } else {
+                    self::postFinishedGoods($freshRun, $reviewerId);
+                }
             }
 
             return $run;
