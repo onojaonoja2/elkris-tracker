@@ -30,9 +30,7 @@ class StockCountService
             if ($record->warehouse_id) {
                 self::withWarehouseStock($record);
             } else {
-                foreach ($record->items as $item) {
-                    self::withAgentStock($record, $item);
-                }
+                self::withAgentStock($record);
             }
         });
     }
@@ -83,25 +81,53 @@ class StockCountService
         }
     }
 
-    private static function withAgentStock(StockCount $record, mixed $item): void
+    /**
+     * An initial count replaces the agent's entire stock with the counted items;
+     * an additional count increments existing quantities on top of them.
+     */
+    private static function withAgentStock(StockCount $record): void
     {
-        $attributes = [
-            'user_id' => $record->user_id,
-            'product_type_id' => $item->product_type_id,
-            'product_name' => $item->product_name ?? $item->productType?->name ?? 'Unknown',
-            'grammage' => $item->grammage,
-        ];
-
         if ($record->is_additional_count) {
-            AgentStock::firstOrCreate($attributes, ['quantity' => 0])
-                ->increment('quantity', $item->quantity);
+            foreach ($record->items as $item) {
+                AgentStock::firstOrCreate(
+                    self::agentStockKey($record, $item),
+                    [
+                        'product_type_id' => $item->product_type_id,
+                        'quantity' => 0,
+                    ]
+                )->increment('quantity', $item->quantity);
 
-            self::logAdditionalTransaction($record, $item);
+                self::logAdditionalTransaction($record, $item);
+            }
 
             return;
         }
 
-        AgentStock::updateOrCreate($attributes, ['quantity' => $item->quantity]);
+        AgentStock::where('user_id', $record->user_id)->delete();
+
+        foreach ($record->items as $item) {
+            AgentStock::updateOrCreate(
+                self::agentStockKey($record, $item),
+                [
+                    'product_type_id' => $item->product_type_id,
+                    'quantity' => $item->quantity,
+                ]
+            );
+        }
+    }
+
+    /**
+     * Matches the unique index on agent_stocks (user_id, product_name, grammage).
+     *
+     * @return array{user_id: int, product_name: string, grammage: int}
+     */
+    private static function agentStockKey(StockCount $record, StockCountItem $item): array
+    {
+        return [
+            'user_id' => $record->user_id,
+            'product_name' => $item->product_name ?? $item->productType?->name ?? 'Unknown',
+            'grammage' => $item->grammage,
+        ];
     }
 
     private static function logAdditionalTransaction(StockCount $record, StockCountItem $item): void
