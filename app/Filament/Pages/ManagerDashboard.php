@@ -147,6 +147,8 @@ class ManagerDashboard extends BaseDashboard
             $this->getApprovalBreakdownAction(),
             $this->getCustomerBreakdownAction(),
             $this->getCustomersAddedTodayAction(),
+            $this->getProspectBreakdownAction(),
+            $this->getLoyalBreakdownAction(),
             Action::make('addUser')
                 ->label('Add User')
                 ->icon('heroicon-o-user-plus')

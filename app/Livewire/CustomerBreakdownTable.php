@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Models\Customer;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -36,31 +37,33 @@ class CustomerBreakdownTable extends Component
 
     public string $search = '';
 
+    public string $mode = 'all';
+
     /**
      * @return Collection<int, object{key: string, label: string, type: string, count: int, user_id: ?int}>
      */
     #[Computed]
     public function groups(): Collection
     {
-        $repCounts = Customer::whereNotNull('rep_id')
+        $repCounts = $this->applyModeFilter(Customer::whereNotNull('rep_id'))
             ->selectRaw('rep_id as user_id, COUNT(*) as c')
             ->groupBy('rep_id')
             ->pluck('c', 'user_id');
 
-        $leadCounts = Customer::whereNotNull('lead_id')
+        $leadCounts = $this->applyModeFilter(Customer::whereNotNull('lead_id')->whereNull('rep_id'))
             ->selectRaw('lead_id as user_id, COUNT(*) as c')
             ->groupBy('lead_id')
             ->pluck('c', 'user_id');
 
-        $agentCounts = Customer::whereNotNull('agent_id')
+        $agentCounts = $this->applyModeFilter(Customer::whereNotNull('agent_id')->whereNull('rep_id')->whereNull('lead_id'))
             ->selectRaw('agent_id as user_id, COUNT(*) as c')
             ->groupBy('agent_id')
             ->pluck('c', 'user_id');
 
-        $unassigned = Customer::whereNull('agent_id')
-            ->whereNull('rep_id')
-            ->whereNull('lead_id')
+        $unassigned = $this->applyModeFilter(Customer::whereNull('agent_id')->whereNull('rep_id')->whereNull('lead_id'))
             ->count();
+
+        $legacy = $this->applyModeFilter($this->legacyCustomerQuery())->count();
 
         $rows = collect();
 
@@ -79,8 +82,7 @@ class CustomerBreakdownTable extends Component
                 'key' => 'lead-'.$user->id,
                 'label' => $user->name,
                 'type' => 'lead',
-                'count' => (int) ($leadCounts->get($user->id) ?? 0)
-                    + $this->leadRepCustomerCount($user),
+                'count' => (int) ($leadCounts->get($user->id) ?? 0),
                 'user_id' => $user->id,
             ])
         );
@@ -107,18 +109,41 @@ class CustomerBreakdownTable extends Component
             'user_id' => null,
         ]);
 
+        $rows->push((object) [
+            'key' => 'group-legacy',
+            'label' => 'Inactive / Legacy',
+            'type' => 'legacy',
+            'count' => $legacy,
+            'user_id' => null,
+        ]);
+
         return $rows->filter(fn (object $row): bool => $row->count > 0)->values();
     }
 
-    private function leadRepCustomerCount(User $lead): int
+    private function legacyCustomerQuery(): Builder
     {
-        $repIds = $lead->reps()->pluck('id');
+        $activeRepIds = User::where('role', 'rep')->active()->pluck('id');
+        $activeLeadIds = User::where('role', 'lead')->active()->pluck('id');
+        $activeAgentIds = User::whereIn('role', array_values(self::AGENT_GROUPS))->active()->pluck('id');
 
-        if ($repIds->isEmpty()) {
-            return 0;
-        }
+        return Customer::where(function (Builder $query) use ($activeRepIds, $activeLeadIds, $activeAgentIds) {
+            $query->where(function (Builder $query) use ($activeRepIds) {
+                $query->whereNotNull('rep_id')->whereNotIn('rep_id', $activeRepIds);
+            })->orWhere(function (Builder $query) use ($activeLeadIds) {
+                $query->whereNull('rep_id')->whereNotNull('lead_id')->whereNotIn('lead_id', $activeLeadIds);
+            })->orWhere(function (Builder $query) use ($activeAgentIds) {
+                $query->whereNull('rep_id')->whereNull('lead_id')->whereNotNull('agent_id')->whereNotIn('agent_id', $activeAgentIds);
+            });
+        });
+    }
 
-        return Customer::whereIn('rep_id', $repIds)->count();
+    private function applyModeFilter(Builder $query): Builder
+    {
+        return match ($this->mode) {
+            'prospect' => $query->hasNotPlacedOrder(),
+            'loyal' => $query->hasPlacedOrder(),
+            default => $query,
+        };
     }
 
     /**
@@ -133,7 +158,7 @@ class CustomerBreakdownTable extends Component
             return collect();
         }
 
-        $counts = Customer::whereNotNull('agent_id')
+        $counts = $this->applyModeFilter(Customer::whereNotNull('agent_id')->whereNull('rep_id')->whereNull('lead_id'))
             ->selectRaw('agent_id as user_id, COUNT(*) as c')
             ->groupBy('agent_id')
             ->pluck('c', 'user_id');
@@ -176,39 +201,37 @@ class CustomerBreakdownTable extends Component
             ->paginate(10);
     }
 
-    private function customerQuery()
+    private function customerQuery(): Builder
     {
+        $query = $this->applyModeFilter(Customer::query());
+
         if (self::AGENT_GROUPS[$this->group] ?? null) {
-            return Customer::where('agent_id', $this->userId);
+            return $query->where('agent_id', $this->userId)
+                ->whereNull('rep_id')
+                ->whereNull('lead_id');
         }
 
         if ($this->userId === null) {
-            return Customer::whereRaw('1 = 0');
+            return $query->whereRaw('1 = 0');
         }
 
         $user = User::find($this->userId);
 
         if (! $user) {
-            return Customer::whereRaw('1 = 0');
+            return $query->whereRaw('1 = 0');
         }
 
         if ($user->getPrimaryRole() === 'rep') {
-            return Customer::where('rep_id', $user->id);
+            return $query->where('rep_id', $user->id);
         }
 
         if ($user->getPrimaryRole() === 'lead') {
-            $repIds = $user->reps()->pluck('id');
-
-            return Customer::where(function ($q) use ($user, $repIds) {
-                $q->where('lead_id', $user->id);
-
-                if ($repIds->isNotEmpty()) {
-                    $q->orWhereIn('rep_id', $repIds);
-                }
-            });
+            return $query->where('lead_id', $user->id)->whereNull('rep_id');
         }
 
-        return Customer::where('agent_id', $user->id);
+        return $query->where('agent_id', $user->id)
+            ->whereNull('rep_id')
+            ->whereNull('lead_id');
     }
 
     #[Computed]
@@ -369,6 +392,7 @@ class CustomerBreakdownTable extends Component
             'rep' => 'Elkris Portfolio Agent',
             'lead' => 'Team Lead',
             'group' => 'Group',
+            'legacy' => 'Inactive / Legacy',
             default => 'Unassigned',
         };
     }

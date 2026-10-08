@@ -33,6 +33,10 @@ class AccountantStatsOverviewWidget extends BaseWidget
 
         $customersAddedToday = Customer::whereDate('created_at', today())->count();
 
+        $prospects = Customer::hasNotPlacedOrder()->count();
+
+        $loyalCustomers = Customer::hasPlacedOrder()->count();
+
         $repSalesValue = Order::where('status', OrderStatus::Delivered)
             ->where('is_migrated_order', false)
             ->whereBetween('created_at', [$from, $to])
@@ -59,6 +63,16 @@ class AccountantStatsOverviewWidget extends BaseWidget
                 ->icon('heroicon-o-user-plus')
                 ->color('success')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customers-added-today')"]),
+            Stat::make('Prospects', $prospects)
+                ->description('Customers without orders')
+                ->icon('heroicon-o-user')
+                ->color('warning')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-prospect-breakdown')"]),
+            Stat::make('Loyal Customers', $loyalCustomers)
+                ->description('Customers with orders')
+                ->icon('heroicon-o-heart')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-loyal-breakdown')"]),
             Stat::make('Pending Sales Records', $pendingSalesRecords)
                 ->description('Pending accountant verification in selected range')
                 ->icon('heroicon-o-receipt-percent')

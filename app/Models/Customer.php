@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\CustomerPriority;
+use App\Enums\OrderStatus;
 use App\Models\Concerns\HasSanitization;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -284,6 +286,22 @@ class Customer extends Model implements Auditable
         }
 
         return $dates;
+    }
+
+    /**
+     * Get customers who have placed at least one non-cancelled order.
+     */
+    public function scopeHasPlacedOrder(Builder $query): Builder
+    {
+        return $query->whereHas('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled));
+    }
+
+    /**
+     * Get customers who have not placed a non-cancelled order.
+     */
+    public function scopeHasNotPlacedOrder(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled));
     }
 
     /**

@@ -85,6 +85,8 @@ class AccountantDashboard extends BaseDashboard
             $this->getRevenueBreakdownAction(),
             $this->getCustomerBreakdownAction(),
             $this->getCustomersAddedTodayAction(),
+            $this->getProspectBreakdownAction(),
+            $this->getLoyalBreakdownAction(),
             Action::make('exportReport')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')

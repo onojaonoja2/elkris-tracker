@@ -30,6 +30,10 @@ class GeneralManagerStatsWidget extends BaseWidget
         $totalCustomers = Customer::count();
         $customersAddedToday = Customer::whereDate('created_at', today())->count();
 
+        $prospects = Customer::hasNotPlacedOrder()->count();
+
+        $loyalCustomers = Customer::hasPlacedOrder()->count();
+
         $revenue = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
         $orders = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
         $totalUsers = User::count();
@@ -47,6 +51,16 @@ class GeneralManagerStatsWidget extends BaseWidget
                 ->icon('heroicon-o-user-plus')
                 ->color('success')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customers-added-today')"]),
+            Stat::make('Prospects', $prospects)
+                ->description('Customers without orders')
+                ->icon('heroicon-o-user')
+                ->color('warning')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-prospect-breakdown')"]),
+            Stat::make('Loyal Customers', $loyalCustomers)
+                ->description('Customers with orders')
+                ->icon('heroicon-o-heart')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-loyal-breakdown')"]),
             Stat::make('Revenue', self::formatCurrency($revenue))
                 ->description('Total revenue')
                 ->icon('heroicon-o-banknotes')

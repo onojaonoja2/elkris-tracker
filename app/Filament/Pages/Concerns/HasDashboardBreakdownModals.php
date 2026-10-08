@@ -99,6 +99,18 @@ trait HasDashboardBreakdownModals
         $this->mountAction('customersAddedToday');
     }
 
+    #[On('open-prospect-breakdown')]
+    public function openProspectBreakdown(): void
+    {
+        $this->mountAction('prospectBreakdown');
+    }
+
+    #[On('open-loyal-breakdown')]
+    public function openLoyalBreakdown(): void
+    {
+        $this->mountAction('loyalBreakdown');
+    }
+
     protected function getCreditBreakdownAction(): Action
     {
         return Action::make('creditBreakdown')
@@ -279,7 +291,53 @@ trait HasDashboardBreakdownModals
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Close')
             ->modalContent(function (): View {
-                return view('filament.customer-breakdown-modal');
+                return view('filament.customer-breakdown-modal', [
+                    'mode' => 'all',
+                ]);
+            })
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                'admin',
+                'manager',
+                'general_manager',
+                'accountant',
+                'general_accountant',
+            ]) ?? false);
+    }
+
+    protected function getProspectBreakdownAction(): Action
+    {
+        return Action::make('prospectBreakdown')
+            ->label('Prospect Breakdown')
+            ->icon('heroicon-o-user')
+            ->modalHeading('Prospects Breakdown')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.customer-breakdown-modal', [
+                    'mode' => 'prospect',
+                ]);
+            })
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole([
+                'admin',
+                'manager',
+                'general_manager',
+                'accountant',
+                'general_accountant',
+            ]) ?? false);
+    }
+
+    protected function getLoyalBreakdownAction(): Action
+    {
+        return Action::make('loyalBreakdown')
+            ->label('Loyal Customer Breakdown')
+            ->icon('heroicon-o-heart')
+            ->modalHeading('Loyal Customers Breakdown')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(function (): View {
+                return view('filament.customer-breakdown-modal', [
+                    'mode' => 'loyal',
+                ]);
             })
             ->visible(fn (): bool => auth()->user()?->hasAnyRole([
                 'admin',
