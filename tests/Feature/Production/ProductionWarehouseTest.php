@@ -15,6 +15,7 @@ use App\Models\ProductType;
 use App\Models\RawMaterial;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Notifications\NewSubmissionNotification;
 use App\Services\ProductionRunService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -161,19 +162,21 @@ class ProductionWarehouseTest extends TestCase
         $this->assertSame(0, Inventory::count());
     }
 
-    public function test_review_without_designated_store_fails(): void
+    public function test_review_without_designated_store_succeeds_and_skips_posting(): void
     {
         $producer = User::factory()->productionManagement()->create();
         $accountant = User::factory()->accountant()->create();
         $run = $this->mappedRun($producer, $this->productType());
 
-        try {
-            ProductionRunService::review($run, ['status' => 'reviewed'], $accountant->id);
-            $this->fail('Expected a ValidationException when no production store exists.');
-        } catch (ValidationException $e) {
-            $this->assertSame('pending_review', $run->fresh()->status);
-            $this->assertSame(0, Inventory::count());
-        }
+        ProductionRunService::review($run, ['status' => 'reviewed'], $accountant->id);
+
+        $this->assertSame('reviewed', $run->fresh()->status);
+        $this->assertSame(0, Inventory::count());
+
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $accountant->id,
+            'type' => NewSubmissionNotification::class,
+        ]);
     }
 
     public function test_reviewed_run_cannot_post_twice(): void
