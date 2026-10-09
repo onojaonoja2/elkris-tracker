@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\Lga;
 use App\Models\Product;
+use App\Models\ProductType;
 use App\Models\State;
 use App\Models\User;
 use App\Rules\UniquePhoneWithOwner;
@@ -207,7 +208,7 @@ class CustomerForm
         $html = '<table class="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">';
         $html .= '<thead><tr class="bg-gray-50 border-b border-gray-200">
             <th class="text-left py-2 px-3 font-medium text-gray-600">Product</th>
-            <th class="text-left py-2 px-3 font-medium text-gray-600">Grammage</th>
+            <th class="text-left py-2 px-3 font-medium text-gray-600">Weight</th>
             <th class="text-right py-2 px-3 font-medium text-gray-600">Qty</th>
             <th class="text-right py-2 px-3 font-medium text-gray-600">Unit Price</th>
             <th class="text-right py-2 px-3 font-medium text-gray-600">Subtotal</th>
@@ -221,7 +222,7 @@ class CustomerForm
 
             $html .= '<tr class="border-b border-gray-100 hover:bg-gray-50">
                 <td class="py-2 px-3">'.e($data['product_name']).'</td>
-                <td class="py-2 px-3">'.$data['grammage'].'g</td>
+                <td class="py-2 px-3">'.ProductType::formatGrammage(ProductType::where('name', $data['product_name'])->first(), (int) $data['grammage']).'</td>
                 <td class="py-2 px-3 text-right">'.$data['total_qty'].'</td>
                 <td class="py-2 px-3 text-right">₦'.number_format($unitPrice, 2).'</td>
                 <td class="py-2 px-3 text-right">₦'.number_format($subtotal, 2).'</td>

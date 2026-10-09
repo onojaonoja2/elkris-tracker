@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Inventory;
+use App\Models\ProductType;
 use App\Models\Warehouse;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -38,8 +39,9 @@ class ProductionStoreStockWidget extends TableWidget
     private function cartonsDisplay(Inventory $record): string
     {
         $perCarton = $record->productType?->cartonQuantityFor($record->grammage) ?? 1;
+        $package = ($record->productType?->packagingFor($record->grammage) ?? 'carton') === 'bag' ? 'bags' : 'ctns';
 
-        return number_format(intdiv($record->quantity, $perCarton)).' ctns + '.number_format($record->quantity % $perCarton).' pcs';
+        return number_format(intdiv($record->quantity, $perCarton)).' '.$package.' + '.number_format($record->quantity % $perCarton).' pcs';
     }
 
     public function table(Table $table): Table
@@ -59,11 +61,11 @@ class ProductionStoreStockWidget extends TableWidget
                     ->sortable()
                     ->placeholder('Unknown'),
                 TextColumn::make('grammage')
-                    ->label('Grammage')
-                    ->formatStateUsing(fn ($state): string => number_format($state).'g')
+                    ->label('Weight')
+                    ->getStateUsing(fn (Inventory $record): string => ProductType::formatGrammage($record->productType, $record->grammage))
                     ->sortable(),
                 TextColumn::make('cartons')
-                    ->label('Cartons')
+                    ->label('Packages')
                     ->getStateUsing(fn (Inventory $record): string => $this->cartonsDisplay($record)),
                 TextColumn::make('quantity')
                     ->label('Quantity')
@@ -72,7 +74,7 @@ class ProductionStoreStockWidget extends TableWidget
             ])
             ->recordActions([
                 ViewAction::make()
-                    ->modalHeading(fn (Inventory $record): string => "Stock: {$record->productType?->name} ({$record->grammage}g)")
+                    ->modalHeading(fn (Inventory $record): string => 'Stock: '.$record->productType?->name.' ('.ProductType::formatGrammage($record->productType, $record->grammage).')')
                     ->infolist([
                         TextEntry::make('warehouse.name')
                             ->label('Warehouse')
@@ -81,10 +83,10 @@ class ProductionStoreStockWidget extends TableWidget
                             ->label('Product')
                             ->placeholder('Unknown'),
                         TextEntry::make('grammage')
-                            ->label('Grammage')
-                            ->formatStateUsing(fn ($state): string => number_format($state).'g'),
+                            ->label('Weight')
+                            ->getStateUsing(fn (Inventory $record): string => ProductType::formatGrammage($record->productType, $record->grammage)),
                         TextEntry::make('cartons')
-                            ->label('Cartons')
+                            ->label('Packages')
                             ->getStateUsing(fn (Inventory $record): string => $this->cartonsDisplay($record)),
                         TextEntry::make('quantity')
                             ->label('Quantity'),
@@ -101,13 +103,13 @@ class ProductionStoreStockWidget extends TableWidget
                         return response()->streamDownload(function () use ($records) {
                             $file = fopen('php://output', 'w');
                             fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-                            fputcsv($file, ['Warehouse', 'Product', 'Grammage (g)', 'Cartons', 'Quantity']);
+                            fputcsv($file, ['Warehouse', 'Product', 'Weight', 'Packages', 'Quantity']);
 
                             foreach ($records as $record) {
                                 fputcsv($file, [
                                     $record->warehouse?->name ?? 'Unknown',
                                     $record->productType?->name ?? 'Unknown',
-                                    $record->grammage,
+                                    ProductType::formatGrammage($record->productType, $record->grammage),
                                     $this->cartonsDisplay($record),
                                     $record->quantity,
                                 ]);

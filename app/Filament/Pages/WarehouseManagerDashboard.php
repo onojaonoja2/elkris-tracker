@@ -163,7 +163,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                             ->live()
                             ->afterStateUpdated(fn ($set) => $set('grammage', null)),
                         Select::make('grammage')
-                            ->label('Weight (g)')
+                            ->label('Weight')
                             ->options(function (callable $get) {
                                 $ptId = $get('product_type_id');
                                 if (! $ptId) {
@@ -174,14 +174,14 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 return $pt
                                     ? collect($pt->available_grammages)
                                         ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                        ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                        ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                         ->toArray()
                                     : [];
                             })
                             ->required()
                             ->live(),
                         TextInput::make('cartons')
-                            ->label('Cartons')
+                            ->label(fn (callable $get): string => self::packagingPluralLabel($get))
                             ->numeric()
                             ->integer()
                             ->minValue(0)
@@ -310,7 +310,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                             ->live()
                             ->afterStateUpdated(fn ($set) => $set('grammage', null)),
                         Select::make('grammage')
-                            ->label('Weight (g)')
+                            ->label('Weight')
                             ->options(function (callable $get) {
                                 $ptId = $get('product_type_id');
                                 if (! $ptId) {
@@ -321,7 +321,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 return $pt
                                     ? collect($pt->available_grammages)
                                         ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                        ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                        ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                         ->toArray()
                                     : [];
                             })
@@ -360,7 +360,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                             if ($available < $item['quantity']) {
                                 $pt = ProductType::find($item['product_type_id']);
                                 $productName = $pt?->name ?? 'Unknown';
-                                $insufficientItems[] = "{$productName} {$item['grammage']}g (requested: {$item['quantity']}, available: {$available})";
+                                $insufficientItems[] = "{$productName} ".ProductType::formatGrammage($pt, (int) $item['grammage'])." (requested: {$item['quantity']}, available: {$available})";
                             } else {
                                 $inventoryToDecrement[] = [
                                     'inventory' => $inv,
@@ -445,7 +445,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 ->live()
                                 ->afterStateUpdated(fn ($set) => $set('grammage', null)),
                             Select::make('grammage')
-                                ->label('Weight (g)')
+                                ->label('Weight')
                                 ->options(function (callable $get) {
                                     $ptId = $get('product_type_id');
                                     if (! $ptId) {
@@ -458,13 +458,13 @@ class WarehouseManagerDashboard extends BaseDashboard
 
                                     return collect($pt->available_grammages)
                                         ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                        ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                        ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                         ->toArray();
                                 })
                                 ->required()
                                 ->live(),
                             TextInput::make('cartons')
-                                ->label('Cartons')
+                                ->label(fn (callable $get): string => self::packagingPluralLabel($get))
                                 ->numeric()
                                 ->integer()
                                 ->minValue(0)
@@ -568,6 +568,14 @@ class WarehouseManagerDashboard extends BaseDashboard
 
             fclose($handle);
         }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    protected static function packagingPluralLabel(callable $get): string
+    {
+        $productType = ProductType::find((int) ($get('product_type_id') ?? 0));
+        $grammage = (int) ($get('grammage') ?? 0);
+
+        return ProductType::packagingLabel($productType, $grammage).'s';
     }
 
     protected static function recalculateReceiveItemTotal(mixed $set, callable $get): void

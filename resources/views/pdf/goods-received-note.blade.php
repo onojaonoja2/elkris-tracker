@@ -30,7 +30,7 @@
     <div class="details">
         <table>
             <tr><td>Product:</td><td>{{ $transaction->product_name }}</td></tr>
-            <tr><td>Grammage:</td><td>{{ $transaction->grammage }}g</td></tr>
+            <tr><td>Weight:</td><td>{{ \App\Models\ProductType::formatGrammage(\App\Models\ProductType::find($transaction->product_type_id), (int) $transaction->grammage) }}</td></tr>
             <tr><td>Quantity Received:</td><td>{{ $transaction->quantity }}</td></tr>
             <tr><td>Received By:</td><td>{{ $transaction->user?->name ?? 'N/A' }}</td></tr>
             @if($warehouse ?? null)

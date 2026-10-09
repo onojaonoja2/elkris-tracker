@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\ProductTypes\Tables;
 
+use App\Models\ProductType;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -21,10 +22,21 @@ class ProductTypesTable
 
                 TextColumn::make('available_grammages_formatted')
                     ->label('Available Weights')
-                    ->state(fn (mixed $record): string => collect($record->available_grammages)
-                        ->map(fn ($g) => is_array($g) ? ($g['grammage'] ?? $g) : $g)
-                        ->map(fn ($g) => $g.'g')
-                        ->implode(', ')),
+                    ->state(function (mixed $record): string {
+                        return collect($record->available_grammages)
+                            ->map(function ($entry) {
+                                if (! is_array($entry)) {
+                                    return $entry.'g';
+                                }
+
+                                $weight = ProductType::formatGrammageEntry($entry);
+                                $perPackage = (int) ($entry['carton_quantity'] ?? 1);
+                                $packaging = ($entry['packaging'] ?? 'carton') === 'bag' ? 'bag' : 'carton';
+
+                                return $weight.' • '.$perPackage.' pcs/'.$packaging;
+                            })
+                            ->implode(', ');
+                    }),
 
                 ToggleColumn::make('is_active')
                     ->label('Active'),

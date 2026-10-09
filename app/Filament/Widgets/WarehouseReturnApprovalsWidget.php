@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\ProductType;
 use App\Models\Warehouse;
 use App\Models\WarehouseReturn;
 use App\Services\WarehouseReturnService;
@@ -47,7 +48,7 @@ class WarehouseReturnApprovalsWidget extends TableWidget
                 TextColumn::make('user.name')->label('Returned By')->searchable(),
                 TextColumn::make('warehouse.name')->label('Warehouse')->searchable(),
                 TextColumn::make('productType.name')->label('Product')->searchable(),
-                TextColumn::make('grammage')->label('Weight')->formatStateUsing(fn ($state) => $state.'g'),
+                TextColumn::make('grammage')->label('Weight')->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')->label('Qty'),
                 TextColumn::make('reason')->label('Reason')->limit(40)->placeholder('-'),
                 TextColumn::make('status')

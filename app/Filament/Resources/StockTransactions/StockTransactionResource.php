@@ -4,6 +4,7 @@ namespace App\Filament\Resources\StockTransactions;
 
 use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\StockTransactions\Pages\ManageStockTransactions;
+use App\Models\ProductType;
 use App\Models\StockTransaction;
 use BackedEnum;
 use Filament\Actions\ViewAction;
@@ -87,7 +88,7 @@ class StockTransactionResource extends Resource
                     ->sortable()
                     ->label('Product'),
                 TextColumn::make('grammage')
-                    ->formatStateUsing(fn ($state) => $state.'g')
+                    ->getStateUsing(fn ($record): string => ProductType::formatGrammage(ProductType::find($record->product_type_id), (int) $record->grammage))
                     ->sortable()
                     ->label('Size'),
                 TextColumn::make('quantity')
@@ -110,7 +111,7 @@ class StockTransactionResource extends Resource
                         'Elkris Poundo Yam' => 'Elkris Poundo Yam',
                     ]),
                 SelectFilter::make('grammage')
-                    ->label('Grammage')
+                    ->label('Weight')
                     ->options([
                         '5000' => '5000g',
                         '1800' => '1800g',
@@ -147,7 +148,7 @@ class StockTransactionResource extends Resource
                             ->columns(3)
                             ->schema([
                                 TextEntry::make('product_name')->label('Product'),
-                                TextEntry::make('grammage')->label('Weight')->formatStateUsing(fn ($state): string => $state.'g'),
+                                TextEntry::make('grammage')->label('Weight')->getStateUsing(fn ($record): string => ProductType::formatGrammage(ProductType::find($record->product_type_id), (int) $record->grammage)),
                                 TextEntry::make('quantity')->label('Quantity'),
                                 TextEntry::make('type')
                                     ->label('Type')

@@ -61,7 +61,7 @@ class SalesRecordService
 
                 if (! $agentStock || $agentStock->quantity < $quantity) {
                     throw ValidationException::withMessages([
-                        'products' => "Insufficient stock for {$productName} ({$grammage}g). Available: ".($agentStock?->quantity ?? 0),
+                        'products' => 'Insufficient stock for '.$productName.' ('.ProductType::formatGrammage(ProductType::where('name', $productName)->first(), (int) $grammage).'). Available: '.($agentStock?->quantity ?? 0),
                     ]);
                 }
             }
@@ -244,7 +244,8 @@ class SalesRecordService
             $available = isset($inventories[$key]) ? $inventories[$key]->quantity : 0;
 
             if ($available < $line['quantity']) {
-                $insufficient[] = "{$line['product_name']} {$line['grammage']}g (requested: {$line['quantity']}, available: {$available})";
+                $productType = isset($line['product_type_id']) ? ProductType::find($line['product_type_id']) : ProductType::where('name', $line['product_name'] ?? null)->first();
+                $insufficient[] = "{$line['product_name']} ".ProductType::formatGrammage($productType, (int) $line['grammage'])." (requested: {$line['quantity']}, available: {$available})";
             }
         }
 

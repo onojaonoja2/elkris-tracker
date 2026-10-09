@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\StockTransferStatus;
 use App\Models\AgentStock;
 use App\Models\Inventory;
+use App\Models\ProductType;
 use App\Models\StockTransaction;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
@@ -40,7 +41,8 @@ class StockTransferService
             $available = $inventories[$key]->quantity ?? 0;
 
             if ($available < $line['quantity']) {
-                $insufficient[] = ($line['product_name'] ?? 'Unknown')." {$line['grammage']}g (requested: {$line['quantity']}, available: {$available})";
+                $productType = isset($line['product_type_id']) ? ProductType::find($line['product_type_id']) : ProductType::where('name', $line['product_name'] ?? null)->first();
+                $insufficient[] = ($line['product_name'] ?? 'Unknown').' '.ProductType::formatGrammage($productType, (int) $line['grammage'])." (requested: {$line['quantity']}, available: {$available})";
             }
         }
 
@@ -128,7 +130,8 @@ class StockTransferService
                 $available = $inventories[$key]->quantity ?? 0;
 
                 if ($available < $line['quantity']) {
-                    $insufficient[] = "{$line['product_name']} {$line['grammage']}g (requested: {$line['quantity']}, available: {$available})";
+                    $productType = isset($line['product_type_id']) ? ProductType::find($line['product_type_id']) : ProductType::where('name', $line['product_name'] ?? null)->first();
+                    $insufficient[] = "{$line['product_name']} ".ProductType::formatGrammage($productType, (int) $line['grammage'])." (requested: {$line['quantity']}, available: {$available})";
                 }
             }
 
@@ -295,7 +298,7 @@ class StockTransferService
 
                     if ($available < $item->quantity) {
                         $productName = $item->productType?->name ?? 'Unknown';
-                        $insufficientItems[] = "{$productName} {$item->grammage}g (requested: {$item->quantity}, available: {$available})";
+                        $insufficientItems[] = "{$productName} ".ProductType::formatGrammage($item->productType, (int) $item->grammage)." (requested: {$item->quantity}, available: {$available})";
                     }
                 }
 

@@ -32,7 +32,7 @@
                 @forelse($transfer->items as $item)
                     <tr class="border-b">
                         <td class="px-3 py-2">{{ $item->productType?->name ?? 'N/A' }}</td>
-                        <td class="px-3 py-2">{{ $item->grammage }}g</td>
+                        <td class="px-3 py-2">{{ \App\Models\ProductType::formatGrammage($item->productType, (int) $item->grammage) }}</td>
                         <td class="px-3 py-2">{{ $item->quantity }}</td>
                         <td class="px-3 py-2">{{ max(0, $item->quantity - $item->rejected_quantity) }}</td>
                         <td class="px-3 py-2">

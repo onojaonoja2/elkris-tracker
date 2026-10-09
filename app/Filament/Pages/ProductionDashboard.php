@@ -212,7 +212,7 @@ class ProductionDashboard extends BaseDashboard
                                     $productName = $inventory?->productType?->name
                                         ?? ProductType::find($item['product_type_id'])?->name
                                         ?? 'Unknown';
-                                    $insufficientItems[] = "{$productName} {$item['grammage']}g (requested: {$item['quantity']}, available: {$available})";
+                                    $insufficientItems[] = "{$productName} ".ProductType::formatGrammage(ProductType::find($item['product_type_id']), (int) $item['grammage'])." (requested: {$item['quantity']}, available: {$available})";
                                 } else {
                                     $inventoryToDecrement[] = [
                                         'inventory' => $inventory,

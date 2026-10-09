@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Models\ProductType;
 use App\Models\StockTransfer;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -37,7 +38,7 @@ class RejectedStockItems extends BaseWidget
                 TextColumn::make('rejected_details')
                     ->label('Rejected Items')
                     ->state(fn (StockTransfer $record): string => $record->items->map(
-                        fn ($item) => ($item->productType?->name ?? '')." {$item->grammage}g x{$item->rejected_quantity}"
+                        fn ($item) => ($item->productType?->name ?? '').' '.ProductType::formatGrammage($item->productType, (int) $item->grammage)." x{$item->rejected_quantity}"
                             .($item->rejection_reason ? " ({$item->rejection_reason})" : '')
                     )->implode('; ')),
                 TextColumn::make('created_at')

@@ -124,7 +124,7 @@ class SalesRecordForm
                                     }),
 
                                 Select::make('grammage')
-                                    ->label('Weight (g)')
+                                    ->label('Weight')
                                     ->options(function (Get $get) {
                                         $productName = $get('product_name');
                                         if (! $productName) {
@@ -137,7 +137,7 @@ class SalesRecordForm
 
                                         return collect($pt->available_grammages)
                                             ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                            ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                             ->toArray();
                                     })
                                     ->required()
@@ -145,7 +145,7 @@ class SalesRecordForm
                                     ->afterStateUpdated(fn (Set $set, Get $get) => self::recalculateQuantity($set, $get)),
 
                                 TextInput::make('cartons')
-                                    ->label('Cartons')
+                                    ->label(fn (Get $get): string => self::packagingPluralLabel($get))
                                     ->numeric()
                                     ->integer()
                                     ->default(0)
@@ -218,6 +218,15 @@ class SalesRecordForm
                     ->default(0)
                     ->columnSpanFull(),
             ]);
+    }
+
+    private static function packagingPluralLabel(Get $get): string
+    {
+        $productName = $get('product_name');
+        $grammage = (int) ($get('grammage') ?? 0);
+        $productType = $productName ? ProductType::where('name', $productName)->first() : null;
+
+        return ProductType::packagingLabel($productType, $grammage).'s';
     }
 
     private static function getCartonQuantity(Get $get): int

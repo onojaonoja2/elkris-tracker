@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Inventory;
+use App\Models\ProductType;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -30,8 +31,9 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
     private function cartonsDisplay(Inventory $record): string
     {
         $perCarton = $record->productType?->cartonQuantityFor($record->grammage) ?? 1;
+        $package = ($record->productType?->packagingFor($record->grammage) ?? 'carton') === 'bag' ? 'bags' : 'ctns';
 
-        return number_format(intdiv($record->quantity, $perCarton)).' ctns + '.number_format($record->quantity % $perCarton).' pcs';
+        return number_format(intdiv($record->quantity, $perCarton)).' '.$package.' + '.number_format($record->quantity % $perCarton).' pcs';
     }
 
     private function warehouseType(Inventory $record): string
@@ -63,11 +65,11 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
                     ->sortable()
                     ->placeholder('Unknown'),
                 TextColumn::make('grammage')
-                    ->label('Grammage')
-                    ->formatStateUsing(fn ($state): string => number_format($state).'g')
+                    ->label('Weight')
+                    ->getStateUsing(fn (Inventory $record): string => ProductType::formatGrammage($record->productType, $record->grammage))
                     ->sortable(),
                 TextColumn::make('cartons')
-                    ->label('Cartons')
+                    ->label('Packages')
                     ->getStateUsing(fn (Inventory $record): string => $this->cartonsDisplay($record)),
                 TextColumn::make('quantity')
                     ->label('Quantity')
@@ -93,10 +95,10 @@ class ManagerStockLevelsOverviewWidget extends TableWidget
                             ->label('Product')
                             ->placeholder('Unknown'),
                         TextEntry::make('grammage')
-                            ->label('Grammage')
-                            ->formatStateUsing(fn ($state): string => number_format($state).'g'),
+                            ->label('Weight')
+                            ->getStateUsing(fn (Inventory $record): string => ProductType::formatGrammage($record->productType, $record->grammage)),
                         TextEntry::make('cartons')
-                            ->label('Cartons')
+                            ->label('Packages')
                             ->getStateUsing(fn (Inventory $record): string => $this->cartonsDisplay($record)),
                         TextEntry::make('quantity')
                             ->label('Quantity'),

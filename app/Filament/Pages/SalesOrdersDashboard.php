@@ -200,7 +200,7 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->live()
                     ->afterStateUpdated(fn ($set) => $set('grammage', null)),
                 Select::make('grammage')
-                    ->label('Weight (g)')
+                    ->label('Weight')
                     ->options(function (callable $get) {
                         $ptId = $get('product_type_id');
                         if (! $ptId) {
@@ -213,7 +213,7 @@ class SalesOrdersDashboard extends BaseDashboard
 
                         return collect($pt->available_grammages)
                             ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                            ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                             ->toArray();
                     })
                     ->required()
@@ -297,8 +297,8 @@ class SalesOrdersDashboard extends BaseDashboard
                 Notification::make()
                     ->title('Office sale submitted')
                     ->body($stockSource === 'warehouse'
-                        ? "Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) submitted. Stock will be dispatched from the warehouse and is pending accountant approval."
-                        : "Sale of {$data['quantity']}x {$pt->name} ({$data['grammage']}g) submitted for accountant approval.")
+                        ? "Sale of {$data['quantity']}x {$pt->name} (".ProductType::formatGrammage($pt, (int) $data['grammage']).') submitted. Stock will be dispatched from the warehouse and is pending accountant approval.'
+                        : "Sale of {$data['quantity']}x {$pt->name} (".ProductType::formatGrammage($pt, (int) $data['grammage']).') submitted for accountant approval.')
                     ->success()
                     ->send();
 

@@ -57,7 +57,7 @@
             <tr>
                 <td>{{ $index + 1 }}</td>
                 <td>{{ $item->productType?->name ?? 'N/A' }}</td>
-                <td>{{ $item->grammage }}g</td>
+                <td>{{ \App\Models\ProductType::formatGrammage($item->productType, (int) $item->grammage) }}</td>
                 <td>{{ $item->quantity }}</td>
             </tr>
             @endforeach

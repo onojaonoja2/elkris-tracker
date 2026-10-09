@@ -10,6 +10,7 @@ use App\Events\OrderAssignmentRejected;
 use App\Models\AgentStock;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductType;
 use App\Models\StockTransaction;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -153,7 +154,7 @@ class OrderAssignmentService
                     if (! $stock || $stock->quantity < $product->quantity) {
                         $available = $stock?->quantity ?? 0;
                         throw ValidationException::withMessages([
-                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
+                            'stock' => 'Insufficient stock for '.$product->product_name.' ('.ProductType::formatGrammage(ProductType::find($product->product_type_id), (int) $product->grammage)."). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
                 }
@@ -282,7 +283,7 @@ class OrderAssignmentService
                     if (! $stock || $stock->quantity < $product->quantity) {
                         $available = $stock?->quantity ?? 0;
                         throw ValidationException::withMessages([
-                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
+                            'stock' => 'Insufficient stock for '.$product->product_name.' ('.ProductType::formatGrammage(ProductType::find($product->product_type_id), (int) $product->grammage)."). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
                 }

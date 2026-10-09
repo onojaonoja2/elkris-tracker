@@ -14,6 +14,7 @@ use App\Filament\Widgets\RepPortfolioWidget;
 use App\Filament\Widgets\RepStatsWidget;
 use App\Filament\Widgets\UpcomingFollowUps;
 use App\Models\Order;
+use App\Models\ProductType;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -132,7 +133,7 @@ class RepDashboard extends BaseDashboard
 
             foreach ($records as $record) {
                 $items = $record->products
-                    ->map(fn ($product) => "{$product->quantity}x {$product->product_name} ({$product->grammage}g)")
+                    ->map(fn ($product) => "{$product->quantity}x {$product->product_name} (".ProductType::formatGrammage(ProductType::where('name', $product->product_name)->first(), (int) $product->grammage).')')
                     ->implode('; ');
 
                 fputcsv($handle, [

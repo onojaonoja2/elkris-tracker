@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\WarehouseReturns\Tables;
 
+use App\Models\ProductType;
 use App\Models\WarehouseReturn;
 use App\Services\WarehouseReturnService;
 use Filament\Actions\Action;
@@ -24,7 +25,7 @@ class WarehouseReturnsTable
                 TextColumn::make('user.name')->label('Returned By')->searchable()->sortable(),
                 TextColumn::make('warehouse.name')->label('Warehouse')->searchable()->sortable(),
                 TextColumn::make('productType.name')->label('Product')->searchable()->sortable(),
-                TextColumn::make('grammage')->label('Weight')->formatStateUsing(fn ($state) => $state.'g'),
+                TextColumn::make('grammage')->label('Weight')->getStateUsing(fn (WarehouseReturn $record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')->label('Qty')->sortable(),
                 TextColumn::make('reason')->label('Reason')->limit(40)->placeholder('-'),
                 TextColumn::make('status')

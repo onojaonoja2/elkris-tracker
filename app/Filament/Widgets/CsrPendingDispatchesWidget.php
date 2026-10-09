@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Enums\StockTransferStatus;
+use App\Models\ProductType;
 use App\Models\StockTransfer;
 use App\Services\StockTransferService;
 use Filament\Actions\Action;
@@ -95,7 +96,7 @@ class CsrPendingDispatchesWidget extends TableWidget
                                 ->default(
                                     $record->items->map(fn ($item) => [
                                         'item_id' => $item->id,
-                                        'product_label' => ($item->productType?->name ?? 'Unknown')." {$item->grammage}g",
+                                        'product_label' => ($item->productType?->name ?? 'Unknown').' '.ProductType::formatGrammage($item->productType, (int) $item->grammage),
                                         'accepted_quantity' => $item->quantity,
                                         'rejected_quantity' => 0,
                                         'rejection_reason' => null,

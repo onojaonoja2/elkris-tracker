@@ -4,6 +4,7 @@ namespace App\Filament\Resources\TrialOrders\Pages;
 
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Models\City;
+use App\Models\ProductType;
 use App\Models\State;
 use App\Models\TrialOrder;
 use App\Models\User;
@@ -67,7 +68,7 @@ class ListTrialOrders extends ListRecords
                                 ->live()
                                 ->afterStateUpdated(fn (callable $set) => $set('grammage', null)),
                             Select::make('grammage')
-                                ->label('Grammage')
+                                ->label('Weight')
                                 ->options(fn (Get $get) => self::getGrammageOptions($get('product_name')))
                                 ->required(),
                             TextInput::make('quantity')
@@ -104,11 +105,7 @@ class ListTrialOrders extends ListRecords
 
     protected static function getProductOptions(): array
     {
-        return [
-            'Elkris Oat Flour' => 'Elkris Oat Flour',
-            'Elkris Plantain' => 'Elkris Plantain',
-            'Elkris Poundo Yam' => 'Elkris Poundo Yam',
-        ];
+        return ProductType::where('is_active', true)->pluck('name', 'name')->toArray();
     }
 
     protected static function getGrammageOptions(?string $product): array
@@ -117,21 +114,16 @@ class ListTrialOrders extends ListRecords
             return [];
         }
 
-        return match ($product) {
-            'Elkris Oat Flour' => [
-                '5000' => '5000g',
-                '1300' => '1300g',
-                '650' => '650g',
-            ],
-            'Elkris Plantain' => [
-                '1800' => '1800g',
-                '900' => '900g',
-            ],
-            'Elkris Poundo Yam' => [
-                '1800' => '1800g',
-            ],
-            default => [],
-        };
+        $productType = ProductType::where('name', $product)->first();
+
+        if (! $productType) {
+            return [];
+        }
+
+        return collect($productType->available_grammages)
+            ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+            ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($productType, (int) $g)])
+            ->toArray();
     }
 
     protected function createTrialOrderForFieldAgent(array $data): void

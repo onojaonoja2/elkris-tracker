@@ -3,6 +3,7 @@
 namespace App\Filament\Traits;
 
 use App\Models\DamagedStockReturn;
+use App\Models\ProductType;
 use App\Models\SalesRecord;
 use App\Models\StockCount;
 use App\Models\StockTransfer;
@@ -89,7 +90,7 @@ trait HasBreakdownViewAction
                     RepeatableEntry::make('items')
                         ->schema([
                             TextEntry::make('productType.name')->label('Product')->default('N/A'),
-                            TextEntry::make('grammage')->label('Grammage')->formatStateUsing(fn ($state): string => $state.'g'),
+                            TextEntry::make('grammage')->label('Weight')->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                             TextEntry::make('quantity')->label('Qty'),
                         ])
                         ->columns(3),
@@ -124,7 +125,7 @@ trait HasBreakdownViewAction
                     RepeatableEntry::make('items')
                         ->schema([
                             TextEntry::make('product_name')->label('Product')->default('N/A'),
-                            TextEntry::make('grammage')->label('Grammage')->formatStateUsing(fn ($state): string => $state.'g'),
+                            TextEntry::make('grammage')->label('Weight')->getStateUsing(fn ($record): string => ProductType::formatGrammage(ProductType::where('name', $record->product_name)->first(), (int) $record->grammage)),
                             TextEntry::make('quantity')->label('Qty'),
                         ])
                         ->columns(3),
@@ -175,7 +176,7 @@ trait HasBreakdownViewAction
                         ->formatStateUsing(function (mixed $state): string {
                             return collect($state ?? [])
                                 ->filter(fn (mixed $product): bool => is_array($product))
-                                ->map(fn (array $product): string => "{$product['quantity']}x {$product['product_name']} ({$product['grammage']}g) @ ₦{$product['price']}")
+                                ->map(fn (array $product): string => "{$product['quantity']}x {$product['product_name']} (".ProductType::formatGrammage(ProductType::where('name', $product['product_name'] ?? null)->first(), (int) ($product['grammage'] ?? 0)).") @ ₦{$product['price']}")
                                 ->implode("\n");
                         })
                         ->listWithLineBreaks(),
@@ -229,7 +230,7 @@ trait HasBreakdownViewAction
                     TextEntry::make('user.name')->label('Returned By'),
                     TextEntry::make('warehouse.name')->label('Warehouse')->default('N/A'),
                     TextEntry::make('productType.name')->label('Product')->default('N/A'),
-                    TextEntry::make('grammage')->label('Weight')->formatStateUsing(fn ($state): string => $state.'g'),
+                    TextEntry::make('grammage')->label('Weight')->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                     TextEntry::make('quantity')->label('Qty'),
                     TextEntry::make('reason')->label('Reason')->placeholder('N/A'),
                     TextEntry::make('status')->label('Status')->badge(),

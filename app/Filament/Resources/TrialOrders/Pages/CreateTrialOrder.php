@@ -5,6 +5,7 @@ namespace App\Filament\Resources\TrialOrders\Pages;
 use App\Enums\TrialOrderStatus;
 use App\Filament\Resources\TrialOrders\TrialOrderResource;
 use App\Models\AgentStock;
+use App\Models\ProductType;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
@@ -34,7 +35,7 @@ class CreateTrialOrder extends CreateRecord
                     Notification::make()
                         ->danger()
                         ->title('Insufficient stock')
-                        ->body("You don't have enough {$productName} ({$grammage}g) in your stock. Available: ".($agentStock?->quantity ?? 0))
+                        ->body("You don't have enough {$productName} (".ProductType::formatGrammage(ProductType::where('name', $productName)->first(), (int) $grammage).') in your stock. Available: '.($agentStock?->quantity ?? 0))
                         ->send();
 
                     $this->halt();

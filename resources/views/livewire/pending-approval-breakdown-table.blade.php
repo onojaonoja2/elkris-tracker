@@ -30,7 +30,7 @@
                             <td class="px-3 py-2">{{ $record->fromWarehouse?->name ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $record->toAgent?->name ?? '-' }}</td>
                             <td class="px-3 py-2">
-                                {{ $record->items->map(fn ($item) => $item->quantity.'x '.$item->productType?->name.' ('.$item->grammage.'g)')->implode(', ') }}
+                                {{ $record->items->map(fn ($item) => $item->quantity.'x '.$item->productType?->name.' ('.\App\Models\ProductType::formatGrammage($item->productType, (int) $item->grammage).')')->implode(', ') }}
                             </td>
                             <td class="px-3 py-2">{{ $record->notes ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $record->created_at->format('M d, Y H:i') }}</td>
@@ -63,7 +63,7 @@
                                 </span>
                             </td>
                             <td class="px-3 py-2">
-                                {{ $record->items->map(fn ($item) => $item->quantity.'x '.($item->productType?->name ?? $item->product_name).' ('.$item->grammage.'g)')->implode(', ') }}
+                                {{ $record->items->map(fn ($item) => $item->quantity.'x '.($item->productType?->name ?? $item->product_name).' ('.\App\Models\ProductType::formatGrammage($item->productType ?? \App\Models\ProductType::where('name', $item->product_name ?? null)->first(), (int) $item->grammage).')')->implode(', ') }}
                             </td>
                             <td class="px-3 py-2">{{ $record->notes ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $record->created_at->format('M d, Y H:i') }}</td>
@@ -125,7 +125,7 @@
                             <td class="px-3 py-2">{{ $record->user?->name ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $record->warehouse?->name ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $record->productType?->name ?? '-' }}</td>
-                            <td class="px-3 py-2">{{ $record->grammage }}g</td>
+                            <td class="px-3 py-2">{{ \App\Models\ProductType::formatGrammage($record->productType, (int) $record->grammage) }}</td>
                             <td class="px-3 py-2">{{ $record->quantity }}</td>
                             <td class="px-3 py-2">{{ $record->reason ?? '-' }}</td>
                             <td class="px-3 py-2">{{ $record->created_at->format('M d, Y H:i') }}</td>

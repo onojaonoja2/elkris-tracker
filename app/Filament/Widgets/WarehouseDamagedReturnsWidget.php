@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\DamagedInventory;
 use App\Models\DamagedStockReturn;
+use App\Models\ProductType;
 use App\Models\Warehouse;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -44,7 +45,7 @@ class WarehouseDamagedReturnsWidget extends TableWidget
                 TextColumn::make('user.name')->label('Returned By'),
                 TextColumn::make('warehouse.name')->label('Warehouse'),
                 TextColumn::make('productType.name')->label('Product'),
-                TextColumn::make('grammage')->label('Weight')->formatStateUsing(fn ($state) => $state.'g'),
+                TextColumn::make('grammage')->label('Weight')->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')->label('Qty'),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('return_stage')

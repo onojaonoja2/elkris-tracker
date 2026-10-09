@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Models\AgentStock;
+use App\Models\ProductType;
 use App\Models\SalesRecord;
 use Carbon\Carbon;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -93,7 +94,7 @@ class AgentStockCardsWidget extends BaseWidget
             ->get();
 
         foreach ($topStocks as $stock) {
-            $stats[] = Stat::make($stock->product_name." ({$stock->grammage}g)", $stock->quantity)
+            $stats[] = Stat::make($stock->product_name.' ('.ProductType::formatGrammage($stock->productType, (int) $stock->grammage).')', $stock->quantity)
                 ->description('In stock')
                 ->icon('heroicon-o-cube')
                 ->color($stock->quantity > 5 ? 'success' : 'warning');

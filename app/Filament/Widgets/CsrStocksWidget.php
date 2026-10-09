@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
+use App\Models\ProductType;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
@@ -27,7 +28,7 @@ class CsrStocksWidget extends TableWidget
                     ->searchable(),
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => $state.'g'),
+                    ->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')
                     ->label('Quantity')
                     ->sortable(),

@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Inventory;
+use App\Models\ProductType;
 use App\Models\Warehouse;
 use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
@@ -46,15 +47,15 @@ class WarehouseStocksWidget extends TableWidget
                     ->sortable(),
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => $state.'g'),
+                    ->getStateUsing(fn (Inventory $record): string => ProductType::formatGrammage($record->productType, $record->grammage)),
                 TextColumn::make('carton_size')
-                    ->label('Carton Size')
+                    ->label('Package Size')
                     ->state(fn (Inventory $record): ?string => $this->cartonBreakdown($record)['carton_size']),
                 TextColumn::make('quantity')
                     ->label('Total Pieces')
                     ->sortable(),
                 TextColumn::make('full_cartons')
-                    ->label('Full Cartons')
+                    ->label('Full Packages')
                     ->state(fn (Inventory $record): ?int => $this->cartonBreakdown($record)['cartons']),
                 TextColumn::make('remaining_pieces')
                     ->label('Remaining')
@@ -101,17 +102,18 @@ class WarehouseStocksWidget extends TableWidget
             return ['carton_size' => null, 'cartons' => null, 'remaining' => null];
         }
 
-        $entry = collect($productType->available_grammages)
-            ->first(fn ($g) => (is_array($g) ? $g['grammage'] : $g) == $record->grammage);
+        $entry = $productType->grammageEntryFor((int) $record->grammage);
 
-        $cartonQty = is_array($entry) ? ($entry['carton_quantity'] ?? null) : null;
+        $cartonQty = $entry['carton_quantity'] ?? null;
 
         if (! $cartonQty) {
             return ['carton_size' => null, 'cartons' => null, 'remaining' => null];
         }
 
+        $package = ($entry['packaging'] ?? 'carton') === 'bag' ? 'bag' : 'carton';
+
         return [
-            'carton_size' => $cartonQty.' pcs',
+            'carton_size' => $cartonQty.' pcs/'.$package,
             'cartons' => intdiv($record->quantity, $cartonQty),
             'remaining' => $record->quantity % $cartonQty,
         ];

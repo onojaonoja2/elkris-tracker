@@ -58,7 +58,7 @@ class SupervisorDispatchStockWidget extends TableWidget
                 TextColumn::make('items')
                     ->label('Items')
                     ->formatStateUsing(fn (StockTransfer $record): string => $record->items
-                        ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} ({$item->grammage}g)")
+                        ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} (".ProductType::formatGrammage($item->productType, (int) $item->grammage).')')
                         ->implode(', '))
                     ->limit(60),
                 TextColumn::make('status')

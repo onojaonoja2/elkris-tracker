@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Exports\DamagedStockReturnExporter;
 use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\DamagedStockReturn;
+use App\Models\ProductType;
 use App\Models\Warehouse;
 use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\TextColumn;
@@ -46,7 +47,7 @@ class DamagedReturnsBreakdownWidget extends TableWidget
                     ->label('Product'),
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => $state.'g'),
+                    ->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')
                     ->label('Qty')
                     ->sortable(),
