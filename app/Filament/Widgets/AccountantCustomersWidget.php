@@ -65,6 +65,7 @@ class AccountantCustomersWidget extends TableWidget
 
         return $table
             ->query(fn (): Builder => Customer::query()
+                ->assigned()
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
                 ->with(['rep', 'lead']))

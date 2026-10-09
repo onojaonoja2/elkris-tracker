@@ -38,6 +38,7 @@ use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
 use App\Filament\Widgets\SupervisorStockCountFinalApprovalWidget;
 use App\Filament\Widgets\SupervisorStockTransferApprovalWidget;
 use App\Filament\Widgets\SupervisorStockWidget;
+use App\Filament\Widgets\UnassignedCustomersWidget;
 use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
 use App\Models\Customer;
 use App\Models\Order;
@@ -100,6 +101,7 @@ class ManagerDashboard extends BaseDashboard
             OrderStatsWidget::class,
             ManagerAnalyticsWidget::class,
             ManagerCustomerSubmissionsWidget::class,
+            UnassignedCustomersWidget::class,
         ];
     }
 

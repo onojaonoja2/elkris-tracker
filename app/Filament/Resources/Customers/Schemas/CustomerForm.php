@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Customers\Schemas;
 
+use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\Lga;
 use App\Models\Product;
 use App\Models\State;
+use App\Models\User;
 use App\Rules\UniquePhoneWithOwner;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
@@ -36,8 +38,9 @@ class CustomerForm
 
                 // 2. REP SELECTION: Visible only to Admin
                 MultiSelect::make('reps')
-                    ->label('Assigned Reps')
-                    ->relationship('reps', 'name', fn ($query) => $query->where('role', 'rep'))
+                    ->label('Assigned Reps / Team Leads')
+                    ->relationship('reps', 'name', fn ($query) => $query->whereIn('role', ['rep', 'lead']))
+                    ->getOptionLabelFromRecordUsing(fn (User $record): string => $record->name.' — '.($record->hasRole('lead') ? UserRole::Lead->getLabel() : UserRole::Rep->getLabel()))
                     ->searchable()
                     ->required(fn (): bool => auth()->user()->hasRole('admin'))
                     ->visible(fn (): bool => auth()->user()->hasRole('admin')),

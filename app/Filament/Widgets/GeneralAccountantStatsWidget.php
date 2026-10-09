@@ -22,12 +22,12 @@ class GeneralAccountantStatsWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $totalCustomers = Customer::count();
-        $customersAddedToday = Customer::whereDate('created_at', today())->count();
+        $totalCustomers = Customer::assigned()->count();
+        $customersAddedToday = Customer::assigned()->whereDate('created_at', today())->count();
 
-        $prospects = Customer::hasNotPlacedOrder()->count();
+        $prospects = Customer::assigned()->hasNotPlacedOrder()->count();
 
-        $loyalCustomers = Customer::hasPlacedOrder()->count();
+        $loyalCustomers = Customer::assigned()->hasPlacedOrder()->count();
 
         $orders = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();
         $revenue = Order::where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');

@@ -29,13 +29,13 @@ class AccountantStatsOverviewWidget extends BaseWidget
             ->whereBetween('created_at', [$from, $to])
             ->count();
 
-        $totalCustomers = Customer::count();
+        $totalCustomers = Customer::assigned()->count();
 
-        $customersAddedToday = Customer::whereDate('created_at', today())->count();
+        $customersAddedToday = Customer::assigned()->whereDate('created_at', today())->count();
 
-        $prospects = Customer::hasNotPlacedOrder()->count();
+        $prospects = Customer::assigned()->hasNotPlacedOrder()->count();
 
-        $loyalCustomers = Customer::hasPlacedOrder()->count();
+        $loyalCustomers = Customer::assigned()->hasPlacedOrder()->count();
 
         $repSalesValue = Order::where('status', OrderStatus::Delivered)
             ->where('is_migrated_order', false)

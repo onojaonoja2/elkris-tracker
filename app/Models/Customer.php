@@ -58,6 +58,7 @@ class Customer extends Model implements Auditable
         'preferred_delivery_date',
         'lifetime_purchases',
         'sort',
+        'manager_visible_at',
     ];
 
     public function setPhoneNumberAttribute(?string $value): void
@@ -114,6 +115,7 @@ class Customer extends Model implements Auditable
             'rejected_at' => 'datetime',
             'replacement_requested_at' => 'datetime',
             'needs_replacement' => 'boolean',
+            'manager_visible_at' => 'datetime',
         ];
     }
 
@@ -302,6 +304,67 @@ class Customer extends Model implements Auditable
     public function scopeHasNotPlacedOrder(Builder $query): Builder
     {
         return $query->whereDoesntHave('orders', fn ($q) => $q->where('status', '!=', OrderStatus::Cancelled));
+    }
+
+    /**
+     * Get customers that have at least one assignment (agent, rep, or lead).
+     */
+    public function scopeAssigned(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->whereNotNull('agent_id')
+                ->orWhereNotNull('rep_id')
+                ->orWhereNotNull('lead_id');
+        });
+    }
+
+    /**
+     * Get customers that have no assignment at all.
+     */
+    public function scopeUnassigned(Builder $query): Builder
+    {
+        return $query->whereNull('agent_id')
+            ->whereNull('rep_id')
+            ->whereNull('lead_id');
+    }
+
+    public function isUnassigned(): bool
+    {
+        return is_null($this->agent_id) && is_null($this->rep_id) && is_null($this->lead_id);
+    }
+
+    /**
+     * Get customers personally owned by a team lead: the lead is the rep of
+     * record (rep_id = lead) or the customer is assigned to the lead with no
+     * rep yet.
+     */
+    public function scopeOwnedByLead(Builder $query, int $leadId): Builder
+    {
+        return $query->where('lead_id', $leadId)
+            ->where(function (Builder $query) use ($leadId) {
+                $query->where('rep_id', $leadId)
+                    ->orWhereNull('rep_id');
+            });
+    }
+
+    /**
+     * Assign this customer directly into a team lead's portfolio, with the
+     * lead acting as the rep of record. Both rep and lead information update
+     * immediately to the lead and no acceptance step is required.
+     */
+    public function assignToLeadPortfolio(User $lead): void
+    {
+        $this->update([
+            'rep_id' => $lead->id,
+            'lead_id' => $lead->id,
+            'rep_acceptance_status' => 'accepted',
+            'submission_target_type' => 'lead',
+            'rejection_note' => null,
+            'manager_visible_at' => null,
+        ]);
+
+        $this->leads()->syncWithoutDetaching([$lead->id]);
+        $this->reps()->detach();
     }
 
     /**

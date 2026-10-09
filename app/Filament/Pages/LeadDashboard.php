@@ -129,8 +129,7 @@ class LeadDashboard extends BaseDashboard
         $leadId = auth()->id();
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $customers = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
-            ->whereDoesntHave('reps')
+        $customers = Customer::ownedByLead($leadId)
             ->whereBetween('created_at', [$from, $to])
             ->orderBy('created_at', 'desc')
             ->get();

@@ -27,12 +27,12 @@ class GeneralManagerStatsWidget extends BaseWidget
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $totalCustomers = Customer::count();
-        $customersAddedToday = Customer::whereDate('created_at', today())->count();
+        $totalCustomers = Customer::assigned()->count();
+        $customersAddedToday = Customer::assigned()->whereDate('created_at', today())->count();
 
-        $prospects = Customer::hasNotPlacedOrder()->count();
+        $prospects = Customer::assigned()->hasNotPlacedOrder()->count();
 
-        $loyalCustomers = Customer::hasPlacedOrder()->count();
+        $loyalCustomers = Customer::assigned()->hasPlacedOrder()->count();
 
         $revenue = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->sum('total_price');
         $orders = Order::whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)->where('status', '!=', OrderStatus::Cancelled)->where('is_migrated_order', false)->count();

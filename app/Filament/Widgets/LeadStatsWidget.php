@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Support\DashboardDateScope;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\On;
 
 class LeadStatsWidget extends StatsOverviewWidget
@@ -26,9 +27,15 @@ class LeadStatsWidget extends StatsOverviewWidget
         $reps = User::where('lead_id', $leadId)->where('role', 'rep')->get();
         $repIds = $reps->pluck('id');
 
-        $portfolioCustomers = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId));
+        $portfolioCustomers = Customer::where(function (Builder $query) use ($leadId) {
+            $query->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
+                ->orWhere('lead_id', $leadId);
+        });
         $totalPortfolio = $portfolioCustomers->count();
-        $convertedPortfolio = Customer::whereHas('leads', fn ($q) => $q->where('users.id', $leadId))->whereHas('orders', fn ($q) => $q->where('is_migrated_order', false))->count();
+        $convertedPortfolio = Customer::where(function (Builder $query) use ($leadId) {
+            $query->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
+                ->orWhere('lead_id', $leadId);
+        })->whereHas('orders', fn ($q) => $q->where('is_migrated_order', false))->count();
         $conversionRate = $totalPortfolio > 0 ? round(($convertedPortfolio / $totalPortfolio) * 100, 1) : 0;
 
         $customersCount = Customer::whereIn('rep_id', $repIds)

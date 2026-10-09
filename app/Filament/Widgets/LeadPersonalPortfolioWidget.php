@@ -34,8 +34,7 @@ class LeadPersonalPortfolioWidget extends TableWidget
 
         return $table
             ->query(fn (): Builder => Customer::query()
-                ->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
-                ->whereDoesntHave('reps'))
+                ->ownedByLead($leadId))
             ->columns([
                 TextColumn::make('customer_name')
                     ->label('Customer Name')

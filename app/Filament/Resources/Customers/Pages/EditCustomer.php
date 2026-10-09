@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Customers\Pages;
 
 use App\Filament\Resources\Customers\CustomerResource;
+use App\Models\User;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,9 @@ class EditCustomer extends EditRecord
     {
         $payload = $data;
         $user = auth()->user();
+
+        $data['leads'] = $data['leads'] ?? ($this->data['leads'] ?? []);
+        $data['reps'] = $data['reps'] ?? ($this->data['reps'] ?? []);
 
         if ($user && $user->hasRole('rep')) {
             $payload['rep_id'] = $user->id;
@@ -62,21 +66,34 @@ class EditCustomer extends EditRecord
             $payload['rep_id'] = is_array($data['reps']) ? reset($data['reps']) : $data['reps'];
         }
 
+        if (! empty($payload['rep_id'])) {
+            $assignee = User::find($payload['rep_id']);
+
+            if ($assignee && $assignee->hasRole('lead')) {
+                $payload['rep_id'] = $assignee->id;
+                $payload['lead_id'] = $assignee->id;
+                $payload['rep_acceptance_status'] = 'accepted';
+                $payload['submission_target_type'] = 'lead';
+                $data['reps'] = array_values(array_diff($data['reps'] ?? [], [$assignee->id]));
+                $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$assignee->id]));
+            }
+        }
+
         $record->update(collect($payload)->except(['leads', 'reps'])->toArray());
 
-        if (array_key_exists('leads', $data)) {
+        if (is_array($this->data['leads'] ?? null)) {
             $record->leads()->sync($data['leads'] ?? []);
         }
 
-        if (array_key_exists('reps', $data)) {
+        if (is_array($this->data['reps'] ?? null)) {
             $record->reps()->sync($data['reps'] ?? []);
         }
 
         // Ensure the form data matches what we synced so saveRelationships() doesn't overwrite
-        if (! empty($data['leads'])) {
+        if (is_array($this->data['leads'] ?? null)) {
             $this->data['leads'] = $data['leads'];
         }
-        if (! empty($data['reps'])) {
+        if (is_array($this->data['reps'] ?? null)) {
             $this->data['reps'] = $data['reps'];
         }
 

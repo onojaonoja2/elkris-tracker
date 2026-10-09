@@ -48,6 +48,10 @@ class ManagerCustomersWidget extends TableWidget
 
         return $table
             ->query(fn (): Builder => Customer::query()
+                ->where(function (Builder $query): void {
+                    $query->assigned()
+                        ->orWhereNotNull('manager_visible_at');
+                })
                 ->whereDate('created_at', '>=', $from)
                 ->whereDate('created_at', '<=', $to)
                 ->with(['rep', 'lead']))
