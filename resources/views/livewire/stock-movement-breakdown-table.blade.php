@@ -36,6 +36,14 @@
             <option value="out">Stock out</option>
             <option value="count">Stock counts</option>
         </select>
+
+        <button
+            type="button"
+            wire:click="exportCsv"
+            class="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+        >
+            Export
+        </button>
     </div>
 
     @php

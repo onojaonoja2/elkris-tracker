@@ -77,7 +77,7 @@ trait HasDashboardBreakdownModals
     }
 
     #[On('open-stock-movement-breakdown')]
-    public function openStockMovementBreakdown(string $entityType, int $entityId, ?string $product = null, ?int $grammage = null): void
+    public function openStockMovementBreakdown(?string $entityType = null, ?int $entityId = null, ?string $product = null, ?int $grammage = null): void
     {
         $this->breakdownEntityType = $entityType;
         $this->breakdownEntityId = $entityId;
@@ -279,7 +279,7 @@ trait HasDashboardBreakdownModals
                     'grammage' => $this->breakdownGrammage,
                 ]);
             })
-            ->visible(fn (): bool => auth()->user()?->hasAnyRole(['accountant', 'general_accountant', 'warehouse_manager']) ?? false);
+            ->visible(fn (): bool => auth()->user()?->hasAnyRole(['accountant', 'general_accountant', 'warehouse_manager', 'manager', 'admin', 'general_manager']) ?? false);
     }
 
     protected function getCustomerBreakdownAction(): Action

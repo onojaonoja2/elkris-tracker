@@ -7,7 +7,6 @@ use App\Enums\StockTransferStatus;
 use App\Filament\Resources\CallLogs\CallLogResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
-use App\Filament\Resources\StockTransfers\StockTransferResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\AgentStock;
 use App\Models\CallLog;
@@ -142,7 +141,7 @@ class ManagerStatsWidget extends BaseWidget
                 ->description('All movements')
                 ->icon('heroicon-o-arrows-right-left')
                 ->color('danger')
-                ->url(StockTransferResource::getUrl('index')),
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-stock-movement-breakdown')"]),
             Stat::make('Warehouse Stock', number_format($warehouseStockUnits).' units')
                 ->description('Total inventory units')
                 ->icon('heroicon-o-cube')
