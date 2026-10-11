@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Exports\AgentStockExporter;
 use App\Models\AgentStock;
+use App\Models\ProductType;
 use App\Models\User;
 use Filament\Actions\ExportAction;
 use Filament\Tables\Columns\TextColumn;
@@ -47,8 +48,8 @@ class SupervisorStockWidget extends TableWidget
                     ->sortable(),
 
                 TextColumn::make('grammage')
-                    ->label('Grammage')
-                    ->formatStateUsing(fn ($state) => "{$state}g")
+                    ->label('Weight')
+                    ->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage))
                     ->sortable(),
 
                 TextColumn::make('quantity')

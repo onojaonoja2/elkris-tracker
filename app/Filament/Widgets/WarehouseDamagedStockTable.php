@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\DamagedInventory;
+use App\Models\ProductType;
 use App\Support\DashboardDateScope;
 use App\Support\WarehouseOptions;
 use Filament\Actions\Action;
@@ -27,7 +28,7 @@ class WarehouseDamagedStockTable extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasRole('warehouse_manager');
+        return auth()->user()?->canManageWarehouses() ?? false;
     }
 
     public function table(Table $table): Table
@@ -60,7 +61,7 @@ class WarehouseDamagedStockTable extends TableWidget
                     ->label('Product'),
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => $state.'g'),
+                    ->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')
                     ->label('Qty'),
                 TextColumn::make('status')

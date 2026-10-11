@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Enums\OrderStatus;
+use App\Livewire\Concerns\ViewsOrderPaymentProof;
 use App\Models\Order;
 use App\Models\User;
 use App\Support\DashboardDateScope;
@@ -17,6 +18,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CsrOrderBreakdownTable extends Component
 {
+    use ViewsOrderPaymentProof;
     use WithPagination;
 
     private const array ALLOWED_ROLES = [

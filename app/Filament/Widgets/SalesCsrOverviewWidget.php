@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\AgentStock;
+use App\Models\ProductType;
 use App\Models\User;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -79,7 +80,7 @@ class SalesCsrOverviewWidget extends TableWidget
                             return 'No stock';
                         }
 
-                        return $details->map(fn ($s) => "{$s->product_name} ({$s->grammage}g): {$s->quantity}")
+                        return $details->map(fn ($s) => "{$s->product_name} (".ProductType::formatGrammage(ProductType::where('name', $s->product_name)->first(), (int) $s->grammage)."): {$s->quantity}")
                             ->implode(', ');
                     })
                     ->limit(60),

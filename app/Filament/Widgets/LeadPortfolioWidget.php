@@ -39,7 +39,8 @@ class LeadPortfolioWidget extends TableWidget
                 return Customer::query()
                     ->where(function ($query) use ($leadId, $repIds) {
                         $query->whereHas('leads', fn ($q) => $q->where('users.id', $leadId))
-                            ->orWhereHas('reps', fn ($q) => $q->whereIn('users.id', $repIds));
+                            ->orWhereHas('reps', fn ($q) => $q->whereIn('users.id', $repIds))
+                            ->orWhere('lead_id', $leadId);
                     });
             })
             ->columns([

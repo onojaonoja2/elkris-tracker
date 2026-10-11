@@ -23,9 +23,9 @@
                     <th class="px-3 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300">Type</th>
                     <th class="px-3 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300">Product</th>
                     <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Weight</th>
-                    <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Carton Size</th>
+                    <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Package Size</th>
                     <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Pieces</th>
-                    <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Cartons</th>
+                    <th class="px-3 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300">Packages</th>
                 </tr>
             </thead>
             <tbody>
@@ -50,7 +50,7 @@
                                 {{ number_format($groupQuantity) }} pcs
                             </td>
                             <td class="px-3 py-2 text-right font-mono text-sm font-bold text-gray-700 dark:text-gray-200">
-                                {{ number_format($groupCartons) }} ctns
+                                {{ number_format($groupCartons) }} pkgs
                             </td>
                         </tr>
                         @foreach($groupData as $row)
@@ -83,7 +83,7 @@
                                         {{ $row->product }}
                                     @endif
                                 </td>
-                                <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->grammage) }}g</td>
+                                <td class="px-3 py-2 text-right font-mono text-sm">{{ $row->grammage_display }}</td>
                                 <td class="px-3 py-2 text-right font-mono text-sm text-gray-500">{{ $row->carton_quantity }} pcs</td>
                                 <td class="px-3 py-2 text-right font-mono text-sm font-semibold">{{ number_format($row->quantity) }}</td>
                                 <td class="px-3 py-2 text-right font-mono text-sm">
@@ -121,7 +121,7 @@
                                 {{ number_format($groupQuantity) }} pcs
                             </td>
                             <td class="px-3 py-2 text-right font-mono text-sm font-bold text-gray-700 dark:text-gray-200">
-                                {{ number_format($groupCartons) }} ctns
+                                {{ number_format($groupCartons) }} pkgs
                             </td>
                         </tr>
                         @foreach($groupData as $regionName => $states)
@@ -141,7 +141,7 @@
                                     {{ number_format($regionQuantity) }} pcs
                                 </td>
                                 <td class="px-3 py-1.5 text-right font-mono text-xs font-semibold text-blue-700 dark:text-blue-300">
-                                    {{ number_format($regionCartons) }} ctns
+                                    {{ number_format($regionCartons) }} pkgs
                                 </td>
                             </tr>
                             @foreach($states as $stateName => $rows)
@@ -157,7 +157,7 @@
                                         {{ number_format($stateQuantity) }} pcs
                                     </td>
                                     <td class="px-3 py-1.5 text-right font-mono text-xs font-medium text-green-700 dark:text-green-400">
-                                        {{ number_format($stateCartons) }} ctns
+                                        {{ number_format($stateCartons) }} pkgs
                                     </td>
                                 </tr>
                                 @foreach($rows as $row)
@@ -190,7 +190,7 @@
                                                 {{ $row->product }}
                                             @endif
                                         </td>
-                                        <td class="px-3 py-2 text-right font-mono text-sm">{{ number_format($row->grammage) }}g</td>
+                                        <td class="px-3 py-2 text-right font-mono text-sm">{{ $row->grammage_display }}</td>
                                         <td class="px-3 py-2 text-right font-mono text-sm text-gray-500">{{ $row->carton_quantity }} pcs</td>
                                         <td class="px-3 py-2 text-right font-mono text-sm font-semibold">{{ number_format($row->quantity) }}</td>
                                         <td class="px-3 py-2 text-right font-mono text-sm">
@@ -220,7 +220,7 @@
                     <tr class="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-bold">
                         <td colspan="5" class="px-3 py-3 text-right text-gray-700 dark:text-gray-300">Grand Total:</td>
                         <td class="px-3 py-3 text-right font-mono text-sm">{{ number_format($grandQuantity) }} pcs</td>
-                        <td class="px-3 py-3 text-right font-mono text-sm">{{ number_format($grandCartons) }} ctns</td>
+                        <td class="px-3 py-3 text-right font-mono text-sm">{{ number_format($grandCartons) }} pkgs</td>
                     </tr>
                 </tfoot>
             @endif

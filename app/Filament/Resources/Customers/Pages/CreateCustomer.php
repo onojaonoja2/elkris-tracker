@@ -17,6 +17,9 @@ class CreateCustomer extends CreateRecord
         $payload = $data;
         $user = auth()->user();
 
+        $data['leads'] = $data['leads'] ?? ($this->data['leads'] ?? []);
+        $data['reps'] = $data['reps'] ?? ($this->data['reps'] ?? []);
+
         if ($user && $user->hasRole('rep')) {
             $payload['rep_id'] = $user->id;
             $payload['lead_id'] = $payload['lead_id'] ?? $user->lead_id ?? null;
@@ -63,8 +66,27 @@ class CreateCustomer extends CreateRecord
         if (empty($payload['lead_id']) && ! empty($data['leads'])) {
             $payload['lead_id'] = is_array($data['leads']) ? reset($data['leads']) : $data['leads'];
         }
-        if (empty($payload['rep_id']) && ! empty($data['reps'])) {
-            $payload['rep_id'] = is_array($data['reps']) ? reset($data['reps']) : $data['reps'];
+
+        $selectedRepId = null;
+        if (! empty($payload['rep_id'])) {
+            $selectedRepId = $payload['rep_id'];
+        } elseif (! empty($data['reps'])) {
+            $selectedRepId = is_array($data['reps']) ? reset($data['reps']) : $data['reps'];
+        }
+
+        if ($selectedRepId) {
+            $assignee = User::find($selectedRepId);
+
+            if ($assignee && $assignee->hasRole('lead')) {
+                $payload['rep_id'] = $assignee->id;
+                $payload['lead_id'] = $assignee->id;
+                $payload['rep_acceptance_status'] = 'accepted';
+                $payload['submission_target_type'] = 'lead';
+                $data['reps'] = array_values(array_diff($data['reps'] ?? [], [$assignee->id]));
+                $data['leads'] = array_unique(array_merge($data['leads'] ?? [], [$assignee->id]));
+            } else {
+                $payload['rep_id'] = $selectedRepId;
+            }
         }
 
         $customer = static::getModel()::create(collect($payload)->except(['leads', 'reps'])->toArray());
@@ -78,10 +100,10 @@ class CreateCustomer extends CreateRecord
         }
 
         // Sync back to form data so saveRelationships() doesn't overwrite with empty hidden field states
-        if (! empty($data['leads'])) {
+        if (is_array($this->data['leads'] ?? null) || ! empty($data['leads'])) {
             $this->data['leads'] = $data['leads'];
         }
-        if (! empty($data['reps'])) {
+        if (is_array($this->data['reps'] ?? null) || ! empty($data['reps'])) {
             $this->data['reps'] = $data['reps'];
         }
 

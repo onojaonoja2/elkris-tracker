@@ -58,21 +58,41 @@ class ManagerConversionWidget extends TableWidget
                 TextColumn::make('total_customers')
                     ->label('Total Customers')
                     ->getStateUsing(function (User $record): int {
-                        return Customer::whereIn('rep_id', $record->reps()->pluck('id'))->count();
+                        return Customer::where(function (Builder $query) use ($record) {
+                            $query->whereIn('rep_id', $record->reps()->pluck('id'))
+                                ->orWhere(function (Builder $query) use ($record) {
+                                    $query->ownedByLead($record->id);
+                                });
+                        })->count();
                     })
                     ->numeric(),
                 TextColumn::make('converted')
                     ->label('Converted')
                     ->getStateUsing(function (User $record): int {
-                        return Customer::whereIn('rep_id', $record->reps()->pluck('id'))->whereHas('orders')->count();
+                        return Customer::where(function (Builder $query) use ($record) {
+                            $query->whereIn('rep_id', $record->reps()->pluck('id'))
+                                ->orWhere(function (Builder $query) use ($record) {
+                                    $query->ownedByLead($record->id);
+                                });
+                        })->whereHas('orders')->count();
                     })
                     ->numeric(),
                 TextColumn::make('conversion_rate')
                     ->label('Conversion Rate')
                     ->badge()
                     ->getStateUsing(function (User $record): string {
-                        $total = Customer::whereIn('rep_id', $record->reps()->pluck('id'))->count();
-                        $converted = Customer::whereIn('rep_id', $record->reps()->pluck('id'))->whereHas('orders')->count();
+                        $total = Customer::where(function (Builder $query) use ($record) {
+                            $query->whereIn('rep_id', $record->reps()->pluck('id'))
+                                ->orWhere(function (Builder $query) use ($record) {
+                                    $query->ownedByLead($record->id);
+                                });
+                        })->count();
+                        $converted = Customer::where(function (Builder $query) use ($record) {
+                            $query->whereIn('rep_id', $record->reps()->pluck('id'))
+                                ->orWhere(function (Builder $query) use ($record) {
+                                    $query->ownedByLead($record->id);
+                                });
+                        })->whereHas('orders')->count();
 
                         return $total > 0 ? round(($converted / $total) * 100, 1).'%' : '0%';
                     })
@@ -96,8 +116,18 @@ class ManagerConversionWidget extends TableWidget
                             fputcsv($file, ['Team Lead', 'Total Customers', 'Converted', 'Conversion Rate']);
 
                             foreach ($records as $record) {
-                                $total = Customer::whereIn('rep_id', $record->reps()->pluck('id'))->count();
-                                $converted = Customer::whereIn('rep_id', $record->reps()->pluck('id'))->whereHas('orders')->count();
+                                $total = Customer::where(function (Builder $query) use ($record) {
+                                    $query->whereIn('rep_id', $record->reps()->pluck('id'))
+                                        ->orWhere(function (Builder $query) use ($record) {
+                                            $query->ownedByLead($record->id);
+                                        });
+                                })->count();
+                                $converted = Customer::where(function (Builder $query) use ($record) {
+                                    $query->whereIn('rep_id', $record->reps()->pluck('id'))
+                                        ->orWhere(function (Builder $query) use ($record) {
+                                            $query->ownedByLead($record->id);
+                                        });
+                                })->whereHas('orders')->count();
                                 $rate = $total > 0 ? round(($converted / $total) * 100, 1).'%' : '0%';
 
                                 fputcsv($file, [

@@ -141,18 +141,28 @@ class AdminCustomerSearchTable extends TableWidget
                     ->color('success')
                     ->form([
                         Select::make('rep_id')
-                            ->label('Select Rep')
-                            ->options(fn () => User::where('role', 'rep')->orderBy('name')->pluck('name', 'id'))
+                            ->label('Select Rep or Team Lead')
+                            ->options(fn () => User::portfolioAssigneeOptions())
                             ->searchable()
                             ->required(),
                     ])
                     ->action(function (Customer $record, array $data): void {
+                        $assignee = User::findOrFail($data['rep_id']);
+
+                        if ($assignee->hasRole('lead')) {
+                            $record->assignToLeadPortfolio($assignee);
+
+                            Notification::make()->title('Customer added to lead portfolio')->success()->send();
+
+                            return;
+                        }
+
                         $record->update([
-                            'rep_id' => $data['rep_id'],
+                            'rep_id' => $assignee->id,
                             'rep_acceptance_status' => 'pending',
                             'lead_id' => $record->lead_id ?? auth()->id(),
                         ]);
-                        $record->reps()->syncWithoutDetaching([$data['rep_id']]);
+                        $record->reps()->syncWithoutDetaching([$assignee->id]);
 
                         Notification::make()->title('Customer reassigned to rep')->success()->send();
                     }),

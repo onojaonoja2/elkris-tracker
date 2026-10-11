@@ -24,29 +24,13 @@ class AccountantStockLevelsWidget extends Widget
         return auth()->user()->hasAnyRole(['accountant', 'general_accountant']);
     }
 
-    protected function getCartonQuantity(?int $productTypeId, int $grammage): int
-    {
-        if (! $productTypeId) {
-            return 1;
-        }
-
-        $productType = ProductType::find($productTypeId);
-        if (! $productType) {
-            return 1;
-        }
-
-        foreach ($productType->available_grammages as $entry) {
-            if (is_array($entry) && ($entry['grammage'] ?? null) == $grammage) {
-                return $entry['carton_quantity'] ?? 1;
-            }
-        }
-
-        return 1;
-    }
-
     protected function makeRow(array $data): object
     {
-        $cartonQty = $this->getCartonQuantity($data['product_type_id'], $data['grammage']);
+        $productType = ProductType::find($data['product_type_id'] ?? null)
+            ?? ProductType::where('name', $data['product'] ?? null)->first();
+        $grammage = (int) $data['grammage'];
+        $packaging = $productType?->packagingFor($grammage) ?? 'carton';
+        $cartonQty = $productType?->cartonQuantityFor($grammage) ?? 1;
         $cartons = intdiv($data['quantity'], $cartonQty);
         $remaining = $data['quantity'] % $cartonQty;
 
@@ -56,6 +40,8 @@ class AccountantStockLevelsWidget extends Widget
             'type_color' => $data['type_color'],
             'product' => $data['product'],
             'grammage' => $data['grammage'],
+            'grammage_display' => ProductType::formatGrammage($productType, $grammage),
+            'packaging' => $packaging,
             'quantity' => $data['quantity'],
             'carton_quantity' => $cartonQty,
             'cartons' => $cartons,

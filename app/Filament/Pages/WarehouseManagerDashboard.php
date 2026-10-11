@@ -6,24 +6,32 @@ use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\WarehouseCsrStockWidget;
 use App\Filament\Widgets\WarehouseDamagedReturnsWidget;
+use App\Filament\Widgets\WarehouseDirectSalesWidget;
 use App\Filament\Widgets\WarehouseDispatchRequestsWidget;
 use App\Filament\Widgets\WarehouseManagerStatsWidget;
 use App\Filament\Widgets\WarehouseManagerStockBreakdownWidget;
 use App\Filament\Widgets\WarehouseOutgoingDispatchesWidget;
 use App\Filament\Widgets\WarehouseRecentMovementsWidget;
+use App\Filament\Widgets\WarehouseRepacksWidget;
 use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
 use App\Filament\Widgets\WarehouseStocksWidget;
 use App\Models\Inventory;
 use App\Models\ProductType;
+use App\Models\RawMaterial;
 use App\Models\Setting;
 use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\User;
 use App\Models\Warehouse;
+use App\Services\RawMaterialReceiptService;
+use App\Services\RawMaterialTransferService;
+use App\Services\RepackService;
+use App\Services\SalesRecordService;
 use App\Support\DashboardDateScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -33,6 +41,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class WarehouseManagerDashboard extends BaseDashboard
 {
@@ -48,17 +57,17 @@ class WarehouseManagerDashboard extends BaseDashboard
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('warehouse_manager');
+        return auth()->check() && (auth()->user()?->canManageWarehouses() ?? false);
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('warehouse_manager');
+        return auth()->check() && (auth()->user()?->canManageWarehouses() ?? false);
     }
 
     public function mount()
     {
-        if (! auth()->check() || ! auth()->user()->hasRole('warehouse_manager')) {
+        if (! auth()->check() || ! (auth()->user()?->canManageWarehouses() ?? false)) {
             return redirect()->to(Dashboard::getUrl([], isAbsolute: false, panel: 'admin'));
         }
     }
@@ -75,11 +84,13 @@ class WarehouseManagerDashboard extends BaseDashboard
         return [
             WarehouseDispatchRequestsWidget::class,
             WarehouseOutgoingDispatchesWidget::class,
+            WarehouseDirectSalesWidget::class,
             WarehouseManagerStockBreakdownWidget::class,
             WarehouseCsrStockWidget::class,
             WarehouseStocksWidget::class,
             WarehouseDamagedReturnsWidget::class,
             WarehouseReturnApprovalsWidget::class,
+            WarehouseRepacksWidget::class,
             WarehouseRecentMovementsWidget::class,
         ];
     }
@@ -120,8 +131,8 @@ class WarehouseManagerDashboard extends BaseDashboard
             ->form([
                 Select::make('warehouse_id')
                     ->label('Warehouse')
-                    ->options(fn () => Warehouse::where('manager_id', auth()->id())->pluck('name', 'id'))
-                    ->default(fn () => Warehouse::where('manager_id', auth()->id())->value('id'))
+                    ->options(fn (): array => $this->managedWarehouseOptions())
+                    ->default(fn (): ?int => $this->currentManagedWarehouseId())
                     ->disabled()
                     ->dehydrated()
                     ->required(),
@@ -136,7 +147,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                     ->live(),
                 Select::make('source_warehouse_id')
                     ->label('Source Warehouse')
-                    ->options(fn () => Warehouse::pluck('name', 'id'))
+                    ->options(fn (callable $get): array => self::activeWarehousesExcluding((int) $get('warehouse_id')))
                     ->searchable()
                     ->visible(fn (callable $get) => $get('source_type') === 'warehouse')
                     ->required(fn (callable $get) => $get('source_type') === 'warehouse'),
@@ -163,7 +174,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                             ->live()
                             ->afterStateUpdated(fn ($set) => $set('grammage', null)),
                         Select::make('grammage')
-                            ->label('Weight (g)')
+                            ->label('Weight')
                             ->options(function (callable $get) {
                                 $ptId = $get('product_type_id');
                                 if (! $ptId) {
@@ -174,14 +185,14 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 return $pt
                                     ? collect($pt->available_grammages)
                                         ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                        ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                        ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                         ->toArray()
                                     : [];
                             })
                             ->required()
                             ->live(),
                         TextInput::make('cartons')
-                            ->label('Cartons')
+                            ->label(fn (callable $get): string => self::packagingPluralLabel($get))
                             ->numeric()
                             ->integer()
                             ->minValue(0)
@@ -265,8 +276,8 @@ class WarehouseManagerDashboard extends BaseDashboard
             ->form([
                 Select::make('from_warehouse_id')
                     ->label('From Warehouse')
-                    ->options(fn () => Warehouse::where('manager_id', auth()->id())->pluck('name', 'id'))
-                    ->default(fn () => Warehouse::where('manager_id', auth()->id())->value('id'))
+                    ->options(fn (): array => $this->managedWarehouseOptions())
+                    ->default(fn (): ?int => $this->currentManagedWarehouseId())
                     ->searchable()
                     ->required()
                     ->live(),
@@ -281,7 +292,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                     ->live(),
                 Select::make('to_warehouse_id')
                     ->label('Destination Warehouse')
-                    ->options(fn () => Warehouse::where('id', '!=', request()->input('from_warehouse_id'))->pluck('name', 'id'))
+                    ->options(fn (callable $get): array => self::activeWarehousesExcluding((int) $get('from_warehouse_id')))
                     ->searchable()
                     ->visible(fn (callable $get) => $get('to_type') === 'warehouse')
                     ->required(fn (callable $get) => $get('to_type') === 'warehouse'),
@@ -310,7 +321,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                             ->live()
                             ->afterStateUpdated(fn ($set) => $set('grammage', null)),
                         Select::make('grammage')
-                            ->label('Weight (g)')
+                            ->label('Weight')
                             ->options(function (callable $get) {
                                 $ptId = $get('product_type_id');
                                 if (! $ptId) {
@@ -321,7 +332,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 return $pt
                                     ? collect($pt->available_grammages)
                                         ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                        ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                        ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                         ->toArray()
                                     : [];
                             })
@@ -344,6 +355,17 @@ class WarehouseManagerDashboard extends BaseDashboard
             ->action(function (array $data) {
                 $user = auth()->user();
 
+                if (($data['to_type'] ?? null) === 'warehouse'
+                    && (int) ($data['to_warehouse_id'] ?? 0) === (int) $data['from_warehouse_id']) {
+                    Notification::make()
+                        ->title('Dispatch failed')
+                        ->body('Source and destination warehouses must differ.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
                 try {
                     DB::transaction(function () use ($data, $user) {
                         $insufficientItems = [];
@@ -360,7 +382,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                             if ($available < $item['quantity']) {
                                 $pt = ProductType::find($item['product_type_id']);
                                 $productName = $pt?->name ?? 'Unknown';
-                                $insufficientItems[] = "{$productName} {$item['grammage']}g (requested: {$item['quantity']}, available: {$available})";
+                                $insufficientItems[] = "{$productName} ".ProductType::formatGrammage($pt, (int) $item['grammage'])." (requested: {$item['quantity']}, available: {$available})";
                             } else {
                                 $inventoryToDecrement[] = [
                                     'inventory' => $inv,
@@ -417,6 +439,370 @@ class WarehouseManagerDashboard extends BaseDashboard
                 $this->dispatch('refresh-dashboard');
             });
 
+        $actions[] = Action::make('recordDirectSale')
+            ->label('Record Sale')
+            ->icon('heroicon-o-currency-dollar')
+            ->color('success')
+            ->form([
+                Select::make('warehouse_id')
+                    ->label('Warehouse')
+                    ->options(fn (): array => $this->managedWarehouseOptions())
+                    ->default(fn (): ?int => $this->currentManagedWarehouseId())
+                    ->searchable()
+                    ->required()
+                    ->live(),
+                Repeater::make('items')
+                    ->label('Sale Items')
+                    ->schema([
+                        Select::make('product_type_id')
+                            ->label('Product')
+                            ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'id'))
+                            ->searchable()
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(fn ($set) => $set('grammage', null)),
+                        Select::make('grammage')
+                            ->label('Weight')
+                            ->options(function (callable $get) {
+                                $ptId = $get('product_type_id');
+                                if (! $ptId) {
+                                    return [];
+                                }
+                                $pt = ProductType::find($ptId);
+
+                                return $pt
+                                    ? collect($pt->available_grammages)
+                                        ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                        ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
+                                        ->toArray()
+                                    : [];
+                            })
+                            ->required()
+                            ->live(),
+                        TextInput::make('quantity')
+                            ->label('Quantity')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->required(),
+                        TextInput::make('price')
+                            ->label('Unit Price (₦)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->required(),
+                    ])
+                    ->addActionLabel('Add Item')
+                    ->defaultItems(1)
+                    ->minItems(1)
+                    ->required(),
+                TextInput::make('customer_name')
+                    ->label('Customer Name (optional)'),
+                TextInput::make('customer_phone')
+                    ->label('Customer Phone (optional)')
+                    ->tel(),
+                FileUpload::make('receipt_path')
+                    ->label('Receipt / Payment Proof (optional)')
+                    ->image()
+                    ->maxSize(2048)
+                    ->disk('s3')
+                    ->directory('receipts/sales-records')
+                    ->visibility('private')
+                    ->imageEditor()
+                    ->columnSpanFull(),
+            ])
+            ->action(function (array $data) {
+                $user = auth()->user();
+
+                $products = collect($data['items'])->map(function (array $item) {
+                    $pt = ProductType::find($item['product_type_id']);
+
+                    return [
+                        'product_name' => $pt?->name ?? 'Unknown',
+                        'grammage' => $item['grammage'],
+                        'quantity' => (int) $item['quantity'],
+                        'price' => (float) $item['price'],
+                    ];
+                })->all();
+
+                try {
+                    SalesRecordService::submitWarehouseDirectSale([
+                        'warehouse_id' => $data['warehouse_id'],
+                        'products' => $products,
+                        'total_value' => collect($data['items'])->sum(fn (array $item) => (int) $item['quantity'] * (float) $item['price']),
+                        'receipt_path' => $data['receipt_path'] ?? null,
+                        'customer_name' => $data['customer_name'] ?? null,
+                        'customer_phone' => $data['customer_phone'] ?? null,
+                    ], $user->id);
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->title('Sale failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Sale recorded')
+                    ->body('Stock deducted from the warehouse. The sale is pending accountant approval.')
+                    ->success()
+                    ->send();
+
+                $this->dispatch('refresh-dashboard');
+            })
+            ->modalHeading('Record Warehouse Sale')
+            ->modalButton('Record Sale');
+
+        $actions[] = Action::make('dispatchRawMaterial')
+            ->label('Dispatch Raw Material')
+            ->icon('heroicon-o-beaker')
+            ->color('warning')
+            ->form([
+                Select::make('from_warehouse_id')
+                    ->label('From Warehouse')
+                    ->options(fn (): array => $this->managedWarehouseOptions('raw_material'))
+                    ->default(fn (): ?int => $this->currentManagedWarehouseId('raw_material'))
+                    ->searchable()
+                    ->required()
+                    ->live(),
+                Select::make('raw_material_id')
+                    ->label('Raw Material')
+                    ->options(fn () => RawMaterial::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->required()
+                    ->live(),
+                TextInput::make('quantity')
+                    ->label('Quantity')
+                    ->numeric()
+                    ->minValue(0.0001)
+                    ->required()
+                    ->helperText(fn (callable $get): ?string => $this->rawMaterialAvailabilityHint($get)),
+                Select::make('to_warehouse_id')
+                    ->label('Destination Warehouse')
+                    ->options(fn (callable $get): array => self::activeModuleWarehousesExcluding((int) $get('from_warehouse_id')))
+                    ->default(fn (): ?int => Warehouse::withProductionModule()->where('is_active', true)->orderBy('id')->value('id'))
+                    ->searchable()
+                    ->required(),
+                Textarea::make('notes')
+                    ->label('Notes'),
+            ])
+            ->action(function (array $data) {
+                $user = auth()->user();
+
+                try {
+                    $transfer = RawMaterialTransferService::requestTransfer(
+                        (int) $data['from_warehouse_id'],
+                        (int) $data['to_warehouse_id'],
+                        (int) $data['raw_material_id'],
+                        (float) $data['quantity'],
+                        $user->id,
+                        $data['notes'] ?? null
+                    );
+
+                    RawMaterialTransferService::dispatchTransfer($transfer, $user->id);
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->title('Dispatch failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Raw material dispatched')
+                    ->body("Transfer #{$transfer->id} is awaiting receipt at the destination warehouse.")
+                    ->success()
+                    ->send();
+
+                $this->dispatch('refresh-dashboard');
+            })
+            ->modalHeading('Dispatch Raw Material')
+            ->modalButton('Dispatch');
+
+        $actions[] = Action::make('recordRepack')
+            ->label('Repack Stock')
+            ->icon('heroicon-o-arrows-right-left')
+            ->color('primary')
+            ->form([
+                Select::make('warehouse_id')
+                    ->label('Warehouse')
+                    ->options(fn (): array => $this->managedWarehouseOptions())
+                    ->default(fn (): ?int => $this->currentManagedWarehouseId())
+                    ->searchable()
+                    ->required()
+                    ->live(),
+                Select::make('input_product_type_id')
+                    ->label('From Product (e.g. bulk bags)')
+                    ->options(fn () => ProductType::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(fn ($set) => $set('input_grammage', null)),
+                Select::make('input_grammage')
+                    ->label('From Weight')
+                    ->options(function (callable $get) {
+                        $pt = ProductType::find((int) ($get('input_product_type_id') ?? 0));
+
+                        return $pt
+                            ? collect($pt->available_grammages)
+                                ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
+                                ->toArray()
+                            : [];
+                    })
+                    ->required()
+                    ->live(),
+                TextInput::make('input_quantity')
+                    ->label('From Quantity (pieces)')
+                    ->numeric()
+                    ->integer()
+                    ->minValue(1)
+                    ->required()
+                    ->helperText(fn (callable $get): ?string => $this->repackInputAvailabilityHint($get)),
+                Select::make('output_product_type_id')
+                    ->label('To Product (e.g. 650g packs)')
+                    ->options(fn () => ProductType::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(fn ($set) => $set('output_grammage', null)),
+                Select::make('output_grammage')
+                    ->label('To Weight')
+                    ->options(function (callable $get) {
+                        $pt = ProductType::find((int) ($get('output_product_type_id') ?? 0));
+
+                        return $pt
+                            ? collect($pt->available_grammages)
+                                ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
+                                ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
+                                ->toArray()
+                            : [];
+                    })
+                    ->required(),
+                TextInput::make('output_quantity')
+                    ->label('To Quantity (pieces)')
+                    ->numeric()
+                    ->integer()
+                    ->minValue(1)
+                    ->required(),
+                Textarea::make('notes')
+                    ->label('Notes')
+                    ->columnSpanFull(),
+            ])
+            ->action(function (array $data) {
+                try {
+                    $repack = RepackService::post($data, auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->title('Repack failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Stock repacked')
+                    ->body("Repack #{$repack->id} posted to inventory.")
+                    ->success()
+                    ->send();
+
+                $this->dispatch('refresh-dashboard');
+            })
+            ->modalHeading('Repack Stock')
+            ->modalDescription('Convert stock from one SKU into another (e.g. bulk bags into retail packs). Enter the actual input and output pieces; only input availability is checked.')
+            ->modalButton('Post Repack');
+
+        $actions[] = Action::make('receiveRawMaterials')
+            ->label('Receive Raw Materials')
+            ->icon('heroicon-o-arrow-down-tray')
+            ->color('success')
+            ->form([
+                Select::make('warehouse_id')
+                    ->label('Warehouse')
+                    ->options(fn (): array => $this->managedWarehouseOptions('raw_material'))
+                    ->default(fn (): ?int => $this->currentManagedWarehouseId('raw_material'))
+                    ->searchable()
+                    ->required()
+                    ->live(),
+                Radio::make('source_type')
+                    ->label('Source')
+                    ->options([
+                        'supplier' => 'From Supplier (Procurement)',
+                        'other' => 'Other Source',
+                    ])
+                    ->default('supplier')
+                    ->required()
+                    ->live(),
+                TextInput::make('supplier_name')
+                    ->label('Supplier Name')
+                    ->placeholder('e.g. Supplier ABC')
+                    ->visible(fn (callable $get): bool => ($get('source_type') ?? 'supplier') === 'supplier')
+                    ->required(fn (callable $get): bool => ($get('source_type') ?? 'supplier') === 'supplier')
+                    ->maxLength(200),
+                TextInput::make('source_name')
+                    ->label('Source Name')
+                    ->placeholder('e.g. Donation, return to stock, internal adjustment')
+                    ->visible(fn (callable $get): bool => $get('source_type') === 'other')
+                    ->required(fn (callable $get): bool => $get('source_type') === 'other')
+                    ->maxLength(200),
+                FileUpload::make('dispatch_papers')
+                    ->label('Dispatch Papers')
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
+                    ->maxSize(10240)
+                    ->directory('dispatch-papers')
+                    ->multiple()
+                    ->visible(fn (callable $get): bool => $get('source_type') === 'other'),
+                Repeater::make('items')
+                    ->label('Received Items')
+                    ->schema([
+                        Select::make('raw_material_id')
+                            ->label('Raw Material')
+                            ->options(fn () => RawMaterial::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->required(),
+                        TextInput::make('quantity')
+                            ->label('Quantity')
+                            ->numeric()
+                            ->minValue(0.0001)
+                            ->required(),
+                    ])
+                    ->addActionLabel('Add Item')
+                    ->defaultItems(1)
+                    ->minItems(1)
+                    ->required(),
+                Textarea::make('notes')
+                    ->label('Notes'),
+            ])
+            ->action(function (array $data) {
+                try {
+                    $receipt = RawMaterialReceiptService::submit($data, auth()->id());
+                } catch (ValidationException $e) {
+                    Notification::make()
+                        ->title('Receipt failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Receipt submitted')
+                    ->body("Receipt #{$receipt->id} is awaiting approval before stock is added.")
+                    ->success()
+                    ->send();
+
+                $this->dispatch('refresh-dashboard');
+            })
+            ->modalHeading('Receive Raw Materials')
+            ->modalDescription('Record raw materials from a procurement supplier or another source. Stock is added once the receipt is approved.')
+            ->modalButton('Submit Receipt');
+
         if (Setting::getValue('stock_at_hand_enabled', '0') === '1') {
             $actions[] = Action::make('submitStockCount')
                 ->label('Submit Stock Count')
@@ -425,8 +811,8 @@ class WarehouseManagerDashboard extends BaseDashboard
                 ->form([
                     Select::make('warehouse_id')
                         ->label('Warehouse')
-                        ->options(fn () => Warehouse::where('manager_id', auth()->id())->pluck('name', 'id'))
-                        ->default(fn () => Warehouse::where('manager_id', auth()->id())->value('id'))
+                        ->options(fn (): array => $this->managedWarehouseOptions())
+                        ->default(fn (): ?int => $this->currentManagedWarehouseId())
                         ->disabled()
                         ->dehydrated()
                         ->required(),
@@ -445,7 +831,7 @@ class WarehouseManagerDashboard extends BaseDashboard
                                 ->live()
                                 ->afterStateUpdated(fn ($set) => $set('grammage', null)),
                             Select::make('grammage')
-                                ->label('Weight (g)')
+                                ->label('Weight')
                                 ->options(function (callable $get) {
                                     $ptId = $get('product_type_id');
                                     if (! $ptId) {
@@ -458,13 +844,13 @@ class WarehouseManagerDashboard extends BaseDashboard
 
                                     return collect($pt->available_grammages)
                                         ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                        ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                        ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                         ->toArray();
                                 })
                                 ->required()
                                 ->live(),
                             TextInput::make('cartons')
-                                ->label('Cartons')
+                                ->label(fn (callable $get): string => self::packagingPluralLabel($get))
                                 ->numeric()
                                 ->integer()
                                 ->minValue(0)
@@ -570,6 +956,14 @@ class WarehouseManagerDashboard extends BaseDashboard
         }, $filename, ['Content-Type' => 'text/csv']);
     }
 
+    protected static function packagingPluralLabel(callable $get): string
+    {
+        $productType = ProductType::find((int) ($get('product_type_id') ?? 0));
+        $grammage = (int) ($get('grammage') ?? 0);
+
+        return ProductType::packagingLabel($productType, $grammage).'s';
+    }
+
     protected static function recalculateReceiveItemTotal(mixed $set, callable $get): void
     {
         $productTypeId = (int) ($get('product_type_id') ?? 0);
@@ -595,5 +989,102 @@ class WarehouseManagerDashboard extends BaseDashboard
         }
 
         return (int) ($item['quantity'] ?? 0);
+    }
+
+    private function rawMaterialAvailabilityHint(callable $get): ?string
+    {
+        $warehouseId = (int) ($get('from_warehouse_id') ?? 0);
+        $materialId = (int) ($get('raw_material_id') ?? 0);
+
+        if (! $warehouseId || ! $materialId) {
+            return null;
+        }
+
+        $material = RawMaterial::find($materialId);
+
+        if (! $material) {
+            return null;
+        }
+
+        $available = $material->availableQuantity($warehouseId);
+
+        return "Available at source: {$available} {$material->unit_of_measure}";
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    private function managedWarehouseOptions(?string $module = null): array
+    {
+        $base = fn () => Warehouse::where('manager_id', auth()->id())->where('is_active', true);
+
+        $options = $base()
+            ->when($module === 'raw_material', fn ($query) => $query->where('has_raw_material_module', true))
+            ->orderBy('name')
+            ->pluck('name', 'id');
+
+        if ($options->isEmpty() && $module !== null) {
+            $options = $base()->orderBy('name')->pluck('name', 'id');
+        }
+
+        return $options->all();
+    }
+
+    private function currentManagedWarehouseId(?string $module = null): ?int
+    {
+        $base = fn () => Warehouse::where('manager_id', auth()->id())->where('is_active', true);
+
+        return $base()
+            ->when($module === 'raw_material', fn ($query) => $query->where('has_raw_material_module', true))
+            ->orderBy('id')
+            ->value('id')
+            ?? $base()->orderBy('id')->value('id');
+    }
+
+    /**
+     * @return array<int|string, string>
+     */
+    public static function activeWarehousesExcluding(?int $excludeId = null): array
+    {
+        return Warehouse::where('is_active', true)
+            ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    /**
+     * Active warehouses capable of holding raw materials, optionally
+     * excluding one (the dispatch source).
+     *
+     * @return array<int|string, string>
+     */
+    public static function activeModuleWarehousesExcluding(?int $excludeId = null): array
+    {
+        return Warehouse::where('is_active', true)
+            ->where(fn ($query) => $query->where('has_production_module', true)->orWhere('has_raw_material_module', true))
+            ->when($excludeId, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->all();
+    }
+
+    private function repackInputAvailabilityHint(callable $get): ?string
+    {
+        $warehouseId = (int) ($get('warehouse_id') ?? 0);
+        $productTypeId = (int) ($get('input_product_type_id') ?? 0);
+        $grammage = (int) ($get('input_grammage') ?? 0);
+
+        if (! $warehouseId || ! $productTypeId || ! $grammage) {
+            return null;
+        }
+
+        $available = Inventory::where([
+            'warehouse_id' => $warehouseId,
+            'product_type_id' => $productTypeId,
+            'grammage' => $grammage,
+        ])->value('quantity') ?? 0;
+
+        return "Available: {$available} pcs";
     }
 }

@@ -25,6 +25,7 @@ use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
 use App\Filament\Widgets\ProductionRawMaterialsWidget;
 use App\Filament\Widgets\ProductionRunsWidget;
 use App\Filament\Widgets\ProductionStoreStockWidget;
+use App\Filament\Widgets\RawMaterialReceiptApprovalsWidget;
 use App\Models\SalesRecord;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
@@ -85,6 +86,8 @@ class AccountantDashboard extends BaseDashboard
             $this->getRevenueBreakdownAction(),
             $this->getCustomerBreakdownAction(),
             $this->getCustomersAddedTodayAction(),
+            $this->getProspectBreakdownAction(),
+            $this->getLoyalBreakdownAction(),
             Action::make('exportReport')
                 ->label('Export')
                 ->icon('heroicon-o-arrow-down-tray')
@@ -149,6 +152,7 @@ class AccountantDashboard extends BaseDashboard
             ProductionRawMaterialsWidget::class,
             ProductionStoreStockWidget::class,
             ProductionOutgoingTransfersWidget::class,
+            RawMaterialReceiptApprovalsWidget::class,
         ];
     }
 }

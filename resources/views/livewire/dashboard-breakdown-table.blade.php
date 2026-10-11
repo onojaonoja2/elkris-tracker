@@ -1,4 +1,4 @@
-<div class="space-y-4">
+<div class="relative space-y-4">
     <div class="flex flex-col sm:flex-row gap-3">
         <input
             type="text"
@@ -67,6 +67,9 @@
                         <th class="px-3 py-2">Value</th>
                         <th class="px-3 py-2">Status</th>
                         <th class="px-3 py-2">Date</th>
+                        @if($this->canViewPaymentProof())
+                            <th class="px-3 py-2">Proof</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -90,10 +93,25 @@
                             <td class="px-3 py-2">₦{{ number_format($record->total_price, 2) }}</td>
                             <td class="px-3 py-2">{{ str_replace('_', ' ', ucfirst($record->status->value)) }}</td>
                             <td class="px-3 py-2">{{ $record->created_at->format('M d, Y H:i') }}</td>
+                            @if($this->canViewPaymentProof())
+                                <td class="px-3 py-2">
+                                    @if ($record->status === \App\Enums\OrderStatus::Delivered && $record->hasPaymentProof())
+                                        <button
+                                            type="button"
+                                            wire:click="viewProof({{ $record->id }})"
+                                            class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-500"
+                                        >
+                                            View Proof
+                                        </button>
+                                    @else
+                                        <span class="text-gray-400">–</span>
+                                    @endif
+                                </td>
+                            @endif
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-3 py-4 text-center text-gray-500">No records found.</td>
+                            <td colspan="{{ $this->canViewPaymentProof() ? 8 : 7 }}" class="px-3 py-4 text-center text-gray-500">No records found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -104,4 +122,6 @@
     <div class="flex justify-center">
         {{ $this->records->links(data: ['scrollTo' => false]) }}
     </div>
+
+    @include('livewire.order-payment-proof-overlay')
 </div>

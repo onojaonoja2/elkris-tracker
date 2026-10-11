@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Enums\OrderStatus;
+use App\Livewire\Concerns\ViewsOrderPaymentProof;
 use App\Models\Order;
 use App\Models\SalesRecord;
 use App\Models\User;
@@ -16,6 +17,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DashboardBreakdownTable extends Component
 {
+    use ViewsOrderPaymentProof;
     use WithPagination;
 
     public string $type = 'order';

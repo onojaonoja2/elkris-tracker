@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Inventory;
+use App\Models\ProductType;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -20,7 +21,7 @@ class WarehouseManagerStockBreakdownWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasRole('warehouse_manager');
+        return auth()->user()?->canManageWarehouses() ?? false;
     }
 
     public function table(Table $table): Table
@@ -38,46 +39,35 @@ class WarehouseManagerStockBreakdownWidget extends TableWidget
                     ->searchable(),
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => $state.'g'),
+                    ->getStateUsing(fn (Inventory $record): string => ProductType::formatGrammage($record->productType, $record->grammage)),
                 TextColumn::make('carton_size')
-                    ->label('Carton Size')
+                    ->label('Package Size')
                     ->state(function (Inventory $record): ?string {
-                        $productType = $record->productType;
-                        if (! $productType || ! is_array($productType->available_grammages)) {
+                        $entry = $record->productType?->grammageEntryFor((int) $record->grammage);
+
+                        if (! $entry) {
                             return null;
                         }
-                        $entry = collect($productType->available_grammages)
-                            ->first(fn ($g) => (is_array($g) ? $g['grammage'] : $g) == $record->grammage);
 
-                        return is_array($entry) ? ($entry['carton_quantity'] ?? null).' pcs' : null;
+                        $package = ($entry['packaging'] ?? 'carton') === 'bag' ? 'bag' : 'carton';
+
+                        return $entry['carton_quantity'].' pcs/'.$package;
                     }),
                 TextColumn::make('quantity')
                     ->label('Total Pieces')
                     ->sortable()
                     ->summarize(Sum::make()->label('Total')),
                 TextColumn::make('full_cartons')
-                    ->label('Full Cartons')
+                    ->label('Full Packages')
                     ->state(function (Inventory $record): ?int {
-                        $productType = $record->productType;
-                        if (! $productType || ! is_array($productType->available_grammages)) {
-                            return null;
-                        }
-                        $entry = collect($productType->available_grammages)
-                            ->first(fn ($g) => (is_array($g) ? $g['grammage'] : $g) == $record->grammage);
-                        $cartonQty = is_array($entry) ? ($entry['carton_quantity'] ?? null) : null;
+                        $cartonQty = $record->productType?->grammageEntryFor((int) $record->grammage)['carton_quantity'] ?? null;
 
                         return $cartonQty ? intdiv($record->quantity, $cartonQty) : null;
                     }),
                 TextColumn::make('remaining_pieces')
                     ->label('Remaining')
                     ->state(function (Inventory $record): ?int {
-                        $productType = $record->productType;
-                        if (! $productType || ! is_array($productType->available_grammages)) {
-                            return null;
-                        }
-                        $entry = collect($productType->available_grammages)
-                            ->first(fn ($g) => (is_array($g) ? $g['grammage'] : $g) == $record->grammage);
-                        $cartonQty = is_array($entry) ? ($entry['carton_quantity'] ?? null) : null;
+                        $cartonQty = $record->productType?->grammageEntryFor((int) $record->grammage)['carton_quantity'] ?? null;
 
                         return $cartonQty ? ($record->quantity % $cartonQty) : null;
                     }),

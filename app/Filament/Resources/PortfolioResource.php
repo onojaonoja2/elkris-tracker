@@ -102,8 +102,7 @@ class PortfolioResource extends Resource
             $leadId = $user->id;
 
             return parent::getEloquentQuery()
-                ->whereHas('leads', fn (Builder $q) => $q->where('users.id', $leadId))
-                ->whereDoesntHave('reps');
+                ->ownedByLead($leadId);
         }
 
         return parent::getEloquentQuery();

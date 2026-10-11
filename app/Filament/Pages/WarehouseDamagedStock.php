@@ -27,17 +27,17 @@ class WarehouseDamagedStock extends BasePage
 
     public static function canAccess(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('warehouse_manager');
+        return auth()->check() && (auth()->user()?->canManageWarehouses() ?? false);
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('warehouse_manager');
+        return auth()->check() && (auth()->user()?->canManageWarehouses() ?? false);
     }
 
     public static function canViewNavigation(): bool
     {
-        return auth()->check() && auth()->user()->hasRole('warehouse_manager');
+        return auth()->check() && (auth()->user()?->canManageWarehouses() ?? false);
     }
 
     public function getWidgets(): array

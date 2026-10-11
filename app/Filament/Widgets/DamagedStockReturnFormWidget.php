@@ -46,7 +46,7 @@ class DamagedStockReturnFormWidget extends TableWidget
                     ->label('Product'),
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => $state.'g'),
+                    ->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')
                     ->label('Qty'),
                 TextColumn::make('reason')

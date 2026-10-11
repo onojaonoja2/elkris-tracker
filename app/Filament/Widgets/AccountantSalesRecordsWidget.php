@@ -72,6 +72,7 @@ class AccountantSalesRecordsWidget extends TableWidget
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'open_market' => 'Open Market',
                         'retail_market' => 'Retail Market',
+                        'warehouse_manager' => 'Warehouse',
                         default => $state,
                     }),
                 TextColumn::make('stock_source')

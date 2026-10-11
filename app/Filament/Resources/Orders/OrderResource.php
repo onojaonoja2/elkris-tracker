@@ -460,8 +460,8 @@ class OrderResource extends Resource
                                 ->label('Product')
                                 ->default($product->product_name);
                             $entries[] = TextEntry::make("product_{$product->id}_grammage")
-                                ->label('Grammage')
-                                ->default($product->grammage.'g');
+                                ->label('Weight')
+                                ->default(ProductType::formatGrammage(ProductType::find($product->product_type_id), (int) $product->grammage));
                             $entries[] = TextEntry::make("product_{$product->id}_size")
                                 ->label('Size')
                                 ->default($product->size ?? 'N/A');
@@ -521,7 +521,7 @@ class OrderResource extends Resource
                                 ->orderBy('created_at', 'desc')
                                 ->chunk(100, function ($orders) use ($file) {
                                     foreach ($orders as $order) {
-                                        $products = $order->products->map(fn ($p) => "{$p->product_name} ({$p->grammage}g) x{$p->quantity}")->implode(', ');
+                                        $products = $order->products->map(fn ($p) => "{$p->product_name} (".ProductType::formatGrammage(ProductType::find($p->product_type_id), (int) $p->grammage).") x{$p->quantity}")->implode(', ');
                                         fputcsv($file, [
                                             $order->id,
                                             $order->customer?->customer_name ?? 'N/A',

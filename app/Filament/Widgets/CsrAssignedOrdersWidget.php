@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\AssignmentStatus;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductType;
 use App\Services\OrderAssignmentService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -56,7 +57,7 @@ class CsrAssignedOrdersWidget extends TableWidget
                 TextColumn::make('products')
                     ->label('Products')
                     ->formatStateUsing(fn ($record): string => $record->products->map(
-                        fn ($p) => "{$p->quantity}x {$p->product_name} ({$p->grammage}g)"
+                        fn ($p) => "{$p->quantity}x {$p->product_name} (".ProductType::formatGrammage(ProductType::where('name', $p->product_name)->first(), (int) $p->grammage).')'
                     )->implode(', '))
                     ->limit(50),
 
@@ -117,7 +118,7 @@ class CsrAssignedOrdersWidget extends TableWidget
                                                 ->label('Product'),
                                             TextEntry::make('grammage')
                                                 ->label('Weight')
-                                                ->formatStateUsing(fn ($state): string => $state.'g'),
+                                                ->getStateUsing(fn ($record): string => ProductType::formatGrammage(ProductType::find($record->product_type_id), (int) $record->grammage)),
                                             TextEntry::make('quantity')
                                                 ->label('Qty'),
                                             TextEntry::make('price')

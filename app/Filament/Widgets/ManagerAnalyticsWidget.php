@@ -36,9 +36,9 @@ class ManagerAnalyticsWidget extends TableWidget
         $metrics = collect([
             [
                 'metric' => 'Total Customers',
-                'today' => Customer::whereDate('created_at', $today)->count(),
-                'this_month' => Customer::where('created_at', '>=', $thisMonth)->count(),
-                'all_time' => Customer::count(),
+                'today' => Customer::assigned()->whereDate('created_at', $today)->count(),
+                'this_month' => Customer::assigned()->where('created_at', '>=', $thisMonth)->count(),
+                'all_time' => Customer::assigned()->count(),
             ],
             [
                 'metric' => 'Orders',

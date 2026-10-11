@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Traits\HasBreakdownViewAction;
+use App\Models\ProductType;
 use App\Models\StockTransfer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -154,7 +155,7 @@ class AccountantStockMovementsWidget extends TableWidget
                                 $record->dispatcher?->name ?? '-',
                                 $record->receiver?->name ?? '-',
                                 $record->items->map(fn ($item) => ($item->productType?->name ?? '').' x'.$item->quantity)->implode(', '),
-                                $record->items->map(fn ($item) => ($item->productType?->name ?? '').' '.$item->grammage.'g')->implode(', '),
+                                $record->items->map(fn ($item) => ($item->productType?->name ?? '').' '.ProductType::formatGrammage($item->productType, (int) $item->grammage))->implode(', '),
                                 $record->updated_at->format('d/m/Y H:i'),
                             ];
                         }

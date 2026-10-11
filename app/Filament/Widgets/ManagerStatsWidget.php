@@ -7,7 +7,6 @@ use App\Enums\StockTransferStatus;
 use App\Filament\Resources\CallLogs\CallLogResource;
 use App\Filament\Resources\SalesRecords\SalesRecordResource;
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
-use App\Filament\Resources\StockTransfers\StockTransferResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\AgentStock;
 use App\Models\CallLog;
@@ -33,9 +32,13 @@ class ManagerStatsWidget extends BaseWidget
     {
         [$from, $to] = DashboardDateScope::fromSession();
 
-        $totalCustomers = Customer::count();
+        $totalCustomers = Customer::assigned()->count();
 
-        $customersAddedToday = Customer::whereDate('created_at', today())->count();
+        $customersAddedToday = Customer::assigned()->whereDate('created_at', today())->count();
+
+        $prospects = Customer::assigned()->hasNotPlacedOrder()->count();
+
+        $loyalCustomers = Customer::assigned()->hasPlacedOrder()->count();
 
         $salesRecords = SalesRecord::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
@@ -99,6 +102,16 @@ class ManagerStatsWidget extends BaseWidget
                 ->icon('heroicon-o-user-plus')
                 ->color('success')
                 ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-customers-added-today')"]),
+            Stat::make('Prospects', $prospects)
+                ->description('Customers without orders')
+                ->icon('heroicon-o-user')
+                ->color('warning')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-prospect-breakdown')"]),
+            Stat::make('Loyal Customers', $loyalCustomers)
+                ->description('Customers with orders')
+                ->icon('heroicon-o-heart')
+                ->color('success')
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-loyal-breakdown')"]),
             Stat::make('Revenue', self::formatCurrency($revenue))
                 ->description('Total revenue')
                 ->icon('heroicon-o-banknotes')
@@ -128,7 +141,7 @@ class ManagerStatsWidget extends BaseWidget
                 ->description('All movements')
                 ->icon('heroicon-o-arrows-right-left')
                 ->color('danger')
-                ->url(StockTransferResource::getUrl('index')),
+                ->extraAttributes(['class' => 'cursor-pointer', 'wire:click' => "\$dispatch('open-stock-movement-breakdown')"]),
             Stat::make('Warehouse Stock', number_format($warehouseStockUnits).' units')
                 ->description('Total inventory units')
                 ->icon('heroicon-o-cube')

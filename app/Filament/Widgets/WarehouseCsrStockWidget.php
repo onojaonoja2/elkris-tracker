@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\OrderStatus;
 use App\Models\AgentStock;
 use App\Models\Order;
+use App\Models\ProductType;
 use App\Models\User;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
@@ -33,7 +34,7 @@ class WarehouseCsrStockWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->hasRole('warehouse_manager') ?? false;
+        return auth()->user()?->canManageWarehouses() ?? false;
     }
 
     public function table(Table $table): Table
@@ -177,7 +178,7 @@ class WarehouseCsrStockWidget extends TableWidget
                             TextEntry::make('product_name')->label('Product'),
                             TextEntry::make('grammage')
                                 ->label('Weight')
-                                ->formatStateUsing(fn ($state) => $state.'g'),
+                                ->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                             TextEntry::make('quantity')->label('Quantity'),
                         ])
                         ->columns(3),

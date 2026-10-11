@@ -135,14 +135,21 @@ class WarehouseRoleWidgetsTest extends TestCase
         ]);
     }
 
-    public function test_warehouse_manager_sees_stock_from_all_warehouses(): void
+    public function test_warehouse_manager_sees_only_managed_warehouse_stock(): void
     {
         $manager = User::factory()->warehouseManager()->create();
-        Warehouse::factory()->create(['name' => 'Managed Warehouse']);
+        $managed = Warehouse::factory()->create(['name' => 'Managed Warehouse', 'manager_id' => $manager->id]);
         $otherWarehouse = Warehouse::factory()->create(['name' => 'Remote Warehouse']);
 
         $productType = ProductType::factory()->create(['name' => 'Ora herbal mix']);
         $productType->update(['available_grammages' => [['grammage' => 100, 'carton_quantity' => 10]]]);
+
+        $managedInventory = Inventory::create([
+            'warehouse_id' => $managed->id,
+            'product_type_id' => $productType->id,
+            'grammage' => 100,
+            'quantity' => 25,
+        ]);
 
         $remote = Inventory::create([
             'warehouse_id' => $otherWarehouse->id,
@@ -154,16 +161,17 @@ class WarehouseRoleWidgetsTest extends TestCase
         $this->actingAs($manager);
 
         Livewire::test(WarehouseStocksWidget::class)
-            ->assertCanSeeTableRecords([$remote])
-            ->assertTableColumnStateSet('full_cartons', 2, $remote)
-            ->assertTableColumnStateSet('remaining_pieces', 5, $remote)
+            ->assertCanSeeTableRecords([$managedInventory])
+            ->assertCanNotSeeTableRecords([$remote])
+            ->assertTableColumnStateSet('full_cartons', 2, $managedInventory)
+            ->assertTableColumnStateSet('remaining_pieces', 5, $managedInventory)
             ->assertTableActionExists('viewMovements');
     }
 
     public function test_warehouse_manager_dispatch_opens_stock_movement_breakdown(): void
     {
         $manager = User::factory()->warehouseManager()->create();
-        $warehouse = Warehouse::factory()->create(['name' => 'Remote Warehouse']);
+        $warehouse = Warehouse::factory()->create(['name' => 'Remote Warehouse', 'manager_id' => $manager->id]);
 
         $productType = ProductType::factory()->create(['name' => 'Ora herbal mix']);
         $inventory = Inventory::create([

@@ -36,7 +36,7 @@ class PendingStockRequests extends BaseWidget
                     });
                 }
 
-                if ($user->hasRole('warehouse_manager')) {
+                if ($user->canManageWarehouses() && ! $user->hasAnyRole(['admin', 'manager'])) {
                     $warehouseIds = $user->managedWarehouses()->pluck('id');
                     $query->whereIn('from_warehouse_id', $warehouseIds);
                 }

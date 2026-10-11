@@ -4,13 +4,16 @@ namespace App\Services;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
+use App\Enums\StockTransferStatus;
 use App\Events\OrderAssigned;
 use App\Events\OrderAssignmentAccepted;
 use App\Events\OrderAssignmentRejected;
 use App\Models\AgentStock;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\ProductType;
 use App\Models\StockTransaction;
+use App\Models\StockTransfer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -95,6 +98,78 @@ class OrderAssignmentService
         });
     }
 
+    /**
+     * Route a pending order to a warehouse for fulfillment.
+     *
+     * Validates warehouse availability, stamps the order's stock source, and
+     * creates a requested dispatch (StockTransfer) linked to the order so the
+     * warehouse manager can dispatch it and its progress can be tracked.
+     */
+    public static function routeOrderToWarehouse(Order $order, int $warehouseId, ?int $fulfillerId = null, ?int $requestedBy = null): StockTransfer
+    {
+        return DB::transaction(function () use ($order, $warehouseId, $fulfillerId, $requestedBy) {
+            $order = Order::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($order->status !== OrderStatus::Pending) {
+                throw ValidationException::withMessages([
+                    'status' => 'Only pending orders can be routed to a warehouse.',
+                ]);
+            }
+
+            if ($order->products->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'status' => 'This order has no products to fulfill.',
+                ]);
+            }
+
+            $alreadyRouted = StockTransfer::where('order_id', $order->id)
+                ->whereNotIn('status', [StockTransferStatus::Cancelled])
+                ->exists();
+
+            if ($alreadyRouted) {
+                throw ValidationException::withMessages([
+                    'status' => 'This order already has an active warehouse dispatch request.',
+                ]);
+            }
+
+            $lines = $order->products->map(fn (Product $product): array => [
+                'product_type_id' => $product->product_type_id,
+                'product_name' => $product->product_name,
+                'grammage' => $product->grammage,
+                'quantity' => $product->quantity,
+            ])->all();
+
+            StockTransferService::assertWarehouseStockAvailable($warehouseId, $lines);
+
+            $order->update([
+                'stock_source' => 'warehouse',
+                'warehouse_id' => $warehouseId,
+            ]);
+
+            $transfer = StockTransfer::create([
+                'from_warehouse_id' => $warehouseId,
+                'to_agent_id' => $fulfillerId ?? $order->user_id,
+                'requested_by' => $requestedBy ?? auth()->id(),
+                'status' => StockTransferStatus::Requested,
+                'source_type' => 'sales_order',
+                'source_name' => "Order #{$order->id}",
+                'order_id' => $order->id,
+            ]);
+
+            foreach ($order->products as $product) {
+                $transfer->items()->create([
+                    'product_type_id' => $product->product_type_id,
+                    'grammage' => $product->grammage,
+                    'quantity' => $product->quantity,
+                ]);
+            }
+
+            StockTransferService::notifyWarehouseManager($transfer);
+
+            return $transfer;
+        });
+    }
+
     public static function attachPaymentProof(Order $order, string $path, int $uploadedBy): void
     {
         DB::transaction(function () use ($order, $path, $uploadedBy) {
@@ -153,7 +228,7 @@ class OrderAssignmentService
                     if (! $stock || $stock->quantity < $product->quantity) {
                         $available = $stock?->quantity ?? 0;
                         throw ValidationException::withMessages([
-                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
+                            'stock' => 'Insufficient stock for '.$product->product_name.' ('.ProductType::formatGrammage(ProductType::find($product->product_type_id), (int) $product->grammage)."). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
                 }
@@ -282,7 +357,7 @@ class OrderAssignmentService
                     if (! $stock || $stock->quantity < $product->quantity) {
                         $available = $stock?->quantity ?? 0;
                         throw ValidationException::withMessages([
-                            'stock' => "Insufficient stock for {$product->product_name} ({$product->grammage}g). Available: {$available}, required: {$product->quantity}.",
+                            'stock' => 'Insufficient stock for '.$product->product_name.' ('.ProductType::formatGrammage(ProductType::find($product->product_type_id), (int) $product->grammage)."). Available: {$available}, required: {$product->quantity}.",
                         ]);
                     }
                 }

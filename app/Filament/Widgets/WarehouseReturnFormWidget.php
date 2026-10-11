@@ -40,7 +40,7 @@ class WarehouseReturnFormWidget extends TableWidget
                 TextColumn::make('id')->label('#')->sortable(),
                 TextColumn::make('warehouse.name')->label('Warehouse'),
                 TextColumn::make('productType.name')->label('Product'),
-                TextColumn::make('grammage')->label('Weight')->formatStateUsing(fn ($state) => $state.'g'),
+                TextColumn::make('grammage')->label('Weight')->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')->label('Qty'),
                 TextColumn::make('reason')->label('Reason')->limit(40)->placeholder('-'),
                 TextColumn::make('status')

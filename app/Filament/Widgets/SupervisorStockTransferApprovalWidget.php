@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\StockTransferStatus;
 use App\Enums\UserRole;
 use App\Filament\Traits\HasBreakdownViewAction;
+use App\Models\ProductType;
 use App\Models\StockTransfer;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -55,7 +56,7 @@ class SupervisorStockTransferApprovalWidget extends BaseWidget
                 TextColumn::make('items')
                     ->label('Items')
                     ->getStateUsing(fn (StockTransfer $record): string => $record->items
-                        ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} ({$item->grammage}g)")
+                        ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} (".ProductType::formatGrammage($item->productType, (int) $item->grammage).')')
                         ->implode(', '))
                     ->limit(50),
                 TextColumn::make('created_at')

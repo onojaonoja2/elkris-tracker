@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\PaymentStatus;
 use App\Enums\TrialOrderStatus;
 use App\Models\AgentStock;
+use App\Models\ProductType;
 use App\Models\TrialOrder;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -92,7 +93,7 @@ class AccountantTrialOrdersWidget extends TableWidget
                                         Notification::make()
                                             ->danger()
                                             ->title('Insufficient agent stock')
-                                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0))
+                                            ->body("Agent doesn't have enough {$productName} (".ProductType::formatGrammage(ProductType::where('name', $productName)->first(), (int) $grammage).'). Available: '.($agentStock->quantity ?? 0))
                                             ->send();
 
                                         return;

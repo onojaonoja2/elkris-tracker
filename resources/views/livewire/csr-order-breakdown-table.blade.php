@@ -1,4 +1,4 @@
-<div class="space-y-4">
+<div class="relative space-y-4">
     @if($this->selectedCsrId !== null)
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <button
@@ -54,6 +54,9 @@
                         <th class="px-3 py-2">Customer</th>
                         <th class="px-3 py-2">Value</th>
                         <th class="px-3 py-2">Date</th>
+                        @if($this->canViewPaymentProof())
+                            <th class="px-3 py-2">Proof</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -63,10 +66,25 @@
                             <td class="px-3 py-2">{{ $record->customer?->customer_name ?? '-' }}</td>
                             <td class="px-3 py-2">₦{{ number_format($record->total_price, 2) }}</td>
                             <td class="px-3 py-2">{{ $record->created_at->format('M d, Y H:i') }}</td>
+                            @if($this->canViewPaymentProof())
+                                <td class="px-3 py-2">
+                                    @if ($record->hasPaymentProof())
+                                        <button
+                                            type="button"
+                                            wire:click="viewProof({{ $record->id }})"
+                                            class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-500"
+                                        >
+                                            View Proof
+                                        </button>
+                                    @else
+                                        <span class="text-gray-400">–</span>
+                                    @endif
+                                </td>
+                            @endif
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-3 py-4 text-center text-gray-500">No completed orders found.</td>
+                            <td colspan="{{ $this->canViewPaymentProof() ? 5 : 4 }}" class="px-3 py-4 text-center text-gray-500">No completed orders found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -117,4 +135,6 @@
             {{ $this->summaryRows->links(data: ['scrollTo' => false]) }}
         @endif
     </div>
+
+    @include('livewire.order-payment-proof-overlay')
 </div>

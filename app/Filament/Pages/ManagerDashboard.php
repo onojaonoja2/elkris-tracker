@@ -27,6 +27,7 @@ use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
 use App\Filament\Widgets\ProductionRawMaterialsWidget;
 use App\Filament\Widgets\ProductionRunsWidget;
 use App\Filament\Widgets\ProductionStoreStockWidget;
+use App\Filament\Widgets\RawMaterialReceiptApprovalsWidget;
 use App\Filament\Widgets\RevenueTrendChart;
 use App\Filament\Widgets\SupervisorCreditSalesWidget;
 use App\Filament\Widgets\SupervisorCsrListWidget;
@@ -38,6 +39,7 @@ use App\Filament\Widgets\SupervisorStockCountApprovalWidget;
 use App\Filament\Widgets\SupervisorStockCountFinalApprovalWidget;
 use App\Filament\Widgets\SupervisorStockTransferApprovalWidget;
 use App\Filament\Widgets\SupervisorStockWidget;
+use App\Filament\Widgets\UnassignedCustomersWidget;
 use App\Filament\Widgets\WarehouseReturnApprovalsWidget;
 use App\Models\Customer;
 use App\Models\Order;
@@ -100,6 +102,7 @@ class ManagerDashboard extends BaseDashboard
             OrderStatsWidget::class,
             ManagerAnalyticsWidget::class,
             ManagerCustomerSubmissionsWidget::class,
+            UnassignedCustomersWidget::class,
         ];
     }
 
@@ -121,6 +124,7 @@ class ManagerDashboard extends BaseDashboard
             ProductionRawMaterialsWidget::class,
             ProductionStoreStockWidget::class,
             ProductionOutgoingTransfersWidget::class,
+            RawMaterialReceiptApprovalsWidget::class,
             AgentCustomerViewWidget::class,
             SupervisorCsrListWidget::class,
             SupervisorStockTransferApprovalWidget::class,
@@ -147,6 +151,9 @@ class ManagerDashboard extends BaseDashboard
             $this->getApprovalBreakdownAction(),
             $this->getCustomerBreakdownAction(),
             $this->getCustomersAddedTodayAction(),
+            $this->getProspectBreakdownAction(),
+            $this->getLoyalBreakdownAction(),
+            $this->getStockMovementBreakdownAction(),
             Action::make('addUser')
                 ->label('Add User')
                 ->icon('heroicon-o-user-plus')

@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Traits\HasBreakdownViewAction;
+use App\Models\ProductType;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
 use Carbon\Carbon;
@@ -38,11 +39,11 @@ class ProductionOutgoingTransfersWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $storeId = Warehouse::productionStore()?->id ?? 0;
+        $warehouseIds = Warehouse::productionModuleIds();
 
         return $table
             ->query(fn (): Builder => StockTransfer::query()
-                ->where('from_warehouse_id', $storeId)
+                ->whereIn('from_warehouse_id', $warehouseIds)
                 ->with(['toWarehouse', 'toAgent', 'items.productType'])
                 ->latest('created_at'))
             ->columns([
@@ -60,7 +61,7 @@ class ProductionOutgoingTransfersWidget extends TableWidget
                 TextColumn::make('items')
                     ->label('Items')
                     ->getStateUsing(fn (StockTransfer $record): string => $record->items
-                        ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} ({$item->grammage}g)")
+                        ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} (".ProductType::formatGrammage($item->productType, (int) $item->grammage).')')
                         ->implode(', '))
                     ->limit(50),
                 TextColumn::make('status')
@@ -88,7 +89,7 @@ class ProductionOutgoingTransfersWidget extends TableWidget
 
                             foreach ($records as $record) {
                                 $items = $record->items
-                                    ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} ({$item->grammage}g)")
+                                    ->map(fn ($item) => "{$item->quantity}x {$item->productType?->name} (".ProductType::formatGrammage($item->productType, (int) $item->grammage).')')
                                     ->implode('; ');
 
                                 fputcsv($file, [

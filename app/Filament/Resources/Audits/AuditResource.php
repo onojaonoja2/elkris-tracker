@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Audits;
 
 use App\Filament\Navigation\HasRoleBasedNavigationGroup;
 use App\Filament\Resources\Audits\Pages\ManageAudits;
+use App\Models\User;
 use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -128,6 +129,22 @@ class AuditResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
+                SelectFilter::make('user_id')
+                    ->label('User')
+                    ->searchable()
+                    ->options(fn (): array => User::whereIn('id', Audit::query()
+                        ->where('user_type', User::class)
+                        ->whereNotNull('user_id')
+                        ->distinct()
+                        ->pluck('user_id'))
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
+                    ->query(fn (Builder $query, array $data) => $query
+                        ->when($data['value'] ?? null, fn (Builder $q, $value) => $q
+                            ->where('user_type', User::class)
+                            ->where('user_id', $value)),
+                    ),
                 SelectFilter::make('event')
                     ->label('Event')
                     ->options([

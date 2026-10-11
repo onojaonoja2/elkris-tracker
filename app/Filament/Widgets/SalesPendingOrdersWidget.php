@@ -4,10 +4,13 @@ namespace App\Filament\Widgets;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
+use App\Enums\StockTransferStatus;
 use App\Filament\Exports\OrderExporter;
 use App\Models\Order;
+use App\Models\ProductType;
 use App\Models\User;
 use App\Services\OrderAssignmentService;
+use App\Support\WarehouseOptions;
 use Filament\Actions\Action;
 use Filament\Actions\ExportAction;
 use Filament\Forms\Components\FileUpload;
@@ -38,7 +41,7 @@ class SalesPendingOrdersWidget extends TableWidget
                 fn () => Order::where('status', OrderStatus::Pending)
                     ->where('assignment_status', AssignmentStatus::None)
                     ->whereHas('user', fn ($q) => $q->whereNotIn('role', ['open_market', 'retail_market']))
-                    ->with(['customer', 'user', 'products'])
+                    ->with(['customer', 'user', 'products', 'warehouse', 'fulfillmentTransfer'])
                     ->orderBy('created_at', 'desc')
             )
             ->columns([
@@ -57,7 +60,7 @@ class SalesPendingOrdersWidget extends TableWidget
                 TextColumn::make('products')
                     ->label('Products')
                     ->formatStateUsing(fn ($record): string => $record->products->map(
-                        fn ($p) => "{$p->quantity}x {$p->product_name} ({$p->grammage}g)"
+                        fn ($p) => "{$p->quantity}x {$p->product_name} (".ProductType::formatGrammage(ProductType::where('name', $p->product_name)->first(), (int) $p->grammage).')'
                     )->implode(', '))
                     ->limit(50),
 
@@ -76,6 +79,31 @@ class SalesPendingOrdersWidget extends TableWidget
                     ->state(fn (Order $record): bool => $record->hasPaymentProof())
                     ->formatStateUsing(fn (bool $state): string => $state ? 'Uploaded' : 'Missing')
                     ->color(fn (bool $state): string => $state ? 'success' : 'danger'),
+
+                TextColumn::make('stock_source')
+                    ->label('Stock Source')
+                    ->badge()
+                    ->state(fn (Order $record): ?string => $record->stock_source)
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'held' => 'At Hand',
+                        'warehouse' => 'Warehouse',
+                        default => '-',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'held' => 'info',
+                        'warehouse' => 'warning',
+                        default => 'gray',
+                    }),
+
+                TextColumn::make('warehouse.name')
+                    ->label('Warehouse')
+                    ->placeholder('-'),
+
+                TextColumn::make('dispatch_status')
+                    ->label('Dispatch')
+                    ->badge()
+                    ->state(fn (Order $record): string => $record->fulfillmentTransfer?->status?->getLabel() ?? '—')
+                    ->color(fn (Order $record): string => $record->fulfillmentTransfer?->status?->color() ?? 'gray'),
 
                 TextColumn::make('created_at')
                     ->label('Date')
@@ -140,15 +168,21 @@ class SalesPendingOrdersWidget extends TableWidget
                     ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending && $record->hasPaymentProof())
                     ->requiresConfirmation()
                     ->modalHeading('Process Order')
-                    ->modalDescription('Mark this order as delivered. Stock will be deducted from your inventory and the value will be attributed to the original initiator.')
+                    ->modalDescription(fn (Order $record): string => $record->stock_source === 'warehouse'
+                        ? 'Mark this order as delivered. Stock dispatched from the warehouse will be deducted from your stock at hand and the value attributed to the original initiator.'
+                        : 'Mark this order as delivered. Stock will be deducted from your inventory and the value will be attributed to the original initiator.')
                     ->modalButton('Confirm Delivery')
                     ->action(function (Order $record) {
                         $user = auth()->user();
 
                         if (! OrderAssignmentService::hasSufficientStock($user, $record)) {
+                            $dispatchStatus = $record->fulfillmentTransfer?->status;
+
                             Notification::make()
                                 ->title('Insufficient stock')
-                                ->body('You do not have enough stock to process this order. Please request stock from the warehouse first.')
+                                ->body($dispatchStatus === StockTransferStatus::Requested || $dispatchStatus === StockTransferStatus::Approved
+                                    ? "Dispatch #{$record->fulfillmentTransfer->id} ({$dispatchStatus->getLabel()}) is still with the warehouse manager. You can process this order once it is dispatched."
+                                    : 'You do not have enough stock to process this order. Please fulfill it from a warehouse or request stock first.')
                                 ->danger()
                                 ->send();
 
@@ -182,6 +216,47 @@ class SalesPendingOrdersWidget extends TableWidget
 
                         $this->dispatch('refresh-dashboard');
                     }),
+
+                Action::make('fulfillFromWarehouse')
+                    ->label('Fulfill from Warehouse')
+                    ->icon('heroicon-o-building-storefront')
+                    ->color('warning')
+                    ->size('sm')
+                    ->visible(fn (Order $record): bool => $record->status === OrderStatus::Pending && $record->fulfillmentTransfer === null)
+                    ->form([
+                        Select::make('warehouse_id')
+                            ->label('Warehouse')
+                            ->options(fn () => WarehouseOptions::forSales(auth()->user()))
+                            ->searchable()
+                            ->required()
+                            ->helperText(fn () => WarehouseOptions::hasAssignedWarehouses(auth()->user())
+                                ? null
+                                : 'No warehouse is assigned to you yet, showing all active warehouses.'),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        try {
+                            $transfer = OrderAssignmentService::routeOrderToWarehouse($record, (int) $data['warehouse_id'], auth()->id(), auth()->id());
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->danger()
+                                ->title('Cannot fulfill from warehouse')
+                                ->body($e->getMessage())
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Sent to warehouse')
+                            ->body("Order #{$record->id} routed to {$transfer->fromWarehouse?->name}. Dispatch #{$transfer->id} is awaiting the warehouse manager.")
+                            ->success()
+                            ->send();
+
+                        $this->dispatch('refresh-dashboard');
+                    })
+                    ->modalHeading('Fulfill Order from Warehouse')
+                    ->modalDescription('Choose the warehouse that should dispatch stock for this order. You will be able to process it once the warehouse manager dispatches.')
+                    ->modalButton('Send to Warehouse'),
 
                 Action::make('assignToCsr')
                     ->label('Assign to CSR')

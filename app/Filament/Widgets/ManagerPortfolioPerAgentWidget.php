@@ -36,7 +36,12 @@ class ManagerPortfolioPerAgentWidget extends TableWidget
                     ->getStateUsing(function (User $record): int {
                         $repIds = $record->reps()->pluck('id');
 
-                        return Customer::whereIn('rep_id', $repIds)
+                        return Customer::where(function (Builder $query) use ($record, $repIds) {
+                            $query->whereIn('rep_id', $repIds)
+                                ->orWhere(function (Builder $query) use ($record) {
+                                    $query->ownedByLead($record->id);
+                                });
+                        })
                             ->where('rep_acceptance_status', 'accepted')
                             ->count();
                     })

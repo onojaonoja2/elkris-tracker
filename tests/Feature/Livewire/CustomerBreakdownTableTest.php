@@ -47,10 +47,12 @@ class CustomerBreakdownTableTest extends TestCase
         $groups = $component->instance()->groups;
 
         $this->assertTrue($groups->contains(fn ($row) => $row->label === 'Rita Rep' && $row->type === 'rep' && $row->count === 2));
-        $this->assertTrue($groups->contains(fn ($row) => $row->label === 'Larry Lead' && $row->type === 'lead' && $row->count === 2));
+        $this->assertTrue($groups->contains(fn ($row) => $row->label === 'Larry Lead' && $row->type === 'lead' && $row->count === 1));
+        $this->assertTrue($groups->contains(fn ($row) => $row->label === 'Paula Rep' && $row->type === 'rep' && $row->count === 1));
+        $this->assertSame(Customer::count(), (int) $groups->sum('count'));
     }
 
-    public function test_groups_include_high_level_agent_groups_and_unassigned(): void
+    public function test_groups_include_high_level_agent_groups_and_exclude_unassigned(): void
     {
         $csr = User::factory()->communitySalesRepresentative()->create();
         $openMarket = User::factory()->openMarket()->create();
@@ -68,7 +70,7 @@ class CustomerBreakdownTableTest extends TestCase
         $this->assertTrue($groups->contains(fn ($row) => $row->key === 'group-csr' && $row->count === 3));
         $this->assertTrue($groups->contains(fn ($row) => $row->key === 'group-open_market' && $row->count === 1));
         $this->assertTrue($groups->contains(fn ($row) => $row->key === 'group-retail_market' && $row->count === 2));
-        $this->assertTrue($groups->contains(fn ($row) => $row->key === 'group-unassigned' && $row->count === 1));
+        $this->assertFalse($groups->contains(fn ($row) => $row->key === 'group-unassigned'));
     }
 
     public function test_drill_into_group_reveals_agents_then_customers(): void
@@ -114,5 +116,61 @@ class CustomerBreakdownTableTest extends TestCase
         $this->assertSame('Ada Buyer', $customers->first()->customer_name);
         $this->assertSame(1, (int) $customers->first()->orders_count);
         $this->assertEquals(2500.0, (float) $customers->first()->orders_total);
+    }
+
+    public function test_groups_are_mutually_exclusive_and_sum_to_assigned_customers(): void
+    {
+        $rep = User::factory()->rep()->create();
+        $lead = User::factory()->lead()->create();
+        $agent = User::factory()->communitySalesRepresentative()->create();
+        $inactiveRep = User::factory()->rep()->create(['is_active' => false]);
+
+        Customer::factory()->repId($rep)->count(2)->create();
+        Customer::factory()->state(['rep_id' => $rep->id, 'lead_id' => $lead->id])->create();
+        Customer::factory()->state(['agent_id' => $agent->id, 'rep_id' => $rep->id, 'lead_id' => $lead->id])->create();
+        Customer::factory()->leadId($lead)->create();
+        Customer::factory()->agentId($agent)->create();
+        Customer::factory()->create();
+        Customer::factory()->repId($inactiveRep)->create();
+
+        $component = Livewire::test(CustomerBreakdownTable::class);
+
+        $groups = $component->instance()->groups;
+
+        $this->assertSame(Customer::assigned()->count(), (int) $groups->sum('count'));
+        $this->assertTrue($groups->contains(fn ($row) => $row->label === $rep->name && $row->type === 'rep' && $row->count === 4));
+        $this->assertTrue($groups->contains(fn ($row) => $row->label === $lead->name && $row->type === 'lead' && $row->count === 1));
+        $this->assertFalse($groups->contains(fn ($row) => $row->key === 'group-unassigned'));
+        $this->assertTrue($groups->contains(fn ($row) => $row->key === 'group-legacy' && $row->count === 1));
+    }
+
+    public function test_groups_respect_prospect_and_loyal_modes_and_exclude_unassigned(): void
+    {
+        $rep = User::factory()->rep()->create();
+
+        $loyalCustomer = Customer::factory()->repId($rep)->create();
+        $loyalCustomer->orders()->create([
+            'status' => 'delivered',
+            'total_price' => 1000,
+            'is_migrated_order' => false,
+        ]);
+
+        Customer::factory()->repId($rep)->count(2)->create();
+        Customer::factory()->create();
+
+        $prospectGroups = Livewire::test(CustomerBreakdownTable::class, ['mode' => 'prospect'])
+            ->instance()->groups;
+
+        $this->assertSame(2, (int) $prospectGroups->sum('count'));
+
+        $loyalGroups = Livewire::test(CustomerBreakdownTable::class, ['mode' => 'loyal'])
+            ->instance()->groups;
+
+        $this->assertSame(1, (int) $loyalGroups->sum('count'));
+
+        $allGroups = Livewire::test(CustomerBreakdownTable::class, ['mode' => 'all'])
+            ->instance()->groups;
+
+        $this->assertSame(3, (int) $allGroups->sum('count'));
     }
 }

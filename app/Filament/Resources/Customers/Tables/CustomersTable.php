@@ -209,7 +209,12 @@ class CustomersTable
                     })
                     ->action(function ($record, array $data, $livewire) {
                         $leadId = $data['lead_id'] ?? auth()->id();
-                        $record->update(['lead_id' => $leadId]);
+
+                        $record->update([
+                            'lead_id' => $leadId,
+                            'submission_target_type' => $record->rep_id ? $record->submission_target_type : 'lead',
+                            'rep_acceptance_status' => $record->rep_id ? $record->rep_acceptance_status : 'pending',
+                        ]);
                         $record->leads()->syncWithoutDetaching([$leadId]);
                         $livewire->dispatch('refresh-dashboard');
                     }),
@@ -231,25 +236,37 @@ class CustomersTable
                     })
                     ->form([
                         Select::make('rep_id')
-                            ->label('Select Rep')
+                            ->label('Select Rep or Team Lead')
                             ->options(function () {
                                 $user = auth()->user();
-                                $query = User::where('role', 'rep');
                                 if ($user->hasRole('lead')) {
-                                    $query->where('lead_id', $user->id);
+                                    return User::where('role', 'rep')
+                                        ->where('lead_id', $user->id)
+                                        ->pluck('name', 'id')
+                                        ->toArray();
                                 }
 
-                                return $query->pluck('name', 'id');
+                                return User::portfolioAssigneeOptions();
                             })
+                            ->searchable()
                             ->required(),
                     ])
                     ->action(function ($record, array $data, $livewire) {
+                        $assignee = User::findOrFail($data['rep_id']);
+
+                        if ($assignee->hasRole('lead')) {
+                            $record->assignToLeadPortfolio($assignee);
+                            $livewire->dispatch('refresh-dashboard');
+
+                            return;
+                        }
+
                         $record->update([
-                            'rep_id' => $data['rep_id'],
+                            'rep_id' => $assignee->id,
                             'rep_acceptance_status' => 'pending',
                             'lead_id' => auth()->id(),
                         ]);
-                        $record->reps()->syncWithoutDetaching([$data['rep_id']]);
+                        $record->reps()->syncWithoutDetaching([$assignee->id]);
                         $livewire->dispatch('refresh-dashboard');
                     }),
 
@@ -395,7 +412,11 @@ class CustomersTable
                             $leadId = $data['lead_id'];
                             $count = 0;
                             foreach ($records as $record) {
-                                $record->update(['lead_id' => $leadId]);
+                                $record->update([
+                                    'lead_id' => $leadId,
+                                    'submission_target_type' => $record->rep_id ? $record->submission_target_type : 'lead',
+                                    'rep_acceptance_status' => $record->rep_id ? $record->rep_acceptance_status : 'pending',
+                                ]);
                                 $record->leads()->syncWithoutDetaching([$leadId]);
                                 $count++;
                             }
@@ -412,25 +433,29 @@ class CustomersTable
                         ->visible(fn () => auth()->user()->hasAnyRole(['admin', 'manager']))
                         ->form([
                             Select::make('rep_id')
-                                ->label('Select Rep')
-                                ->options(User::where('role', 'rep')->pluck('name', 'id'))
+                                ->label('Select Rep or Team Lead')
+                                ->options(fn () => User::portfolioAssigneeOptions())
                                 ->searchable()
                                 ->required(),
                         ])
                         ->action(function (Collection $records, array $data) {
-                            $repId = $data['rep_id'];
+                            $assignee = User::findOrFail($data['rep_id']);
                             $count = 0;
                             foreach ($records as $record) {
-                                $record->update([
-                                    'rep_id' => $repId,
-                                    'rep_acceptance_status' => 'pending',
-                                    'lead_id' => $record->lead_id ?? auth()->id(),
-                                ]);
-                                $record->reps()->syncWithoutDetaching([$repId]);
+                                if ($assignee->hasRole('lead')) {
+                                    $record->assignToLeadPortfolio($assignee);
+                                } else {
+                                    $record->update([
+                                        'rep_id' => $assignee->id,
+                                        'rep_acceptance_status' => 'pending',
+                                        'lead_id' => $record->lead_id ?? auth()->id(),
+                                    ]);
+                                    $record->reps()->syncWithoutDetaching([$assignee->id]);
+                                }
                                 $count++;
                             }
                             Notification::make()
-                                ->title("{$count} customer(s) assigned to rep")
+                                ->title("{$count} customer(s) assigned")
                                 ->success()
                                 ->send();
                         }),

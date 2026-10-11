@@ -61,7 +61,8 @@ class CustomersAddedTodayTable extends Component
 
     private function exportQuery(Carbon $from, Carbon $to)
     {
-        return Customer::whereBetween('created_at', [$from, $to])
+        return Customer::assigned()
+            ->whereBetween('created_at', [$from, $to])
             ->when(filled($this->search), function ($query) {
                 $query->where(function ($q) {
                     $q->where('customer_name', 'like', '%'.$this->search.'%')

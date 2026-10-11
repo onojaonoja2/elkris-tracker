@@ -54,7 +54,7 @@ class StockTransfersTable
                 TextColumn::make('items')
                     ->label('Items')
                     ->formatStateUsing(fn ($record): string => $record->items->map(
-                        fn ($item) => ($item->productType?->name ?? '')." {$item->grammage}g x".$item->quantity
+                        fn ($item) => ($item->productType?->name ?? '').' '.ProductType::formatGrammage($item->productType, (int) $item->grammage).' x'.$item->quantity
                     )->implode(', '))
                     ->limit(60),
 
@@ -624,7 +624,7 @@ class StockTransfersTable
                             ->default(
                                 $record->items->map(fn ($item) => [
                                     'item_id' => $item->id,
-                                    'product_label' => ($item->productType?->name ?? 'Unknown')." {$item->grammage}g",
+                                    'product_label' => ($item->productType?->name ?? 'Unknown').' '.ProductType::formatGrammage($item->productType, (int) $item->grammage),
                                     'accepted_quantity' => $item->quantity,
                                     'rejected_quantity' => 0,
                                     'rejection_reason' => null,

@@ -109,7 +109,7 @@ class ProductionReviewDebugTest extends TestCase
 
         $store = Warehouse::factory()->create([
             'name' => 'Production Store',
-            'type' => 'production',
+            'has_production_module' => true,
             'is_active' => true,
         ]);
 

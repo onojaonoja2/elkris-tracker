@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\StockTransfers\Pages;
 
 use App\Filament\Resources\StockTransfers\StockTransferResource;
+use App\Models\ProductType;
 use App\Models\StockTransfer;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -29,7 +30,7 @@ class ListStockTransfers extends ListRecords
                         fputcsv($file, ['Transfer #', 'From', 'To Warehouse', 'To CSR', 'Items', 'Status', 'Requested By', 'Approved By', 'Dispatched By', 'Date']);
 
                         foreach ($transfers as $t) {
-                            $items = $t->items->map(fn ($item) => ($item->productType?->name ?? '')." {$item->grammage}g x".$item->quantity)->implode('; ');
+                            $items = $t->items->map(fn ($item) => ($item->productType?->name ?? '').' '.ProductType::formatGrammage($item->productType, (int) $item->grammage).' x'.$item->quantity)->implode('; ');
                             fputcsv($file, [
                                 $t->id,
                                 $t->fromWarehouse?->name ?? $t->fromAgent?->name ?? '-',

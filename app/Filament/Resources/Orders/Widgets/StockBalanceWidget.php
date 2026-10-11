@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Orders\Widgets;
 
 use App\Filament\Resources\StockTransactions\StockTransactionResource;
 use App\Models\Product;
+use App\Models\ProductType;
 use App\Models\StockTransaction;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -49,7 +50,7 @@ class StockBalanceWidget extends BaseWidget
 
             $balance = $received - $disbursed - $delivered;
 
-            $stats[] = Stat::make("{$p['name']} ({$p['grammage']}g)", $balance)
+            $stats[] = Stat::make($p['name'].' ('.ProductType::formatGrammage(ProductType::where('name', $p['name'])->first(), (int) $p['grammage']).')', $balance)
                 ->description("Rec: $received | Disb: $disbursed | Del: $delivered")
                 ->url(StockTransactionResource::getUrl('index', [
                     'tableFilters' => [

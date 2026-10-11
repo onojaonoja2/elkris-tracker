@@ -269,6 +269,25 @@ class User extends Authenticatable implements Auditable, FilamentUser
         return $this->hasMany(Warehouse::class, 'manager_id');
     }
 
+    /**
+     * Whether the user manages at least one warehouse, regardless of role.
+     * Used to grant warehouse-dashboard access to e.g. production managers
+     * assigned as warehouse managers.
+     */
+    public function managesWarehouses(): bool
+    {
+        return $this->managedWarehouses()->exists();
+    }
+
+    /**
+     * Whether the user may access warehouse operations: warehouse managers
+     * by role, or any user assigned as a warehouse manager.
+     */
+    public function canManageWarehouses(): bool
+    {
+        return $this->hasRole('warehouse_manager') || $this->managesWarehouses();
+    }
+
     public function salesWarehouses(): HasMany
     {
         return $this->hasMany(Warehouse::class, 'sales_person_id');
@@ -317,5 +336,23 @@ class User extends Authenticatable implements Auditable, FilamentUser
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Options for portfolio assignment pickers: active reps (EPAs) and team
+     * leads, labeled with their role so they are distinguishable.
+     *
+     * @return array<int, string>
+     */
+    public static function portfolioAssigneeOptions(): array
+    {
+        return static::whereIn('role', [UserRole::Rep->value, UserRole::Lead->value])
+            ->active()
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (User $user): array => [
+                $user->id => $user->name.' — '.($user->role === UserRole::Lead->value ? UserRole::Lead->getLabel() : UserRole::Rep->getLabel()),
+            ])
+            ->all();
     }
 }

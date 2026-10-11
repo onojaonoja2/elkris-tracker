@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\PaymentStatus;
 use App\Enums\TrialOrderStatus;
 use App\Models\AgentStock;
+use App\Models\ProductType;
 use App\Models\TrialOrder;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
@@ -36,7 +37,7 @@ class TrialOrderService
                         return Notification::make()
                             ->danger()
                             ->title('Insufficient agent stock')
-                            ->body("Agent doesn't have enough {$productName} ({$grammage}g). Available: ".($agentStock->quantity ?? 0));
+                            ->body("Agent doesn't have enough {$productName} (".ProductType::formatGrammage(ProductType::where('name', $productName)->first(), (int) $grammage).'). Available: '.($agentStock->quantity ?? 0));
                     }
 
                     $agentStock->decrement('quantity', $quantity);

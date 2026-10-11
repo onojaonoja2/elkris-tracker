@@ -46,7 +46,7 @@ class SalesStockRequestWidget extends TableWidget
 
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => "{$state}g"),
+                    ->getStateUsing(fn (AgentStock $record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
 
                 TextColumn::make('quantity')
                     ->label('Qty')

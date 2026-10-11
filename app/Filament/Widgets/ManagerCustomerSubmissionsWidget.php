@@ -64,18 +64,27 @@ class ManagerCustomerSubmissionsWidget extends TableWidget
                     ->icon('heroicon-o-user-plus')
                     ->form([
                         Select::make('rep_id')
-                            ->label('Select Rep')
-                            ->options(fn () => User::where('role', 'rep')->pluck('name', 'id'))
+                            ->label('Select Rep or Team Lead')
+                            ->options(fn () => User::portfolioAssigneeOptions())
                             ->searchable()
                             ->required(),
                     ])
                     ->action(function ($record, array $data) {
+                        $assignee = User::findOrFail($data['rep_id']);
+
+                        if ($assignee->hasRole('lead')) {
+                            $record->assignToLeadPortfolio($assignee);
+                            $this->dispatch('refresh-dashboard');
+
+                            return;
+                        }
+
                         $record->update([
-                            'rep_id' => $data['rep_id'],
+                            'rep_id' => $assignee->id,
                             'rep_acceptance_status' => 'pending',
                             'submission_target_type' => 'rep',
                         ]);
-                        $record->reps()->syncWithoutDetaching([$data['rep_id']]);
+                        $record->reps()->syncWithoutDetaching([$assignee->id]);
                         $this->dispatch('refresh-dashboard');
                     }),
                 Action::make('assignToLead')

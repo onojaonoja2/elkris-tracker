@@ -24,6 +24,9 @@ class StockEntityBreakdownTable extends Component
         'accountant',
         'general_accountant',
         'warehouse_manager',
+        'manager',
+        'admin',
+        'general_manager',
     ];
 
     private const array MOVED_TRANSFER_STATUSES = [

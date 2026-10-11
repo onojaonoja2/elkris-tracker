@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Filament\Traits\HasBreakdownViewAction;
 use App\Models\AgentStock;
 use App\Models\DamagedStockReturn;
+use App\Models\ProductType;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -53,7 +54,7 @@ class AccountantDamagedReturnsWidget extends TableWidget
                     ->label('Product'),
                 TextColumn::make('grammage')
                     ->label('Weight')
-                    ->formatStateUsing(fn ($state) => $state.'g'),
+                    ->getStateUsing(fn ($record): string => ProductType::formatGrammage($record->productType, (int) $record->grammage)),
                 TextColumn::make('quantity')
                     ->label('Qty'),
                 TextColumn::make('reason')

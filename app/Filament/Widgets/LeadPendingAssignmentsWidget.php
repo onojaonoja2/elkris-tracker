@@ -56,16 +56,7 @@ class LeadPendingAssignmentsWidget extends TableWidget
                     ->color('success')
                     ->icon('heroicon-o-check')
                     ->action(function ($record) {
-                        $lead = auth()->user();
-
-                        $record->update([
-                            'rep_id' => $lead->id,
-                            'rep_acceptance_status' => 'accepted',
-                            'rejection_note' => null,
-                        ]);
-
-                        $record->reps()->syncWithoutDetaching([$lead->id]);
-                        $record->leads()->syncWithoutDetaching([$lead->id]);
+                        $record->assignToLeadPortfolio(auth()->user());
                         $this->dispatch('refresh-dashboard');
                     }),
                 Action::make('reject')

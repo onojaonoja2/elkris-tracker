@@ -27,7 +27,7 @@ class WarehouseDispatchRequestsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->hasRole('warehouse_manager') ?? false;
+        return auth()->user()?->canManageWarehouses() ?? false;
     }
 
     public function table(Table $table): Table

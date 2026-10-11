@@ -25,7 +25,7 @@ class WarehouseRecentMovementsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasRole('warehouse_manager');
+        return auth()->user()?->canManageWarehouses() ?? false;
     }
 
     public function table(Table $table): Table

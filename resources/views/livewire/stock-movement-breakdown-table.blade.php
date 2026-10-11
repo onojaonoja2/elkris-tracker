@@ -36,6 +36,14 @@
             <option value="out">Stock out</option>
             <option value="count">Stock counts</option>
         </select>
+
+        <button
+            type="button"
+            wire:click="exportCsv"
+            class="whitespace-nowrap inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+        >
+            Export
+        </button>
     </div>
 
     @php
@@ -82,7 +90,7 @@
                             </span>
                         </td>
                         <td class="px-3 py-2">{{ $row->product }}</td>
-                        <td class="px-3 py-2">{{ $row->grammage ? $row->grammage.'g' : '-' }}</td>
+                        <td class="px-3 py-2">{{ $row->grammage ? \App\Models\ProductType::formatGrammage(\App\Models\ProductType::where('name', $row->product)->first(), (int) $row->grammage) : '-' }}</td>
                         <td class="px-3 py-2 text-right font-mono {{ $row->direction === 'in' ? 'text-green-600 dark:text-green-400' : ($row->direction === 'out' ? 'text-red-600 dark:text-red-400' : 'text-gray-500') }}">
                             {{ $row->direction === 'in' ? '+' : ($row->direction === 'out' ? '-' : '') }}{{ number_format($row->quantity) }}
                         </td>

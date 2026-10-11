@@ -171,7 +171,7 @@ class AgentDashboard extends BaseDashboard
                             Notification::make()
                                 ->danger()
                                 ->title('Insufficient warehouse stock')
-                                ->body("Only {$available} available of {$productName} ({$item['grammage']}g) in the selected warehouse, but {$item['quantity']} requested.")
+                                ->body("Only {$available} available of {$productName} (".ProductType::formatGrammage(ProductType::where('name', $productName)->first(), (int) $item['grammage']).") in the selected warehouse, but {$item['quantity']} requested.")
                                 ->send();
 
                             return;

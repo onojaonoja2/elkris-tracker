@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\DamagedStockReturn;
+use App\Models\ProductType;
 use App\Models\SalesRecord;
 use App\Models\StockCount;
 use App\Models\StockTransfer;
@@ -15,6 +16,7 @@ use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StockMovementBreakdownTable extends Component
 {
@@ -24,6 +26,9 @@ class StockMovementBreakdownTable extends Component
         'accountant',
         'general_accountant',
         'warehouse_manager',
+        'manager',
+        'admin',
+        'general_manager',
     ];
 
     private const array MOVED_TRANSFER_STATUSES = [
@@ -310,5 +315,52 @@ class StockMovementBreakdownTable extends Component
     public function render()
     {
         return view('livewire.stock-movement-breakdown-table');
+    }
+
+    public function exportCsv(): StreamedResponse
+    {
+        if (! auth()->user()?->hasAnyRole(self::ALLOWED_ROLES)) {
+            abort(403);
+        }
+
+        $entity = $this->entity;
+        [$from, $to] = DashboardDateScope::fromSession();
+
+        $filename = sprintf(
+            'stock_movement_%s_%d_%s_%s.csv',
+            $this->entityType,
+            $this->entityId,
+            $from->format('Y_m_d'),
+            $to->format('Y_m_d')
+        );
+
+        $rows = $this->movements;
+
+        return response()->streamDownload(function () use ($entity, $from, $to, $rows) {
+            $handle = fopen('php://output', 'w');
+            fprintf($handle, chr(0xEF).chr(0xBB).chr(0xBF));
+
+            fputcsv($handle, ['Entity', $entity?->name ?? 'Unknown']);
+            fputcsv($handle, ['Type', $this->entityType === 'agent' ? 'Agent' : 'Warehouse']);
+            fputcsv($handle, ['Period', $from->format('d/m/Y').' - '.$to->format('d/m/Y')]);
+            fputcsv($handle, []);
+            fputcsv($handle, ['Date', 'Movement', 'Direction', 'Product', 'Weight', 'Quantity', 'Reference', 'Status', 'Details']);
+
+            foreach ($rows as $row) {
+                fputcsv($handle, [
+                    $row->date->format('d/m/Y H:i'),
+                    $row->type,
+                    ucfirst($row->direction),
+                    $row->product,
+                    $row->grammage ? ProductType::formatGrammage(ProductType::where('name', $row->product)->first(), (int) $row->grammage) : '-',
+                    $row->quantity,
+                    $row->reference,
+                    ucfirst($row->status),
+                    $row->details,
+                ]);
+            }
+
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }

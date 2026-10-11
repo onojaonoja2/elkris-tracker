@@ -31,7 +31,7 @@ class TrialOrderForm
                                     ->afterStateUpdated(fn (Set $set) => $set('grammage', null)),
 
                                 Select::make('grammage')
-                                    ->label('Weight (g)')
+                                    ->label('Weight')
                                     ->options(function (Get $get) {
                                         $productName = $get('product_name');
                                         if (! $productName) {
@@ -44,7 +44,7 @@ class TrialOrderForm
 
                                         return collect($pt->available_grammages)
                                             ->map(fn ($g) => is_array($g) ? $g['grammage'] : $g)
-                                            ->mapWithKeys(fn ($g) => [(string) $g => $g.'g'])
+                                            ->mapWithKeys(fn ($g) => [(string) $g => ProductType::formatGrammage($pt, (int) $g)])
                                             ->toArray();
                                     })
                                     ->required()

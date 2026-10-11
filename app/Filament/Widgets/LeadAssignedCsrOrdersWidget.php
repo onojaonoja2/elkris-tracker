@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Models\ProductType;
 use App\Models\User;
 use App\Services\OrderAssignmentService;
 use Filament\Actions\Action;
@@ -70,7 +71,7 @@ class LeadAssignedCsrOrdersWidget extends TableWidget
                 TextColumn::make('products')
                     ->label('Items')
                     ->formatStateUsing(fn ($record): string => $record->products->map(
-                        fn ($p) => "{$p->quantity}x {$p->product_name} ({$p->grammage}g)"
+                        fn ($p) => "{$p->quantity}x {$p->product_name} (".ProductType::formatGrammage(ProductType::where('name', $p->product_name)->first(), (int) $p->grammage).')'
                     )->implode(', '))
                     ->limit(40),
 
