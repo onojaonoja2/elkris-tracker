@@ -27,6 +27,7 @@ use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
 use App\Filament\Widgets\ProductionRawMaterialsWidget;
 use App\Filament\Widgets\ProductionRunsWidget;
 use App\Filament\Widgets\ProductionStoreStockWidget;
+use App\Filament\Widgets\RawMaterialReceiptApprovalsWidget;
 use App\Filament\Widgets\RevenueTrendChart;
 use App\Filament\Widgets\SupervisorCreditSalesWidget;
 use App\Filament\Widgets\SupervisorCsrListWidget;
@@ -123,6 +124,7 @@ class ManagerDashboard extends BaseDashboard
             ProductionRawMaterialsWidget::class,
             ProductionStoreStockWidget::class,
             ProductionOutgoingTransfersWidget::class,
+            RawMaterialReceiptApprovalsWidget::class,
             AgentCustomerViewWidget::class,
             SupervisorCsrListWidget::class,
             SupervisorStockTransferApprovalWidget::class,

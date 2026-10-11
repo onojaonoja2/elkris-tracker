@@ -46,11 +46,11 @@ class ProductionStoreStockWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $storeId = Warehouse::productionStore()?->id ?? 0;
+        $warehouseIds = Warehouse::productionModuleIds();
 
         return $table
             ->query(fn (): Builder => Inventory::query()
-                ->where('warehouse_id', $storeId)
+                ->whereIn('warehouse_id', $warehouseIds)
                 ->where('quantity', '>', 0)
                 ->with(['warehouse', 'productType'])
                 ->orderByDesc('quantity'))
@@ -123,6 +123,6 @@ class ProductionStoreStockWidget extends TableWidget
             ])
             ->paginated([5, 10, 25])
             ->defaultPaginationPageOption(5)
-            ->emptyStateHeading('No stock in the production store');
+            ->emptyStateHeading('No stock in production warehouses');
     }
 }

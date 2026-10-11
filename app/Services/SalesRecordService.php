@@ -12,6 +12,7 @@ use App\Models\StockTransaction;
 use App\Models\StockTransfer;
 use App\Models\StockTransferItem;
 use App\Models\User;
+use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -250,6 +251,88 @@ class SalesRecordService
         }
 
         return $insufficient;
+    }
+
+    /**
+     * Create a direct sale from a warehouse managed by the seller.
+     *
+     * Unlike agent office sales, stock is deducted from the warehouse
+     * inventory immediately (pending accountant approval), mirroring an
+     * over-the-counter sale. Rejection restores the warehouse inventory.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function submitWarehouseDirectSale(array $data, int $sellerId): SalesRecord
+    {
+        $seller = User::find($sellerId);
+
+        if (! $seller || $seller->getPrimaryRole() !== 'warehouse_manager') {
+            throw ValidationException::withMessages([
+                'agent_id' => 'Only warehouse managers can record direct warehouse sales.',
+            ]);
+        }
+
+        $warehouseId = (int) ($data['warehouse_id'] ?? 0);
+
+        if ($warehouseId <= 0 || ! Warehouse::whereKey($warehouseId)->where('manager_id', $sellerId)->exists()) {
+            throw ValidationException::withMessages([
+                'warehouse_id' => 'You can only sell from warehouses you manage.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($data, $sellerId, $warehouseId) {
+            $products = $data['products'] ?? [];
+
+            $lines = self::resolveProductLines($products);
+
+            if (empty($lines)) {
+                throw ValidationException::withMessages([
+                    'products' => 'Add at least one product to this sale.',
+                ]);
+            }
+
+            $inventories = self::lockInventoryRows($warehouseId, $lines);
+
+            $insufficient = self::insufficientInventoryLines($warehouseId, $inventories, $lines);
+
+            if (! empty($insufficient)) {
+                throw ValidationException::withMessages([
+                    'products' => 'Insufficient warehouse stock: '.implode(', ', $insufficient),
+                ]);
+            }
+
+            foreach ($lines as $line) {
+                $key = "{$warehouseId}-{$line['product_type_id']}-{$line['grammage']}";
+
+                $inventories[$key]->decrement('quantity', $line['quantity']);
+
+                StockTransaction::create([
+                    'type' => 'disbursed',
+                    'transaction_date' => now()->toDateString(),
+                    'product_type_id' => $line['product_type_id'],
+                    'product_name' => $line['product_name'],
+                    'grammage' => $line['grammage'],
+                    'quantity' => $line['quantity'],
+                    'disbursed_to' => "Warehouse direct sale by User #{$sellerId} (pending approval)",
+                    'user_id' => $sellerId,
+                    'warehouse_id' => $warehouseId,
+                ]);
+            }
+
+            $isCredit = ! empty($data['is_credit']);
+
+            return SalesRecord::create(array_merge($data, [
+                'agent_id' => $sellerId,
+                'agent_type' => 'warehouse_manager',
+                'warehouse_id' => $warehouseId,
+                'status' => 'pending',
+                'stock_source' => 'warehouse',
+                'stock_deducted_at' => now(),
+                'total_value' => self::computeTotalValue($products),
+                'is_credit' => $isCredit,
+                'credit_status' => $isCredit ? 'pending_payment' : null,
+            ]));
+        });
     }
 
     /**
@@ -747,6 +830,12 @@ class SalesRecordService
      */
     protected static function restoreStock(SalesRecord $record): void
     {
+        if ($record->agent_type === 'warehouse_manager' && $record->warehouse_id) {
+            self::restoreWarehouseStock($record);
+
+            return;
+        }
+
         foreach ($record->products ?? [] as $product) {
             $productName = $product['product_name'] ?? null;
             $grammage = $product['grammage'] ?? null;
@@ -758,6 +847,35 @@ class SalesRecordService
 
             AgentStock::where('user_id', $record->agent_id)
                 ->where('product_name', $productName)
+                ->where('grammage', $grammage)
+                ->lockForUpdate()
+                ->first()
+                ?->increment('quantity', $quantity);
+        }
+    }
+
+    /**
+     * Restore warehouse inventory deducted by a direct warehouse sale.
+     */
+    protected static function restoreWarehouseStock(SalesRecord $record): void
+    {
+        foreach ($record->products ?? [] as $product) {
+            $productName = $product['product_name'] ?? null;
+            $grammage = (int) ($product['grammage'] ?? 0);
+            $quantity = (int) ($product['quantity'] ?? 0);
+
+            if (! $productName || $grammage <= 0 || $quantity <= 0) {
+                continue;
+            }
+
+            $productType = ProductType::where('name', $productName)->first();
+
+            if (! $productType) {
+                continue;
+            }
+
+            Inventory::where('warehouse_id', $record->warehouse_id)
+                ->where('product_type_id', $productType->id)
                 ->where('grammage', $grammage)
                 ->lockForUpdate()
                 ->first()

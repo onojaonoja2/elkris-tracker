@@ -29,7 +29,7 @@ class ProductionWarehouseTest extends TestCase
 
     private function productionStore(): Warehouse
     {
-        return Warehouse::factory()->create(['type' => 'production', 'name' => 'Production Store']);
+        return Warehouse::factory()->create(['has_production_module' => true, 'name' => 'Production Store']);
     }
 
     private function productType(): ProductType
@@ -54,6 +54,7 @@ class ProductionWarehouseTest extends TestCase
         $items = $test->get('mountedActions.0.data.items');
         $itemKey = array_key_first($items);
 
+        $test->set('mountedActions.0.data.from_warehouse_id', Warehouse::withProductionModule()->where('is_active', true)->orderBy('id')->value('id'));
         $test->set('mountedActions.0.data.to_type', $toType);
 
         if ($toType === 'warehouse') {
@@ -81,6 +82,7 @@ class ProductionWarehouseTest extends TestCase
             'output_name' => $productType->name,
             'output_quantity' => 50,
             'output_unit' => 'pieces',
+            'output_warehouse_id' => Warehouse::withProductionModule()->where('is_active', true)->orderBy('id')->value('id'),
             'product_type_id' => $productType->id,
             'grammage' => 100,
             'finished_quantity' => 50,
@@ -88,16 +90,17 @@ class ProductionWarehouseTest extends TestCase
         ], $overrides));
     }
 
-    public function test_only_one_production_warehouse_can_be_designated(): void
+    public function test_multiple_production_module_warehouses_can_coexist(): void
     {
-        $first = Warehouse::factory()->create(['type' => 'production']);
-        $this->assertSame($first->id, Warehouse::productionStore()->id);
+        $first = Warehouse::factory()->create(['has_production_module' => true]);
+        $second = Warehouse::factory()->create(['type' => 'state', 'has_production_module' => true]);
 
-        $second = Warehouse::factory()->create(['type' => 'state']);
-        $second->update(['type' => 'production']);
-
-        $this->assertSame($second->id, Warehouse::productionStore()->id);
-        $this->assertSame('state', $first->fresh()->type);
+        $this->assertTrue($first->fresh()->has_production_module);
+        $this->assertTrue($second->fresh()->has_production_module);
+        $this->assertEqualsCanonicalizing(
+            [$first->id, $second->id],
+            Warehouse::productionModuleIds()
+        );
     }
 
     public function test_review_posts_finished_goods_to_production_store(): void

@@ -19,6 +19,7 @@ class ProductionRun extends Model implements Auditable
         'output_quantity',
         'output_unit',
         'product_type_id',
+        'output_warehouse_id',
         'grammage',
         'finished_quantity',
         'status',
@@ -43,6 +44,11 @@ class ProductionRun extends Model implements Auditable
     public function productType(): BelongsTo
     {
         return $this->belongsTo(ProductType::class);
+    }
+
+    public function outputWarehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class, 'output_warehouse_id');
     }
 
     public function mapsToStockableProduct(): bool

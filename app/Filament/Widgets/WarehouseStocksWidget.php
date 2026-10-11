@@ -16,7 +16,7 @@ use Livewire\Attributes\On;
 
 class WarehouseStocksWidget extends TableWidget
 {
-    protected static ?string $heading = 'Available Stock — All Warehouses';
+    protected static ?string $heading = 'Available Stock';
 
     protected static ?int $sort = 3;
 
@@ -27,15 +27,23 @@ class WarehouseStocksWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()?->hasRole('warehouse_manager') ?? false;
+        return auth()->user()?->canManageWarehouses() ?? false;
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn (): Builder => Inventory::query()
-                ->with(['productType', 'warehouse'])
-                ->where('quantity', '>', 0))
+            ->query(function (): Builder {
+                $user = auth()->user();
+
+                return Inventory::query()
+                    ->with(['productType', 'warehouse'])
+                    ->where('quantity', '>', 0)
+                    ->when(
+                        $user?->canManageWarehouses() && ! $user->hasAnyRole(['admin', 'manager']),
+                        fn (Builder $query) => $query->whereIn('warehouse_id', $user->managedWarehouses()->pluck('id'))
+                    );
+            })
             ->columns([
                 TextColumn::make('warehouse.name')
                     ->label('Warehouse')

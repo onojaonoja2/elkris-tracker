@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ProductionRuns\Schemas;
 
 use App\Models\ProductType;
 use App\Models\RawMaterial;
+use App\Models\Warehouse;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -36,7 +37,7 @@ class ProductionRunForm
                             ->minValue(0.0001)
                             ->step(0.0001)
                             ->rules(['decimal:0,4'])
-                            ->hint(fn (Get $get): ?string => self::stockHint($get('raw_material_id')))
+                            ->hint(fn (Get $get): ?string => self::stockHint($get('raw_material_id'), $get('../../output_warehouse_id')))
                             ->live(),
                     ])
                     ->minItems(1)
@@ -69,9 +70,18 @@ class ProductionRunForm
                     ->maxLength(50)
                     ->placeholder('e.g. units, cartons, bags'),
 
+                Select::make('output_warehouse_id')
+                    ->label('Output Warehouse')
+                    ->helperText('Raw materials are consumed from and finished goods posted to this warehouse.')
+                    ->options(fn () => Warehouse::withProductionModule()->where('is_active', true)->orderBy('name')->pluck('name', 'id'))
+                    ->default(fn () => Warehouse::withProductionModule()->where('is_active', true)->orderBy('id')->value('id'))
+                    ->searchable()
+                    ->required()
+                    ->live(),
+
                 Select::make('product_type_id')
                     ->label('Finished Product')
-                    ->helperText('Maps this run to finished-goods stock posted to the production warehouse on review.')
+                    ->helperText('Maps this run to finished-goods stock posted to the output warehouse on review.')
                     ->options(fn () => ProductType::where('is_active', true)->pluck('name', 'id'))
                     ->searchable()
                     ->required()
@@ -120,7 +130,7 @@ class ProductionRunForm
             ]);
     }
 
-    protected static function stockHint(?int $rawMaterialId): ?string
+    protected static function stockHint(?int $rawMaterialId, mixed $outputWarehouseId = null): ?string
     {
         if (! $rawMaterialId) {
             return null;
@@ -130,6 +140,16 @@ class ProductionRunForm
 
         if (! $material) {
             return null;
+        }
+
+        $warehouse = $outputWarehouseId
+            ? Warehouse::find($outputWarehouseId)
+            : Warehouse::withProductionModule()->where('is_active', true)->orderBy('id')->first();
+
+        if ($warehouse && $material->stocks()->exists()) {
+            $available = $material->availableQuantity($warehouse->id);
+
+            return "Available in {$warehouse->name}: {$available} {$material->unit_of_measure}";
         }
 
         return "Available: {$material->quantity} {$material->unit_of_measure}";

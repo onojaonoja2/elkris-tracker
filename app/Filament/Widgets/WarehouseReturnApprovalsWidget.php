@@ -28,7 +28,7 @@ class WarehouseReturnApprovalsWidget extends TableWidget
 
     public static function canView(): bool
     {
-        return auth()->user()->hasAnyRole(['admin', 'manager', 'warehouse_manager']);
+        return auth()->user()->hasAnyRole(['admin', 'manager', 'warehouse_manager']) || (auth()->user()?->managesWarehouses() ?? false);
     }
 
     public function table(Table $table): Table
@@ -36,7 +36,7 @@ class WarehouseReturnApprovalsWidget extends TableWidget
         return $table
             ->query(function () {
                 $user = auth()->user();
-                $warehouseIds = $user->hasRole('warehouse_manager')
+                $warehouseIds = ($user->canManageWarehouses() && ! $user->hasAnyRole(['admin', 'manager']))
                     ? Warehouse::where('manager_id', $user->id)->pluck('id')
                     : Warehouse::pluck('id');
 
@@ -131,7 +131,7 @@ class WarehouseReturnApprovalsWidget extends TableWidget
                     ->color('info')
                     ->action(function () {
                         $user = auth()->user();
-                        $warehouseIds = $user->hasRole('warehouse_manager')
+                        $warehouseIds = ($user->canManageWarehouses() && ! $user->hasAnyRole(['admin', 'manager']))
                             ? Warehouse::where('manager_id', $user->id)->pluck('id')
                             : Warehouse::pluck('id');
 

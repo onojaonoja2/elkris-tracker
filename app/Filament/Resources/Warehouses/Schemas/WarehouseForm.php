@@ -28,12 +28,22 @@ class WarehouseForm
                     ->options([
                         'central' => 'Central Warehouse',
                         'state' => 'State Warehouse',
-                        'production' => 'Production Warehouse',
                     ])
                     ->required()
                     ->default('state')
-                    ->live()
-                    ->helperText('Only one warehouse can be the production store — designating a new one reverts the previous designation.'),
+                    ->live(),
+
+                Toggle::make('has_production_module')
+                    ->label('Production Module')
+                    ->helperText('Allows this warehouse to hold produced items and receive production output.')
+                    ->default(false)
+                    ->live(),
+
+                Toggle::make('has_raw_material_module')
+                    ->label('Raw Material Module')
+                    ->helperText('Allows this warehouse to hold raw materials.')
+                    ->default(false)
+                    ->live(),
 
                 TextInput::make('phone')
                     ->tel()
@@ -71,7 +81,7 @@ class WarehouseForm
 
                 Select::make('manager_id')
                     ->label('Warehouse Manager')
-                    ->options(fn () => User::where('role', 'warehouse_manager')->orWhere('role', 'admin')->pluck('name', 'id'))
+                    ->options(fn () => User::whereIn('role', ['warehouse_manager', 'production_management', 'admin'])->pluck('name', 'id'))
                     ->searchable()
                     ->nullable(),
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ProductionActivityWidget;
+use App\Filament\Widgets\ProductionIncomingTransfersWidget;
 use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
 use App\Filament\Widgets\ProductionRawMaterialsWidget;
 use App\Filament\Widgets\ProductionRunsWidget;
@@ -61,6 +62,7 @@ class ProductionDashboard extends BaseDashboard
         return [
             ProductionRunsWidget::class,
             ProductionRawMaterialsWidget::class,
+            ProductionIncomingTransfersWidget::class,
             ProductionStoreStockWidget::class,
             ProductionOutgoingTransfersWidget::class,
         ];
@@ -73,11 +75,33 @@ class ProductionDashboard extends BaseDashboard
                 ->label('Dispatch Stock')
                 ->icon('heroicon-o-truck')
                 ->color('warning')
-                ->modalHeading('Dispatch From Production Store')
-                ->modalDescription(fn (): string => ($store = Warehouse::productionStore())
-                    ? "Dispatch finished goods held at {$store->name}."
-                    : 'No production warehouse has been designated yet.')
+                ->modalHeading('Dispatch From Production Warehouse')
+                ->modalDescription('Dispatch finished goods held in a production-module warehouse.')
                 ->form([
+                    Select::make('from_warehouse_id')
+                        ->label('From Warehouse')
+                        ->options(function (): array {
+                            $managed = auth()->user()->managedWarehouses()
+                                ->withProductionModule()
+                                ->where('is_active', true)
+                                ->orderBy('name')
+                                ->pluck('name', 'id');
+
+                            if ($managed->isNotEmpty()) {
+                                return $managed->all();
+                            }
+
+                            return Warehouse::withProductionModule()->where('is_active', true)->orderBy('name')->pluck('name', 'id')->all();
+                        })
+                        ->default(fn (): ?int => auth()->user()->managedWarehouses()
+                            ->withProductionModule()
+                            ->where('is_active', true)
+                            ->orderBy('id')
+                            ->value('id')
+                            ?? Warehouse::withProductionModule()->where('is_active', true)->orderBy('id')->value('id'))
+                        ->searchable()
+                        ->required()
+                        ->live(),
                     Select::make('to_type')
                         ->label('Dispatch To')
                         ->options([
@@ -89,11 +113,9 @@ class ProductionDashboard extends BaseDashboard
                         ->live(),
                     Select::make('to_warehouse_id')
                         ->label('Destination Warehouse')
-                        ->options(function (): array {
-                            $storeId = Warehouse::productionStore()?->id;
-
+                        ->options(function (callable $get): array {
                             return Warehouse::where('is_active', true)
-                                ->when($storeId, fn ($query) => $query->where('id', '!=', $storeId))
+                                ->when($get('from_warehouse_id'), fn ($query, $fromId) => $query->where('id', '!=', $fromId))
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
                                 ->toArray();
@@ -122,14 +144,14 @@ class ProductionDashboard extends BaseDashboard
                         ->schema([
                             Select::make('product_type_id')
                                 ->label('Product')
-                                ->options(function (): array {
-                                    $storeId = Warehouse::productionStore()?->id;
+                                ->options(function (callable $get): array {
+                                    $warehouseId = $get('../../from_warehouse_id');
 
-                                    if (! $storeId) {
+                                    if (! $warehouseId) {
                                         return [];
                                     }
 
-                                    $heldIds = Inventory::where('warehouse_id', $storeId)
+                                    $heldIds = Inventory::where('warehouse_id', $warehouseId)
                                         ->where('quantity', '>', 0)
                                         ->pluck('product_type_id')
                                         ->unique();
@@ -147,14 +169,14 @@ class ProductionDashboard extends BaseDashboard
                             Select::make('grammage')
                                 ->label('Weight (g)')
                                 ->options(function (callable $get): array {
-                                    $storeId = Warehouse::productionStore()?->id;
+                                    $warehouseId = $get('../../from_warehouse_id');
                                     $productTypeId = $get('product_type_id');
 
-                                    if (! $storeId || ! $productTypeId) {
+                                    if (! $warehouseId || ! $productTypeId) {
                                         return [];
                                     }
 
-                                    return Inventory::where('warehouse_id', $storeId)
+                                    return Inventory::where('warehouse_id', $warehouseId)
                                         ->where('product_type_id', $productTypeId)
                                         ->where('quantity', '>', 0)
                                         ->orderBy('grammage')
@@ -182,13 +204,13 @@ class ProductionDashboard extends BaseDashboard
                 ->action(function (array $data): void {
                     $user = auth()->user();
 
-                    $store = Warehouse::productionStore();
+                    $store = Warehouse::find($data['from_warehouse_id'] ?? null);
 
                     if (! $store) {
                         Notification::make()
                             ->danger()
                             ->title('Dispatch failed')
-                            ->body('No production warehouse has been designated yet.')
+                            ->body('Select the production warehouse to dispatch from.')
                             ->send();
 
                         return;
@@ -286,7 +308,7 @@ class ProductionDashboard extends BaseDashboard
 
     private function storeAvailabilityHint(callable $get): ?string
     {
-        $storeId = Warehouse::productionStore()?->id;
+        $storeId = $get('../../from_warehouse_id');
         $productTypeId = $get('product_type_id');
         $grammage = $get('grammage');
 
@@ -300,6 +322,6 @@ class ProductionDashboard extends BaseDashboard
             'grammage' => $grammage,
         ])->value('quantity') ?? 0;
 
-        return "Available in production store: {$available}";
+        return "Available: {$available}";
     }
 }

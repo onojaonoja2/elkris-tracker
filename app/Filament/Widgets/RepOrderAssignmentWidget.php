@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\ProductType;
 use App\Models\User;
 use App\Services\OrderAssignmentService;
+use App\Support\WarehouseOptions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -13,6 +14,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\On;
 
 class RepOrderAssignmentWidget extends TableWidget
@@ -115,6 +117,48 @@ class RepOrderAssignmentWidget extends TableWidget
 
                         $this->dispatch('refresh-dashboard');
                     }),
+
+                Action::make('sendToWarehouse')
+                    ->label('Send to Warehouse')
+                    ->icon('heroicon-o-building-storefront')
+                    ->color('warning')
+                    ->visible(fn (Order $record): bool => $record->fulfillmentTransfer === null)
+                    ->form([
+                        Select::make('warehouse_id')
+                            ->label('Warehouse')
+                            ->options(fn () => WarehouseOptions::for())
+                            ->searchable()
+                            ->required(),
+                    ])
+                    ->action(function (Order $record, array $data) {
+                        try {
+                            $transfer = OrderAssignmentService::routeOrderToWarehouse(
+                                $record,
+                                (int) $data['warehouse_id'],
+                                $record->user_id,
+                                auth()->id()
+                            );
+                        } catch (ValidationException $e) {
+                            Notification::make()
+                                ->title('Cannot send to warehouse')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Order sent to warehouse')
+                            ->body("Order #{$record->id} sent to {$transfer->fromWarehouse?->name}. Dispatch #{$transfer->id} is awaiting the warehouse manager.")
+                            ->success()
+                            ->send();
+
+                        $this->dispatch('refresh-dashboard');
+                    })
+                    ->modalHeading('Send Order to Warehouse')
+                    ->modalDescription('The warehouse manager will be notified to dispatch stock for this order.')
+                    ->modalButton('Send to Warehouse'),
             ])
             ->paginated([10, 25, 50]);
     }

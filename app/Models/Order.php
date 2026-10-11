@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 use OwenIt\Auditing\Contracts\Auditable;
 
@@ -84,6 +85,16 @@ class Order extends Model implements Auditable
     public function warehouse(): BelongsTo
     {
         return $this->belongsTo(Warehouse::class);
+    }
+
+    public function fulfillmentTransfers(): HasMany
+    {
+        return $this->hasMany(StockTransfer::class, 'order_id');
+    }
+
+    public function fulfillmentTransfer(): HasOne
+    {
+        return $this->hasOne(StockTransfer::class, 'order_id')->latestOfMany();
     }
 
     public function hasPaymentProof(): bool

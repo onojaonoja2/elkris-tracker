@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\OrderStatus;
-use App\Enums\StockTransferStatus;
 use App\Filament\Pages\Concerns\HasDashboardBreakdownModals;
 use App\Filament\Pages\Concerns\HasDashboardDateFilter;
 use App\Filament\Widgets\OfficeSalesStatsWidget;
@@ -21,8 +20,10 @@ use App\Models\ProductType;
 use App\Models\StockCount;
 use App\Models\StockTransfer;
 use App\Models\Warehouse;
+use App\Services\OrderAssignmentService;
 use App\Services\SalesRecordService;
 use App\Services\StockTransferService;
+use App\Support\WarehouseOptions;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Radio;
@@ -235,8 +236,11 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->live(),
                 Select::make('warehouse_id')
                     ->label('Warehouse')
-                    ->options(fn () => auth()->user()->salesWarehouses()->pluck('name', 'id'))
+                    ->options(fn () => WarehouseOptions::forSales(auth()->user()))
                     ->searchable()
+                    ->helperText(fn () => WarehouseOptions::hasAssignedWarehouses(auth()->user())
+                        ? null
+                        : 'No warehouse is assigned to you yet, showing all active warehouses.')
                     ->visible(fn (callable $get) => $get('stock_source') === 'warehouse')
                     ->required(fn (callable $get) => $get('stock_source') === 'warehouse'),
                 TextInput::make('price')
@@ -387,8 +391,11 @@ class SalesOrdersDashboard extends BaseDashboard
                     ->live(),
                 Select::make('warehouse_id')
                     ->label('Warehouse')
-                    ->options(fn () => auth()->user()->salesWarehouses()->pluck('name', 'id'))
+                    ->options(fn () => WarehouseOptions::forSales(auth()->user()))
                     ->searchable()
+                    ->helperText(fn () => WarehouseOptions::hasAssignedWarehouses(auth()->user())
+                        ? null
+                        : 'No warehouse is assigned to you yet, showing all active warehouses.')
                     ->visible(fn (callable $get) => $get('stock_source') === 'warehouse')
                     ->required(fn (callable $get) => $get('stock_source') === 'warehouse'),
                 Textarea::make('notes')
@@ -455,24 +462,7 @@ class SalesOrdersDashboard extends BaseDashboard
                 }
 
                 if ($warehouseId) {
-                    $transfer = StockTransfer::create([
-                        'from_warehouse_id' => $warehouseId,
-                        'to_agent_id' => $user->id,
-                        'requested_by' => $user->id,
-                        'status' => StockTransferStatus::Requested,
-                        'source_type' => 'sales_order',
-                        'source_name' => "Order #{$order->id}",
-                    ]);
-
-                    foreach ($data['items'] as $item) {
-                        $transfer->items()->create([
-                            'product_type_id' => $item['product_type_id'],
-                            'grammage' => $item['grammage'],
-                            'quantity' => (int) $item['quantity'],
-                        ]);
-                    }
-
-                    StockTransferService::notifyWarehouseManager($transfer);
+                    OrderAssignmentService::routeOrderToWarehouse($order, $warehouseId, $user->id, $user->id);
                 }
 
                 Notification::make()

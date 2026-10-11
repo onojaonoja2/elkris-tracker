@@ -21,7 +21,22 @@ class WarehousesTable
 
                 TextColumn::make('type')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'central' => 'Central',
+                        'state' => 'State',
+                        default => ucfirst($state),
+                    })
                     ->color(fn (string $state) => $state === 'central' ? 'warning' : 'info'),
+
+                TextColumn::make('modules')
+                    ->label('Modules')
+                    ->badge()
+                    ->state(fn ($record): array => array_filter([
+                        $record->has_production_module ? 'Production' : null,
+                        $record->has_raw_material_module ? 'Raw Material' : null,
+                    ]))
+                    ->separator(',')
+                    ->placeholder('—'),
 
                 TextColumn::make('state.name')
                     ->label('State'),

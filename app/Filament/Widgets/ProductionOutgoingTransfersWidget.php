@@ -39,11 +39,11 @@ class ProductionOutgoingTransfersWidget extends TableWidget
 
     public function table(Table $table): Table
     {
-        $storeId = Warehouse::productionStore()?->id ?? 0;
+        $warehouseIds = Warehouse::productionModuleIds();
 
         return $table
             ->query(fn (): Builder => StockTransfer::query()
-                ->where('from_warehouse_id', $storeId)
+                ->whereIn('from_warehouse_id', $warehouseIds)
                 ->with(['toWarehouse', 'toAgent', 'items.productType'])
                 ->latest('created_at'))
             ->columns([

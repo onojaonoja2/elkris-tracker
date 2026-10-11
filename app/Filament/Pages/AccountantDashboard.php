@@ -25,6 +25,7 @@ use App\Filament\Widgets\ProductionOutgoingTransfersWidget;
 use App\Filament\Widgets\ProductionRawMaterialsWidget;
 use App\Filament\Widgets\ProductionRunsWidget;
 use App\Filament\Widgets\ProductionStoreStockWidget;
+use App\Filament\Widgets\RawMaterialReceiptApprovalsWidget;
 use App\Models\SalesRecord;
 use App\Support\DashboardDateScope;
 use Filament\Actions\Action;
@@ -151,6 +152,7 @@ class AccountantDashboard extends BaseDashboard
             ProductionRawMaterialsWidget::class,
             ProductionStoreStockWidget::class,
             ProductionOutgoingTransfersWidget::class,
+            RawMaterialReceiptApprovalsWidget::class,
         ];
     }
 }

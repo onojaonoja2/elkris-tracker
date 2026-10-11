@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Inventory;
 use App\Models\ProductionRun;
 use App\Models\RawMaterial;
+use App\Models\RawMaterialStock;
 use App\Models\StockTransaction;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,10 @@ class ProductionRunService
 {
     /**
      * Create a production run and deduct all raw material quantities atomically.
+     *
+     * Materials are consumed from the production warehouse balance when one is
+     * designated and the material is tracked per warehouse; otherwise the
+     * legacy global pool is used.
      *
      * @param  array<string, mixed>  $data
      */
@@ -28,23 +33,9 @@ class ProductionRunService
                 ]);
             }
 
-            $deductions = [];
-            foreach ($materials as $index => $material) {
-                $rawMaterial = RawMaterial::lockForUpdate()->findOrFail($material['raw_material_id']);
-                $quantityUsed = (float) $material['quantity_used'];
+            $deductions = self::planDeductions($materials, $data['output_warehouse_id'] ?? null);
 
-                if ($rawMaterial->quantity < $quantityUsed) {
-                    throw ValidationException::withMessages([
-                        "raw_materials.{$index}.quantity_used" => "Only {$rawMaterial->quantity} {$rawMaterial->unit_of_measure} of {$rawMaterial->name} available.",
-                    ]);
-                }
-
-                $deductions[] = ['material' => $rawMaterial, 'quantity' => $quantityUsed];
-            }
-
-            foreach ($deductions as $deduction) {
-                $deduction['material']->decrement('quantity', $deduction['quantity']);
-            }
+            self::applyDeductions($deductions);
 
             $data['status'] = $data['status'] ?? 'pending_review';
 
@@ -83,27 +74,11 @@ class ProductionRunService
             }
 
             // Restore previous quantities.
-            foreach ($run->rawMaterials as $existingMaterial) {
-                $existingMaterial->increment('quantity', (float) $existingMaterial->pivot->quantity_used);
-            }
+            self::restoreRunMaterials($run);
 
-            $deductions = [];
-            foreach ($materials as $index => $material) {
-                $rawMaterial = RawMaterial::lockForUpdate()->findOrFail($material['raw_material_id']);
-                $quantityUsed = (float) $material['quantity_used'];
+            $deductions = self::planDeductions($materials, $data['output_warehouse_id'] ?? $run->output_warehouse_id);
 
-                if ($rawMaterial->quantity < $quantityUsed) {
-                    throw ValidationException::withMessages([
-                        "raw_materials.{$index}.quantity_used" => "Only {$rawMaterial->quantity} {$rawMaterial->unit_of_measure} of {$rawMaterial->name} available.",
-                    ]);
-                }
-
-                $deductions[] = ['material' => $rawMaterial, 'quantity' => $quantityUsed];
-            }
-
-            foreach ($deductions as $deduction) {
-                $deduction['material']->decrement('quantity', $deduction['quantity']);
-            }
+            self::applyDeductions($deductions);
 
             $run->update($data);
 
@@ -121,8 +96,8 @@ class ProductionRunService
      * Review a production run and lock it from further edits.
      *
      * The review decision is always recorded. Finished goods are posted to the
-     * production warehouse when the run maps to a stockable product and a
-     * production warehouse is designated; otherwise the reviewer is notified.
+     * run's output warehouse when it maps to a stockable product and an output
+     * warehouse is set; otherwise the reviewer is notified.
      *
      * @param  array<string, mixed>  $data
      */
@@ -145,12 +120,12 @@ class ProductionRunService
             if ($run->isReviewed()) {
                 $freshRun = $run->fresh();
 
-                if ($freshRun->mapsToStockableProduct() && ! Warehouse::productionStore()) {
+                if ($freshRun->mapsToStockableProduct() && ! self::resolveOutputWarehouse($freshRun)) {
                     NotificationService::notifyUser(
                         $reviewerId,
                         'production_goods_not_posted',
                         'Production review saved',
-                        "Run #{$run->id} was reviewed, but finished goods were not posted to inventory because no production warehouse is designated.",
+                        "Run #{$run->id} was reviewed, but finished goods were not posted to inventory because no output warehouse is set.",
                         $run->id,
                         'production_run'
                     );
@@ -164,7 +139,7 @@ class ProductionRunService
     }
 
     /**
-     * Credit the production warehouse with the run's finished goods.
+     * Credit the run's output warehouse with its finished goods.
      * Only reviewed runs carrying a product mapping post stock, exactly once.
      */
     public static function postFinishedGoods(ProductionRun $run, int $reviewerId): void
@@ -173,11 +148,11 @@ class ProductionRunService
             return;
         }
 
-        $store = Warehouse::productionStore();
+        $store = self::resolveOutputWarehouse($run);
 
         if (! $store) {
             throw ValidationException::withMessages([
-                'status' => 'No production warehouse has been designated.',
+                'status' => 'No output warehouse is set for this production run.',
             ]);
         }
 
@@ -213,8 +188,86 @@ class ProductionRunService
 
     public static function restoreMaterials(ProductionRun $run): void
     {
-        foreach ($run->rawMaterials as $material) {
-            $material->increment('quantity', (float) $material->pivot->quantity_used);
+        self::restoreRunMaterials($run);
+    }
+
+    /**
+     * Resolve the warehouse a run produces into and consumes from: the run's
+     * own output warehouse, falling back to the legacy designated store.
+     */
+    private static function resolveOutputWarehouse(ProductionRun $run): ?Warehouse
+    {
+        return $run->outputWarehouse ?? Warehouse::productionStore();
+    }
+
+    /**
+     * Validate availability and plan deductions for the given material lines.
+     *
+     * @param  array<int, array<string, mixed>>  $materials
+     * @return array<int, array{material: RawMaterial, quantity: float, warehouseId: ?int}>
+     */
+    private static function planDeductions(array $materials, ?int $outputWarehouseId = null): array
+    {
+        $warehouseId = $outputWarehouseId ?? Warehouse::productionStore()?->id;
+        $deductions = [];
+
+        foreach ($materials as $index => $material) {
+            $rawMaterial = RawMaterial::lockForUpdate()->findOrFail($material['raw_material_id']);
+            $quantityUsed = (float) $material['quantity_used'];
+
+            $scopedWarehouseId = $warehouseId && $rawMaterial->stocks()->exists() ? $warehouseId : null;
+
+            $available = $scopedWarehouseId
+                ? (float) (RawMaterialStock::where('warehouse_id', $scopedWarehouseId)->where('raw_material_id', $rawMaterial->id)->value('quantity') ?? 0)
+                : (float) $rawMaterial->quantity;
+
+            if ($available < $quantityUsed) {
+                $location = $scopedWarehouseId ? ' in '.(Warehouse::whereKey($scopedWarehouseId)->value('name') ?? 'the output warehouse') : '';
+
+                throw ValidationException::withMessages([
+                    "raw_materials.{$index}.quantity_used" => "Only {$available} {$rawMaterial->unit_of_measure} of {$rawMaterial->name} available{$location}.",
+                ]);
+            }
+
+            $deductions[] = ['material' => $rawMaterial, 'quantity' => $quantityUsed, 'warehouseId' => $scopedWarehouseId];
+        }
+
+        return $deductions;
+    }
+
+    /**
+     * @param  array<int, array{material: RawMaterial, quantity: float, warehouseId: ?int}>  $deductions
+     */
+    private static function applyDeductions(array $deductions): void
+    {
+        foreach ($deductions as $deduction) {
+            if ($deduction['warehouseId']) {
+                RawMaterialStock::where('warehouse_id', $deduction['warehouseId'])
+                    ->where('raw_material_id', $deduction['material']->id)
+                    ->lockForUpdate()
+                    ->first()
+                    ?->decrement('quantity', $deduction['quantity']);
+            }
+
+            $deduction['material']->decrement('quantity', $deduction['quantity']);
+        }
+    }
+
+    private static function restoreRunMaterials(ProductionRun $run): void
+    {
+        $warehouseId = $run->output_warehouse_id ?? Warehouse::productionStore()?->id;
+
+        foreach ($run->rawMaterials as $existingMaterial) {
+            $quantity = (float) $existingMaterial->pivot->quantity_used;
+
+            if ($warehouseId && $existingMaterial->stocks()->exists()) {
+                RawMaterialStock::firstOrCreate(
+                    ['warehouse_id' => $warehouseId, 'raw_material_id' => $existingMaterial->id],
+                    ['quantity' => 0]
+                )->increment('quantity', $quantity);
+            }
+
+            $existingMaterial->increment('quantity', $quantity);
         }
     }
 }
